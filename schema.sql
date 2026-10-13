@@ -119,6 +119,7 @@ create table public.bookings (
   ticketed        boolean not null default false,        -- club events: ticket or free
   price_member    numeric(8,2),
   price_guest     numeric(8,2),
+  bar_staff       int check (bar_staff is null or bar_staff between 0 and 10),  -- club events: extra bar staff needed
   created_at      timestamptz not null default now()
 );
 create index bookings_date_room_idx on public.bookings (booking_date, room);
@@ -198,10 +199,10 @@ grant execute on function public.get_availability(date, date) to anon, authentic
 -- What staff see on the rota: the event, room, session and guests — no contact details
 create or replace function public.get_day_summaries(from_date date, to_date date)
 returns table (booking_date date, room text, slot text, event_type text, guests int, status text, booking_name text,
-               booking_kind text, start_time time, end_time time)
+               booking_kind text, start_time time, end_time time, bar_staff int)
 language sql stable security definer set search_path = '' as $$
   select b.booking_date, b.room, b.slot, b.event_type, b.guests, b.status, trim(coalesce(b.first_name,'') || ' ' || coalesce(b.last_name,'')),
-         b.booking_kind, b.start_time, b.end_time
+         b.booking_kind, b.start_time, b.end_time, b.bar_staff
   from public.bookings b
   where public.is_staff_or_admin() and b.status <> 'cancelled' and b.booking_date between from_date and to_date;
 $$;

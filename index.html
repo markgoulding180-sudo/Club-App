@@ -407,8 +407,11 @@ function hoursOf(ds, sess){
 }
 const eventBarFor = b => Math.max(1, Math.ceil((Number(b.guests) || 1) / STAFF_RULES.guestsPerEventBar));
 const isClub = b => b.booking_kind === 'club';
-/* Club events in the Function Room need 1 event bar; in the Lounge Bar the normal bar staff cover it. */
-const eventNeedFor = b => isClub(b) ? (b.room === 'hall' ? 1 : 0) : eventBarFor(b);
+/* Club events: the admin sets how many extra bar staff each one needs (default 1 in the Function Room, 0 in the Lounge Bar). */
+const clubStaffDefault = room => room === 'hall' ? 1 : 0;
+const clubStaff = b => b.bar_staff ?? clubStaffDefault(b.room);
+const eventNeedFor = b => isClub(b) ? clubStaff(b) : eventBarFor(b);
+const clubStaffText = b => { const n = clubStaff(b); return n ? `${plural(n, 'extra bar staff member', 'extra bar staff')} on the rota, on top of the normal Lounge Bar${b.slot !== 'afternoon' ? ' and door' : ''}` : 'No extra staff. Covered by the normal Lounge Bar staff'; };
 const tmin = t => { if (!t) return 0; const [h2, m] = t.slice(0, 5).split(':').map(Number); return (h2 === 0 && m === 0) ? 1440 : h2 * 60 + m; };
 const hhmm = t => (t || '').slice(0, 5);
 /* Work out which session(s) a club event's times fall in, so it blocks the room correctly. */
@@ -568,8 +571,8 @@ function makeDemoApi(){
       bk(13, 9, 'hall', 'full_day', 'confirmed', 'Rhys', 'Hughes', 'Wedding reception', 110, { notes: 'Cake table by the stage.' }),
       { ...bk(14, 12, 'lounge', 'evening', 'pending', 'Jo', 'Bloggs', 'Other', 25, { notes: 'Leaving do.' }), user_id: 'u-user', customer_email: 'user@demo.pub', membership_no: 'ARC-0412', customer_phone: '07700 900123' },
       bk(15, 16, 'hall', 'afternoon', 'pending', 'Gary', 'Fisher', 'Meeting', 40, { notes: 'Darts league AGM.' }),
-      { ...bk(30, 8, 'hall', 'evening', 'confirmed', 'Club', 'event', 'Hoy Bingo', null), booking_kind: 'club', start_time: '19:30', end_time: '23:00', ticketed: true, price_member: 3, price_guest: 5, price: null, membership_no: '', customer_phone: '', customer_email: '' },
-      { ...bk(31, 10, 'lounge', 'evening', 'confirmed', 'Club', 'event', 'Live Music', null), booking_kind: 'club', start_time: '20:00', end_time: '23:30', ticketed: false, price: null, membership_no: '', customer_phone: '', customer_email: '' },
+      { ...bk(30, 8, 'hall', 'evening', 'confirmed', 'Club', 'event', 'Hoy Bingo', null), booking_kind: 'club', start_time: '19:30', end_time: '23:00', ticketed: true, price_member: 3, price_guest: 5, bar_staff: 1, price: null, membership_no: '', customer_phone: '', customer_email: '' },
+      { ...bk(31, 10, 'lounge', 'evening', 'confirmed', 'Club', 'event', 'Live Music', null), booking_kind: 'club', start_time: '20:00', end_time: '23:30', ticketed: false, bar_staff: 1, price: null, membership_no: '', customer_phone: '', customer_email: '' },
       bk(17, 19, 'hall', 'evening', 'confirmed', 'Chloe', 'Martin', '18th Birthday', 70,
         { event_details: { celebrant: 'Chloe Martin', id_checks: true, door_notes: 'Wristbands for over-18s at the door.' } })
     ];
@@ -701,7 +704,7 @@ function makeDemoApi(){
     async deleteBooking(id){ s.bookings = s.bookings.filter(b => b.id !== id); s.payments = s.payments.filter(x => x.booking_id !== id); save(); },
     // rota
     async daySummaries(from, to){ return s.bookings.filter(b => live(b) && b.booking_date >= from && b.booking_date <= to)
-      .map(b => ({ booking_date: b.booking_date, room: b.room, slot: b.slot, event_type: b.event_type, guests: b.guests, status: b.status, booking_name: bname(b), booking_kind: b.booking_kind || 'member', start_time: b.start_time, end_time: b.end_time })); },
+      .map(b => ({ booking_date: b.booking_date, room: b.room, slot: b.slot, event_type: b.event_type, guests: b.guests, status: b.status, booking_name: bname(b), booking_kind: b.booking_kind || 'member', start_time: b.start_time, end_time: b.end_time, bar_staff: b.bar_staff })); },
     async clubEvents(from, to){ return s.bookings.filter(b => isClub(b) && live(b) && b.booking_date >= from && b.booking_date <= to).sort((a, b) => a.booking_date.localeCompare(b.booking_date)); },
     async listStaff(){ return s.users.filter(u => (u.role === 'staff' || u.role === 'admin') && u.skill).map(pub).sort(byName); },
     async shiftsBetween(from, to){ return s.shifts.filter(x => x.shift_date >= from && x.shift_date <= to); },
@@ -1030,7 +1033,9 @@ function clubForm({ b = null, date = todayStr(), idp = 'cb' } = {}){
   return `<form class="stack" data-form="${b ? 'editclub' : 'addclub'}" ${b ? `data-id="${b.id}"` : ''}>
     <label class="f">Club event name<select id="${idp}-event" name="event_name" required>${[...new Set([...CLUB_EVENTS, ...(v.event_type ? [v.event_type] : [])])].map(e => `<option ${e === v.event_type ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></label>
     <div class="grid2"><label class="f">Date<input id="${idp}-date" name="booking_date" type="date" required value="${date}"></label>
-      <label class="f">Room<select id="${idp}-room" name="room">${Object.entries(ROOMS).map(([k, r]) => `<option value="${k}" ${k === (v.room || 'hall') ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label></div>
+      <label class="f">Room<select id="${idp}-room" name="room" data-clubroom>${Object.entries(ROOMS).map(([k, r]) => `<option value="${k}" ${k === (v.room || 'hall') ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label></div>
+    <label class="f">Extra bar staff for this event<select id="${idp}-staff" name="bar_staff" ${b ? 'data-touched="1"' : ''}>${[0, 1, 2, 3, 4].map(n => `<option value="${n}" ${n === (b ? clubStaff(v) : clubStaffDefault(v.room || 'hall')) ? 'selected' : ''}>${n === 0 ? 'None, normal bar staff cover it' : `${n} extra`}</option>`).join('')}</select>
+      <span class="muted" style="font-weight:500;font-size:12px">Added to the rota automatically, on top of the normal Lounge Bar person and the door.</span></label>
     <div class="grid2"><label class="f">Starts${timeSelect(`${idp}-start`, 'start_time', hhmm(v.start_time) || '19:00')}</label>
       <label class="f">Finishes${timeSelect(`${idp}-end`, 'end_time', hhmm(v.end_time) || '23:00')}</label></div>
     <div class="f">Entry<div class="tabs" role="group" aria-label="Entry">
@@ -1064,7 +1069,7 @@ function clubBookingView(b){
       ${kv('Date', fmtDate(b.booking_date, { weekday:'long', day:'numeric', month:'long', year:'numeric' }))}${kv('Room', ROOMS[b.room].name)}
       ${kv('Times', `${hhmm(b.start_time)}–${hhmm(b.end_time)}`)}${kv('Entry', b.ticketed ? 'Ticket' : 'Free')}
       ${b.ticketed ? kv('Member price', money(b.price_member || 0)) + kv('Non-member price', money(b.price_guest || 0)) : ''}
-      ${b.notes ? kv('Notes', esc(b.notes)) : ''}${kv('Staff', b.room === 'hall' ? '1 event bar on the rota, plus the usual Lounge Bar and door' : 'Covered by the normal Lounge Bar staff')}</dl>
+      ${b.notes ? kv('Notes', esc(b.notes)) : ''}${kv('Staff', clubStaffText(b))}</dl>
       <p class="muted" style="margin-top:12px;font-size:13px">This shows on What’s On for members and stops the ${ROOMS[b.room].name} being booked for that session.</p></section>`;
 }
 
@@ -1160,7 +1165,7 @@ function rotaView(){
   h += `<div class="list">${infos.map(i => `<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
       <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}</div>
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
-        ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
+        ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}, ${clubStaff(b)} extra bar` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
       ${i.off.length ? `<p class="muted" style="font-size:13px">Day off: ${i.off.map(u => esc(pfirst(map[u.staff_id]))).join(', ')}</p>` : ''}</div>`).join('')}</div>`;
   return h;
@@ -1418,6 +1423,8 @@ document.addEventListener('change', async e => {
   try {
     if (el.matches('[data-reprice]')){ const f = el.form; if (f.booking_date.value && f.price.hasAttribute('data-autoprice')) f.price.value = priceFor(f.room.value, f.slot.value, f.booking_date.value); }
     if (el.matches('[data-kindtoggle]')){ const d = el.closest('main')?.querySelector('[name=booking_date]')?.value; state.newKind = el.checked ? 'club' : 'member'; if (d) state.newDate = d; render(); return; }
+    if (el.matches('[name=bar_staff]')){ el.dataset.touched = '1'; return; }
+    if (el.matches('[data-clubroom]')){ const s = el.form.bar_staff; if (s && !s.dataset.touched) s.value = String(clubStaffDefault(el.value)); return; }
     if (el.matches('[data-ticketpick]')){ const pr = el.form.querySelector('.prices'); pr.hidden = el.value !== '1'; return; }
     if (el.matches('[data-evtype]')){ const fs = el.form.querySelector('fieldset.x18'); const on = el.value === '18th Birthday'; fs.hidden = !on; fs.querySelector('[name=e18_name]').required = on; }
     if (el.matches('[data-memberpick]')){ const f = el.form; const p = state.profiles.find(x => x.id === el.value); f.user_id.value = p ? p.id : '';
@@ -1456,6 +1463,7 @@ function clubFromForm(f){
   return { booking_kind: 'club', event_type: f.event_name.value, first_name: 'Club', last_name: 'event', room: f.room.value, booking_date: f.booking_date.value,
     start_time: start, end_time: end, slot: slotFromTimes(start, end), ticketed,
     price_member: ticketed ? Number(f.price_member.value || 0) : null, price_guest: ticketed ? Number(f.price_guest.value || 0) : null,
+    bar_staff: Number(f.bar_staff.value || 0),
     notes: f.notes.value.trim(), status: 'confirmed', price: null, deposit_required: 0, guests: null };
 }
 const forms = {
