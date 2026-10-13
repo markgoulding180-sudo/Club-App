@@ -1,0 +1,1407 @@
+<title>Ashford Railway Club</title>
+<meta name="theme-color" content="#070c1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: plain dark app. Sticky top bar, bottom tab bar on phones, one column of rows and cards per page.
+   Teal = do something, amber = needs attention, red = problem. */
+:root{
+  --bg:#070c1a; --surface:#0f1730; --surface-2:#16213f; --line:#223157; --ink:#eef2ff; --muted:#8e9bc4;
+  --teal:#2ee6c8; --teal-ink:#04241f; --teal-soft:rgba(46,230,200,.12);
+  --amber:#ffb547; --amber-ink:#2b1a00; --amber-soft:rgba(255,181,71,.14);
+  --green:#3ddc84; --green-soft:rgba(61,220,132,.14);
+  --yellow:#ffd23f; --yellow-soft:rgba(255,210,63,.15);
+  --red:#ff6b7d; --red-soft:rgba(255,107,125,.15);
+  --violet:#b69cff; --violet-soft:rgba(182,156,255,.15);
+  --shade:rgba(3,6,15,.72);
+  --display:'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --body:'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px}
+.muted{color:var(--muted)}
+.demo-bar{background:var(--amber-soft);color:var(--amber);font-size:13px;padding-block:6px}
+
+/* Top bar + phone tab bar */
+.band{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:rgba(7,12,26,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-block:10px}
+.band .wrap{display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;cursor:pointer;color:var(--ink);min-width:0}
+.mark{width:34px;height:34px;border-radius:10px;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:12px;flex:none}
+.brand b{font-family:var(--display);font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:flex;gap:2px;margin-left:12px}
+.nav button{background:none;border:0;border-radius:99px;padding:7px 13px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer}
+.nav button:hover{color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--surface-2);color:var(--ink)}
+.signout{margin-left:auto;flex:none}
+.tabbar{display:none}
+@media (max-width:720px){
+  .nav{display:none}
+  main{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px)) !important}
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;z-index:15;background:rgba(15,23,48,.97);border-top:1px solid var(--line);padding:6px 6px calc(8px + env(safe-area-inset-bottom,0px))}
+  .tabbar button{background:none;border:0;display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:700;color:var(--muted);padding:6px 0;cursor:pointer;position:relative}
+  .tabbar svg{width:22px;height:22px}
+  .tabbar button[aria-current="page"]{color:var(--teal)}
+}
+main{padding-block:22px 64px}
+
+/* Page heading */
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.head h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,4vw,30px);letter-spacing:-.01em;margin-right:auto}
+.back{background:none;border:0;padding:0;color:var(--muted);cursor:pointer;font-weight:700;font-size:14px;margin-bottom:6px}
+.back:hover{color:var(--ink)}
+.label{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:24px 0 10px}
+.label:first-child{margin-top:0}
+
+/* Buttons + fields */
+.btn{border:0;border-radius:99px;padding:10px 18px;font-weight:800;cursor:pointer;background:var(--teal);color:var(--teal-ink);white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn.wide{width:100%}
+.btn[data-armed="1"]{background:var(--red);color:#1a0006;border-color:var(--red)}
+.linkbtn{background:none;border:0;padding:0;color:var(--teal);font-weight:800;font-size:13px;cursor:pointer}
+.f{display:grid;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+.f input,.f select,.f textarea,.in{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;font-weight:500;color:var(--ink);width:100%;min-width:0}
+.f input:focus,.f select:focus,.f textarea:focus,.in:focus{border-color:var(--teal);outline:none}
+.f textarea{min-height:70px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+.stack{display:grid;gap:14px}
+.err{color:var(--red);font-size:14px;font-weight:700;min-height:1em}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:600;color:var(--ink)}
+.check input{width:18px;height:18px;accent-color:var(--teal)}
+fieldset.x18{border:1px dashed var(--amber);border-radius:14px;padding:12px 14px 14px;display:grid;gap:12px;margin:0;min-width:0}
+fieldset.x18 legend{font-weight:800;font-size:13px;color:var(--amber);padding:0 6px}
+.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.tabs button{border:0;background:transparent;padding:7px 15px;border-radius:99px;cursor:pointer;font-weight:800;font-size:14px;color:var(--muted);white-space:nowrap}
+.tabs button[aria-pressed="true"]{background:var(--teal);color:var(--teal-ink)}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.bar .grow{flex:1}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper b{font-family:var(--display);font-weight:700;font-size:15px;min-width:140px;text-align:center}
+
+/* Panels, rows, pills */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.list{display:grid;gap:8px}
+.row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;color:var(--ink);text-align:left;width:100%}
+.row[role="button"]{cursor:pointer}
+.row[role="button"]:hover{border-color:var(--teal)}
+.row-main{display:grid;gap:2px;min-width:0;flex:1}
+.row-main b{overflow-wrap:anywhere}
+.row .sub{font-size:13px;color:var(--muted)}
+.row .go{color:var(--muted);font-size:20px;line-height:1}
+.row .acts{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:560px){
+  .row{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px 10px}
+  .row .row-main{grid-column:1 / -1;order:-1}
+  .row .acts{grid-column:1 / -1}
+  .row .go{grid-column:-2;justify-self:end}
+}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px;font-weight:600}
+.pill{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.pill.pending,.pill.assigned{background:var(--amber-soft);color:var(--amber)}
+.pill.confirmed{background:var(--teal-soft);color:var(--teal)}
+.pill.cancelled,.pill.cannot_work,.pill.sick,.pill.no_show{background:var(--red-soft);color:var(--red)}
+.pill.late{background:var(--yellow-soft);color:var(--yellow)}
+.room{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--teal-soft);color:var(--teal)}
+.room.lounge{background:var(--violet-soft);color:var(--violet)}
+.paypill{font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.paypill.full{background:var(--green-soft);color:var(--green)}
+.paypill.deposit{background:var(--teal-soft);color:var(--teal)}
+.paypill.due{background:var(--red-soft);color:var(--red)}
+.paypill.held{background:var(--yellow-soft);color:var(--yellow)}
+.paypill.none{background:var(--surface-2);color:var(--muted)}
+.schip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;padding:3px 10px 3px 7px;border-radius:99px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.schip svg{width:14px;height:14px}
+.schip.s-ok{background:var(--green-soft);color:var(--green)}
+.schip.s-short{background:var(--yellow-soft);color:var(--yellow)}
+.schip.s-none{background:var(--red-soft);color:var(--red)}
+.schip.s-closed{background:var(--surface-2);color:var(--muted)}
+.schip.mini{font-size:11px;padding:1px 7px 1px 5px}
+.schip.mini svg{width:12px;height:12px}
+.alert{background:var(--red-soft);border:1px solid var(--red);border-radius:14px;padding:12px 14px;display:grid;gap:6px;margin-bottom:14px;font-size:14px}
+.alert b.t{color:var(--red)}
+.note{background:var(--amber-soft);border:1px solid var(--amber);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:700;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* Home */
+.hello h2{font-family:var(--display);font-weight:800;font-size:clamp(24px,4.5vw,32px)}
+.hello{margin-bottom:16px}
+.today{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-weight:700;margin-bottom:16px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){ .tiles{grid-template-columns:1fr} }
+.tile{display:grid;grid-template-columns:44px 1fr;gap:2px 14px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;cursor:pointer;color:var(--ink);position:relative;min-width:0}
+.tile:hover{border-color:var(--teal)}
+.tile .ic{grid-row:span 2;width:44px;height:44px;border-radius:13px;background:var(--teal-soft);color:var(--teal);display:grid;place-items:center}
+.tile .ic svg{width:22px;height:22px}
+.tile b{font-size:18px;font-weight:800}
+.tile .sub{font-size:13px;color:var(--muted)}
+.badge{position:absolute;top:12px;right:12px;background:var(--amber);color:var(--amber-ink);font-size:12px;font-weight:800;border-radius:99px;padding:1px 8px}
+.spot{display:flex;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px;flex-wrap:wrap}
+.when{background:var(--amber);color:var(--amber-ink);border-radius:14px;padding:8px 12px;text-align:center;min-width:66px;line-height:1.15}
+.when .m{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.when .d{font-family:var(--display);font-weight:800;font-size:26px}
+.spot .txt{flex:1;min-width:180px;display:grid;gap:2px}
+.spot .txt b{font-size:17px}
+
+/* Login */
+.auth{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center;padding-block:20px}
+@media (max-width:760px){ .auth{grid-template-columns:1fr} }
+.auth h1{font-family:var(--display);font-weight:800;font-size:clamp(34px,7vw,60px);line-height:1;letter-spacing:-.02em}
+.auth h1 span{display:block;color:var(--teal);font-size:.45em;margin-top:10px;letter-spacing:0}
+.auth .lead{color:var(--muted);font-size:17px;margin-top:14px;max-width:40ch}
+.login{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;display:grid;gap:14px}
+.login h2{font-family:var(--display);font-weight:700;font-size:20px}
+.demo{display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--line)}
+
+/* Calendar */
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:8px}
+.cal-head,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-head div{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0 6px}
+.day{min-height:78px;border:1px solid transparent;border-radius:11px;background:var(--surface-2);text-align:left;padding:6px;display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0;color:var(--ink)}
+.day .n{font-weight:800;font-size:14px}
+.day .l{font-size:11px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.day .l.hall{color:var(--teal)} .day .l.lounge{color:var(--violet)} .day .l.x{color:var(--red)}
+.day.out{opacity:.3}
+.day.past{opacity:.5}
+.day.today{border-color:var(--amber)}
+.day:not(.out):hover{border-color:var(--teal)}
+.day.full{background:var(--red-soft)}
+.day.full .l{color:var(--red)}
+.day.free .l{color:var(--teal)}
+.day.some .l{color:var(--amber)}
+div.day{cursor:default}
+@media (max-width:560px){ .cal{padding:4px} .cal-head,.cal-grid{gap:3px} .day{min-height:54px;padding:4px} .day .l{font-size:9.5px} }
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px;font-weight:600;align-items:center}
+
+/* Date groups (bookings, shifts) */
+.dgroup{display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;align-items:start}
+.dbox{display:grid;justify-items:center;background:var(--surface-2);border-radius:12px;padding:6px 0;line-height:1.15}
+.dbox .w{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dbox .n{font-family:var(--display);font-weight:800;font-size:20px}
+.dbox.today .w{color:var(--amber)}
+
+/* Booking page */
+.kv{display:grid;grid-template-columns:130px minmax(0,1fr);gap:8px 14px;font-size:15px}
+.kv dt{color:var(--muted);font-weight:700;font-size:14px}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:760px){ .cols{grid-template-columns:1fr} }
+.panel h3{font-family:var(--display);font-weight:700;font-size:15px;margin-bottom:12px}
+.money{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
+.money b{font-family:var(--display);font-weight:800;font-size:26px}
+.progress{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin:10px 0 12px}
+.progress span{display:block;height:100%;background:var(--teal);border-radius:99px}
+.payrow{display:flex;gap:10px;align-items:center;font-size:14px;padding:8px 0;border-top:1px solid var(--line)}
+.payrow .grow{flex:1;min-width:0;color:var(--muted)}
+.payrow b{font-variant-numeric:tabular-nums}
+.payform{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.payform .btn{grid-column:1 / -1}
+.title-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 16px}
+
+/* Rota */
+.rday{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px}
+.rday.today{border-color:var(--amber)}
+.rday.past{opacity:.7}
+.rday-h{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}
+.rday-h h3{font-family:var(--display);font-weight:700;font-size:15px;margin-right:auto}
+.rday-h .open{font-size:13px;color:var(--muted);font-weight:700}
+.sess{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.sess-h{font-size:13px;font-weight:800}
+.sess-h span{color:var(--muted);font-weight:600}
+.slot{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:6px 8px;align-items:center}
+.slot .job{font-size:12px;font-weight:800;color:var(--muted)}
+.slot.gap .job{color:var(--yellow)}
+.slot > select{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px;color:var(--ink)}
+.slot.gap > select{border-color:var(--yellow)}
+.slot .side select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:12px;color:var(--ink)}
+.slot .why{grid-column:2 / -1;font-size:12px;color:var(--red);font-weight:700}
+.slot .who{font-weight:700}
+.slot .who.me{color:var(--teal)}
+@media (max-width:520px){ .slot{grid-template-columns:minmax(0,1fr) auto} .slot .job{grid-column:1 / -1} .slot .why{grid-column:1 / -1} }
+
+/* Staff */
+.rel{font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.rel.good{background:var(--green-soft);color:var(--green)}
+.rel.mid{background:var(--yellow-soft);color:var(--yellow)}
+.rel.poor{background:var(--red-soft);color:var(--red)}
+.rel.new{background:var(--surface-2);color:var(--muted)}
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.num{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px}
+.num b{display:block;font-family:var(--display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.num span{font-size:12px;color:var(--muted);font-weight:700}
+.num.bad b{color:var(--red)}
+.hist{display:grid}
+.hist div{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.hist .when2{color:var(--muted);min-width:80px}
+
+/* What's On */
+.event{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.event .txt{flex:1;min-width:0;display:grid;gap:2px}
+.event .txt p{color:var(--muted);font-size:14px}
+.event .meta{font-size:13px;color:var(--amber);font-weight:800}
+
+/* Sheet + toast */
+.sheet-wrap{position:fixed;inset:0;background:var(--shade);display:flex;justify-content:flex-end;z-index:20}
+.sheet{background:var(--bg);border-left:1px solid var(--line);width:min(520px,100%);height:100%;overflow:auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px));padding-top:calc(20px + env(safe-area-inset-top,0px));display:grid;gap:14px;align-content:start}
+.sheet-h{display:flex;justify-content:space-between;gap:12px;align-items:start}
+.sheet-h h2{font-family:var(--display);font-weight:800;font-size:21px}
+.x{background:var(--surface-2);border:1px solid var(--line);border-radius:99px;width:36px;height:36px;cursor:pointer;flex:none;color:var(--ink)}
+@media (max-width:600px){ .sheet-wrap{align-items:flex-end} .sheet{height:auto;max-height:92%;border-radius:22px 22px 0 0;border-left:0;border-top:1px solid var(--line)} }
+.slots{display:grid;gap:8px}
+.opt{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;background:var(--surface)}
+.opt input{accent-color:var(--teal);width:18px;height:18px}
+.opt .t{font-size:12px;color:var(--muted)}
+.opt.taken{opacity:.45;cursor:not-allowed}
+.opt:has(input:checked){border-color:var(--teal);background:var(--teal-soft)}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--teal);color:var(--teal-ink);padding:11px 18px;border-radius:99px;font-weight:800;z-index:30;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+@media (min-width:721px){ .toast{bottom:24px} }
+@media (prefers-reduced-motion:no-preference){ .sheet{animation:up .2s ease-out} @keyframes up{from{transform:translateY(14px);opacity:.5}} }
+button.today{width:100%;cursor:pointer;color:var(--ink);text-align:left}
+button.today:hover{border-color:var(--teal)}
+.pill.note{background:var(--surface-2);color:var(--muted)}
+</style>
+
+<div id="demoBar" class="demo-bar" hidden><div class="wrap"><b>Demo mode.</b> Data is saved in this browser only. Add your Supabase details in <code>CONFIG</code> to go live.</div></div>
+<div id="app"></div>
+<div id="sheetRoot"></div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+<script>
+/* =====================================================================
+   CONFIG — fill these in once the new Supabase project exists.
+   Leave blank to run in demo mode (data kept in this browser).
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: 'https://tvflgseltbjnkxyfjlem.supabase.co',          // e.g. https://abcd1234.supabase.co
+  SUPABASE_ANON_KEY: 'sb_publishable_4RXO2VIJAVBVS4f80OaQ_Q_sXDoc0WW',     // publishable / anon key
+  CLUB_NAME: 'Railway Club',
+  TOWN: 'Ashford',
+  PHONE: '01233 620962'
+};
+
+/* Opening times from ashfordrailwayclub.co.uk. 0 = Sunday … 6 = Saturday.
+   "day" and "eve" are the two shifts. Fri, Sat and Sun change over at 17:00. */
+const OPENING = {
+  0: { day: ['11:00', '17:00'], eve: ['17:00', '23:00'] },
+  1: { day: ['11:00', '15:00'], eve: ['18:00', '23:00'] },
+  2: { eve: ['18:00', '23:00'] },
+  3: { eve: ['18:00', '23:00'] },
+  4: { eve: ['18:00', '23:00'] },
+  5: { day: ['11:00', '17:00'], eve: ['17:00', '23:30'] },
+  6: { day: ['11:00', '17:00'], eve: ['17:00', '23:30'] }
+};
+/* Staffing rules. Change these when the real numbers are agreed.
+   - Lounge Bar: 1 bar staff whenever the club is open.
+   - Door: 1 every evening the club is open.
+   - Event bar: for each room booking, 1 per guestsPerEventBar guests (41 guests = 2). */
+const STAFF_RULES = { loungeBar: 1, doorEvenings: 1, guestsPerEventBar: 40 };
+
+/* Hard-coded pricing for now (Fri & Sat use the weekend rate). Capacities are placeholders. */
+const ROOMS = {
+  hall:   { name: 'Function Room', short: 'Function', capacity: 120, blurb: 'Stage for a DJ or band (90dB sound limit), dance floor and its own bar.' },
+  lounge: { name: 'Lounge Bar',    short: 'Lounge',   capacity: 60,  blurb: 'The everyday bar with darts, pool, snooker and Sky Sports. Can be hired for private functions.' }
+};
+const SLOTS = [
+  { id: 'afternoon', label: 'Afternoon', short: 'Aft', time: '12:00 – 17:00' },
+  { id: 'evening',   label: 'Evening',   short: 'Eve', time: '18:00 – 00:00' },
+  { id: 'full_day',  label: 'Full day',  short: 'Day', time: '12:00 – 00:00' }
+];
+const SLOT_SESS = { afternoon: ['day'], evening: ['eve'], full_day: ['day', 'eve'] };
+const BOOKING_TIMES = { day: ['12:00', '17:00'], eve: ['18:00', '00:00'] };
+const PRICES = {
+  hall:   { afternoon: { weekday: 120, weekend: 180 }, evening: { weekday: 150, weekend: 250 }, full_day: { weekday: 250, weekend: 400 } },
+  lounge: { afternoon: { weekday: 60,  weekend: 90  }, evening: { weekday: 80,  weekend: 120 }, full_day: { weekday: 130, weekend: 190 } }
+};
+const EVENT_CATS = ['Bingo', 'Live music', 'Cabaret', 'Quiz', 'Sport', 'Darts & pool', 'Club group', 'Food', 'Other'];
+const EVENT_TYPES = ['Birthday', '18th Birthday', 'Wedding reception', 'Engagement', 'Anniversary', 'Christening', 'Wake', 'Meeting', 'Club function', 'Other'];
+
+const SESS = { day: 'Daytime', eve: 'Evening' };
+const JOBS = { lounge: 'Lounge Bar', event: 'Event bar', door: 'Door' };
+const JOB_ORDER = ['lounge', 'event', 'door'];
+const SKILLS = { both: 'Bar & door', bar: 'Bar', door: 'Door' };
+const ROLES = { user: 'Customer', staff: 'Staff', admin: 'Admin' };
+const SHIFT_STATUS = { assigned: 'On the rota', confirmed: 'On the rota', cannot_work: 'Can’t work', late: 'Late', sick: 'Sick', no_show: 'Didn’t turn up' };
+const NOTE_KINDS = { sick: 'Sick', no_show: 'Didn’t turn up', late: 'Late', cannot_work: 'Can’t work', note: 'Note' };
+const PROBLEM = ['cannot_work', 'sick', 'no_show'];
+/* Payments. The deposit secures a booking; the rest of the hire price is the balance. */
+const DEPOSIT = 100;
+const PAY_KINDS = { deposit: 'Deposit', balance: 'Balance', refund: 'Refund' };
+const PAY_METHODS = { cash: 'Cash', card: 'Card', bank: 'Bank transfer', other: 'Other' };
+const CLOSE_PARTS = { all: 'All day', afternoon: 'Afternoon', evening: 'Evening' };
+const PART_SLOTS = { all: ['afternoon', 'evening', 'full_day'], afternoon: ['afternoon', 'full_day'], evening: ['evening', 'full_day'] };
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const startOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const endOfMonth = d => new Date(d.getFullYear(), d.getMonth()+1, 0);
+const startOfWeek = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
+const todayStr = () => ymd(new Date());
+const isWeekend = s => { const w = parseYmd(s).getDay(); return w === 5 || w === 6; };
+const priceFor = (room, slot, date) => PRICES[room][slot][isWeekend(date) ? 'weekend' : 'weekday'];
+const money = n => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 0 });
+const fmtDate = (s, opts = { weekday:'short', day:'numeric', month:'short' }) => parseYmd(s).toLocaleDateString('en-GB', opts);
+const fmtMonth = d => d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+const slotLabel = id => SLOTS.find(s => s.id === id)?.label || id;
+const slotShort = id => SLOTS.find(s => s.id === id)?.short || id;
+const slotFree = (taken, slot) => taken.has('full_day') ? false : slot === 'full_day' ? taken.size === 0 : !taken.has(slot);
+const bname = b => [b.first_name, b.last_name].filter(Boolean).join(' ') || b.booking_name || 'No name';
+const pname = p => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unnamed') : 'Unknown';
+const pfirst = p => p ? (p.first_name || pname(p)) : 'Unknown';
+const ACTIVE = s => s.status === 'assigned' || s.status === 'confirmed' || s.status === 'late';
+const canDo = (p, job) => p.skill === 'both' || (job === 'door' ? p.skill === 'door' : p.skill === 'bar');
+const bySlot = (a, b) => SLOTS.findIndex(s => s.id === a.slot) - SLOTS.findIndex(s => s.id === b.slot) || a.room.localeCompare(b.room);
+const byName = (a, b) => pname(a).localeCompare(pname(b));
+const plural = (n, w, pl) => `${n} ${n === 1 ? w : (pl || w + 's')}`;
+const timeOf = iso => new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+function rangeDays(from, to){ const out = []; for (let d = parseYmd(from); ymd(d) <= to; d = addDays(d, 1)) out.push(ymd(d)); return out; }
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3000); }
+function monthRange(m){ const first = startOfMonth(m); const off = (first.getDay()+6)%7; const start = addDays(first, -off);
+  const days = endOfMonth(m).getDate(); const weeks = Math.ceil((off+days)/7);
+  return { start, end: addDays(start, weeks*7 - 1), cells: weeks*7, first, last: endOfMonth(m) }; }
+
+/* ---------- opening hours + staffing maths ---------- */
+const openOn = ds => OPENING[parseYmd(ds).getDay()] || {};
+const sessTimes = (ds, sess) => openOn(ds)[sess] || BOOKING_TIMES[sess];
+function openText(ds){
+  const o = openOn(ds); const p = ['day', 'eve'].filter(s => o[s]).map(s => o[s]);
+  if (!p.length) return 'Closed';
+  if (p.length === 2 && p[0][1] === p[1][0]) return `Open ${p[0][0]}–${p[1][1]}`;
+  return 'Open ' + p.map(x => x.join('–')).join(' & ');
+}
+function hoursOf(ds, sess){
+  const [a, b] = sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
+  let e = m(b); if (e <= m(a)) e += 1440; return (e - m(a)) / 60;
+}
+const eventBarFor = b => Math.max(1, Math.ceil((Number(b.guests) || 1) / STAFF_RULES.guestsPerEventBar));
+function sessionNeeds(ds, bookings){
+  const o = openOn(ds);
+  const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled');
+  return ['day', 'eve'].map(sess => {
+    const sb = bks.filter(b => SLOT_SESS[b.slot].includes(sess));
+    const open = !!o[sess];
+    return { sess, open, bks: sb, times: sessTimes(ds, sess), need: {
+      lounge: open ? STAFF_RULES.loungeBar : 0,
+      door: open && sess === 'eve' ? STAFF_RULES.doorEvenings : 0,
+      event: sb.reduce((a, b) => a + eventBarFor(b), 0) } };
+  });
+}
+function dayInfo(ds, ops){
+  const shifts = ops.shifts.filter(s => s.shift_date === ds);
+  const sessions = sessionNeeds(ds, ops.bookings).map(x => {
+    const ss = shifts.filter(s => s.session === x.sess);
+    const on = ss.filter(ACTIVE);
+    const have = {}; let short = 0, needed = 0;
+    JOB_ORDER.forEach(j => { have[j] = on.filter(s => s.job === j).length; short += Math.max(0, x.need[j] - have[j]); needed += x.need[j]; });
+    const problems = ss.filter(s => PROBLEM.includes(s.status) && !s.covered);
+    return { ...x, shifts: ss, on, have, short, needed, problems };
+  }).filter(x => x.needed || x.shifts.length);
+  const needed = sessions.reduce((a, x) => a + x.needed, 0);
+  const onCount = sessions.reduce((a, x) => a + x.on.length, 0);
+  const short = sessions.reduce((a, x) => a + x.short, 0);
+  const level = !needed && !onCount ? 'closed' : onCount === 0 ? 'none' : short ? 'short' : 'ok';
+  return { ds, sessions, needed, onCount, short, level,
+    bks: ops.bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled'),
+    events: (ops.events || []).filter(e => ymd(new Date(e.starts_at)) === ds),
+    off: (ops.unavail || []).filter(u => u.off_date === ds),
+    problems: sessions.flatMap(x => x.problems) };
+}
+const PERSON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+function staffChip(i, size = ''){
+  if (i.level === 'closed') return `<span class="schip s-closed ${size}">${PERSON}${size === 'mini' ? '–' : 'No staff needed'}</span>`;
+  const words = i.level === 'ok' ? 'Fully staffed' : i.level === 'short' ? `${i.short} more needed` : 'No staff';
+  const txt = size === 'mini' ? `${i.onCount}/${i.needed}` : `${i.onCount}/${i.needed} staff · ${words}`;
+  return `<span class="schip s-${i.level} ${size}" title="${i.onCount} of ${i.needed} staff rostered: ${words}">${PERSON}${txt}</span>`;
+}
+const staffMap = () => Object.fromEntries(state.ops.staff.map(p => [p.id, p]));
+
+/* ---------- payments + closed days ---------- */
+function payInfo(b, payments){
+  const ps = payments.filter(x => x.booking_id === b.id).sort((a, c) => a.paid_on.localeCompare(c.paid_on));
+  const paid = ps.reduce((a, x) => a + (x.kind === 'refund' ? -1 : 1) * Number(x.amount), 0);
+  const price = Number(b.price) || 0;
+  const dep = b.deposit_required != null ? Number(b.deposit_required) : DEPOSIT;
+  const effDep = Math.min(dep, price || dep);   // deposit never more than the hire price
+  const depositDue = Math.max(0, effDep - paid);
+  const balance = Math.max(0, price - paid);
+  let key, label, short;
+  if (b.status === 'cancelled'){ key = paid > 0 ? 'held' : 'none'; label = paid > 0 ? `${money(paid)} paid · refund?` : 'Nothing paid'; short = paid > 0 ? 'Money held' : 'Nothing paid'; }
+  else if (price && paid >= price){ key = 'full'; label = short = 'Paid in full'; }
+  else if (depositDue === 0){ key = 'deposit'; label = `Deposit paid · ${money(balance)} left`; short = 'Deposit paid'; }
+  else { key = 'due'; label = paid ? `${money(depositDue)} of deposit still due` : `${money(effDep)} deposit due`; short = 'Deposit due'; }
+  return { ps, paid, price, dep: effDep, depositDue, balance, key, label, short };
+}
+const payPill = (pi, short = false) => `<span class="paypill ${pi.key}">${esc(short ? pi.short : pi.label)}</span>`;
+/* "No bookings" can be set for the afternoon, the evening or all day. Members can't book it; admins still can. */
+const closedParts = (ds, closed = state.closed) => (closed || []).filter(c => c.closed_date === ds);
+const closedFor = (ds, slot, closed = state.closed) => closedParts(ds, closed).find(c => !slot || PART_SLOTS[c.part || 'all'].includes(slot));
+const closedAllDay = (ds, closed = state.closed) => { const ps = closedParts(ds, closed).map(c => c.part || 'all'); return ps.includes('all') || (ps.includes('afternoon') && ps.includes('evening')); };
+const closedLabel = c => `No bookings · ${CLOSE_PARTS[c.part || 'all'].toLowerCase()}`;
+
+/* =====================================================================
+   DATA LAYER — same interface for Supabase and demo mode
+   ===================================================================== */
+const LIVE = !!(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY && window.supabase);
+
+function makeSupabaseApi(){
+  const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
+  async function profileFor(user){
+    const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    return { first_name: '', last_name: '', phone: '', membership_no: '', skill: null, ...(data || {}), id: user.id, email: user.email, role: data?.role || 'user' };
+  }
+  const dayStart = d => new Date(parseYmd(d)).toISOString();
+  const dayEnd = d => new Date(addDays(parseYmd(d), 1)).toISOString();
+  return {
+    async currentUser(){ const { data } = await sb.auth.getSession(); return data.session ? profileFor(data.session.user) : null; },
+    async signIn(email, password){ const d = ok(await sb.auth.signInWithPassword({ email, password })); return profileFor(d.user); },
+    async signUp({ email, password, ...meta }){
+      const d = ok(await sb.auth.signUp({ email, password, options: { data: meta } }));
+      if (!d.session) return { needsConfirm: true };
+      return profileFor(d.user);
+    },
+    async signOut(){ await sb.auth.signOut(); },
+    async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
+      return ok(await sb.from('events').select('*').gte('starts_at', from.toISOString()).order('starts_at')); },
+    async eventsBetween(from, to){ return ok(await sb.from('events').select('*').gte('starts_at', dayStart(from)).lt('starts_at', dayEnd(to)).order('starts_at')); },
+    async addEvent(e){ return ok(await sb.from('events').insert(e).select().single()); },
+    async deleteEvent(id){ ok(await sb.from('events').delete().eq('id', id)); },
+    async availability(from, to){ return ok(await sb.rpc('get_availability', { from_date: from, to_date: to })); },
+    async myBookings(uid){ return ok(await sb.from('bookings').select('*').eq('user_id', uid).order('booking_date')); },
+    async requestBooking(b, uid){ return ok(await sb.from('bookings').insert({ ...b, user_id: uid, status: 'pending' }).select().single()); },
+    async cancelMine(id){ ok(await sb.rpc('cancel_my_booking', { booking_id: id })); },
+    async bookingsBetween(from, to){ return ok(await sb.from('bookings').select('*').gte('booking_date', from).lte('booking_date', to).order('booking_date')); },
+    async pendingBookings(){ return ok(await sb.from('bookings').select('*').eq('status', 'pending').gte('booking_date', todayStr()).order('booking_date')); },
+    async addBooking(b){ return ok(await sb.from('bookings').insert({ ...b, user_id: b.user_id || null }).select().single()); },
+    async setStatus(id, status){ ok(await sb.from('bookings').update({ status }).eq('id', id)); },
+    async deleteBooking(id){ ok(await sb.from('bookings').delete().eq('id', id)); },
+    async getBooking(id){ return ok(await sb.from('bookings').select('*').eq('id', id).single()); },
+    async updateBooking(id, patch){ ok(await sb.from('bookings').update(patch).eq('id', id)); },
+    async linkAccount(id, uid){ ok(await sb.from('bookings').update({ user_id: uid }).eq('id', id)); ok(await sb.from('payments').update({ user_id: uid }).eq('booking_id', id)); },
+    // payments + closed days
+    async paymentsFor(ids){ if (!ids.length) return []; return ok(await sb.from('payments').select('*').in('booking_id', ids)); },
+    async paymentsBetween(from, to){ return ok(await sb.from('payments').select('*').gte('paid_on', from).lte('paid_on', to).order('paid_on', { ascending: false })); },
+    async addPayment(x){ ok(await sb.from('payments').insert(x)); },
+    async deletePayment(id){ ok(await sb.from('payments').delete().eq('id', id)); },
+    async closedBetween(from, to){ return ok(await sb.rpc('get_closed_days', { from_date: from, to_date: to })); },
+    async closeDay(c){ ok(await sb.from('closed_days').insert(c)); },
+    async reopenDay(id){ ok(await sb.from('closed_days').delete().eq('id', id)); },
+    // rota
+    async daySummaries(from, to){ return ok(await sb.rpc('get_day_summaries', { from_date: from, to_date: to })); },
+    async listStaff(){ return ok(await sb.rpc('get_staff')); },
+    async shiftsBetween(from, to){ return ok(await sb.from('shifts').select('*').gte('shift_date', from).lte('shift_date', to)); },
+    async assignShift(x){ return ok(await sb.from('shifts').insert({ shift_date: x.shift_date, session: x.session, job: x.job, staff_id: x.staff_id }).select().single()); },
+    async updateShift(id, patch){ ok(await sb.from('shifts').update(patch).eq('id', id)); },
+    async removeShift(id){ ok(await sb.from('shifts').delete().eq('id', id)); },
+    async staffSetShift(id, status, reason){ ok(await sb.rpc('staff_update_shift', { shift_id: id, new_status: status, why: reason || null })); },
+    async unavailBetween(from, to){ return ok(await sb.from('staff_unavailability').select('*').gte('off_date', from).lte('off_date', to)); },
+    async markUnavailable(date, reason){ ok(await sb.rpc('staff_mark_unavailable', { d: date, why: reason || null })); },
+    async removeUnavailable(id){ ok(await sb.rpc('staff_remove_unavailable', { off_id: id })); },
+    // staff records
+    async listProfiles(){ return ok(await sb.from('profiles').select('*').order('last_name')); },
+    async updateProfile(id, patch){ ok(await sb.rpc('admin_set_profile', { pid: id, new_role: patch.role, new_skill: patch.skill })); },
+    async notesBetween(from, to){ return ok(await sb.from('staff_notes').select('*').gte('note_date', from).lte('note_date', to)); },
+    async addNote(n){ ok(await sb.from('staff_notes').insert(n)); },
+    async deleteNote(id){ ok(await sb.from('staff_notes').delete().eq('id', id)); }
+  };
+}
+
+function makeDemoApi(){
+  const KEY = 'pubhub-demo-v7';
+  let s;
+  try { s = JSON.parse(localStorage.getItem(KEY)); } catch(e) { s = null; }
+  if (!s) s = seed();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} };
+  const nextId = () => ++s.seq;
+  function seed(){
+    const t = new Date(); const d = n => ymd(addDays(t, n));
+    const at = (n, hh, mm = 0) => { const x = addDays(t, n); x.setHours(hh, mm, 0, 0); return x.toISOString(); };
+    const bk = (id, n, room, slot, status, first_name, last_name, event_type, guests, extra = {}) => ({
+      id, booking_date: d(n), room, slot, status, user_id: null, first_name, last_name, customer_phone: '07700 9' + String(id).padStart(5, '0'),
+      customer_email: `${first_name.toLowerCase()}@example.com`, membership_no: 'ARC-0' + (200 + id), event_type, event_details: {},
+      guests, price: priceFor(room, slot, d(n)), deposit_required: DEPOSIT, notes: '', created_at: addDays(t, Math.min(n, 0) - 20).toISOString(), ...extra });
+    const bookings = [
+      bk(18, -3, 'hall', 'evening', 'confirmed', 'Ben', 'Adams', 'Engagement', 60),
+      bk(11, 4, 'hall', 'evening', 'confirmed', 'Anil', 'Patel', 'Birthday', 90, { notes: '40th. Own DJ. Buffet at 8pm.' }),
+      bk(12, 4, 'lounge', 'afternoon', 'confirmed', 'Margaret', 'Owen', 'Club function', 14, { notes: 'Book club.' }),
+      bk(13, 9, 'hall', 'full_day', 'confirmed', 'Rhys', 'Hughes', 'Wedding reception', 110, { notes: 'Cake table by the stage.' }),
+      { ...bk(14, 12, 'lounge', 'evening', 'pending', 'Jo', 'Bloggs', 'Other', 25, { notes: 'Leaving do.' }), user_id: 'u-user', customer_email: 'user@demo.pub', membership_no: 'ARC-0412', customer_phone: '07700 900123' },
+      bk(15, 16, 'hall', 'afternoon', 'pending', 'Gary', 'Fisher', 'Meeting', 40, { notes: 'Darts league AGM.' }),
+      bk(17, 19, 'hall', 'evening', 'confirmed', 'Chloe', 'Martin', '18th Birthday', 70,
+        { event_details: { celebrant: 'Chloe Martin', id_checks: true, door_notes: 'Wristbands for over-18s at the door.' } })
+    ];
+    // What's On: bingo Mondays and Fridays at 1pm, plus a few one-offs (demo)
+    const events = []; let eid = 1;
+    for (let n = -7; n <= 35; n++){
+      const w = addDays(t, n).getDay();
+      if (w === 1 || w === 5) events.push({ id: eid++, title: 'Bingo', category: 'Bingo', starts_at: at(n, 13), description: 'In the lounge bar.' });
+    }
+    events.push({ id: eid++, title: 'Quiz Night', category: 'Quiz', starts_at: at(1, 20), description: 'Teams of up to 6. Prizes for the winners.' });
+    events.push({ id: eid++, title: 'Hoy Bingo', category: 'Bingo', starts_at: at(8, 19, 30), description: 'Monthly hoy bingo in the function room.' });
+    events.push({ id: eid++, title: 'Cabaret Night', category: 'Cabaret', starts_at: at(10, 20), description: 'Tickets from the bar.' });
+    events.push({ id: eid++, title: 'Railway Reunion', category: 'Club group', starts_at: at(13, 12), description: 'Former railway staff get-together.' });
+
+    // Rota: fill every needed shift from 12 weeks ago to 4 weeks ahead
+    const barPool = ['s-kerry', 's-priya', 's-jess', 's-dave', 's-lee'];
+    const doorPool = ['s-tom', 's-mo', 's-dave', 's-lee'];
+    const shifts = []; let sid = 5000, bi = 0, di = 0;
+    const pick = (pool, used, idx) => { for (let k = 0; k < pool.length; k++){ const id = pool[(idx + k) % pool.length]; if (!used.has(id)) return id; } return null; };
+    for (let n = -84; n <= 27; n++){
+      const ds = d(n);
+      for (const x of sessionNeeds(ds, bookings)){
+        const used = new Set();
+        for (const job of JOB_ORDER) for (let k = 0; k < x.need[job]; k++){
+          if ((n === 15 && x.sess === 'eve' && job === 'door') || (n === 24 && job === 'lounge') || (n === 9 && job === 'event' && k === 3)) continue;   // demo gaps
+          const id = pick(job === 'door' ? doorPool : barPool, used, job === 'door' ? di++ : bi++); if (!id) continue;
+          used.add(id);
+          shifts.push({ id: ++sid, shift_date: ds, session: x.sess, job, staff_id: id, status: n < 3 ? 'confirmed' : 'assigned', reason: null, covered: false });
+        }
+      }
+    }
+    // Past history so the staff profiles have something in them
+    const past = who => shifts.filter(x => x.staff_id === who && x.shift_date < d(0)).reverse();
+    const mark = (who, nth, status, reason = null) => { const x = past(who)[nth]; if (x){ x.status = status; x.reason = reason; x.covered = true; } };
+    mark('s-jess', 1, 'late'); mark('s-jess', 4, 'no_show'); mark('s-jess', 7, 'late'); mark('s-jess', 11, 'sick', 'Migraine'); mark('s-jess', 15, 'no_show'); mark('s-jess', 20, 'late');
+    mark('s-mo', 2, 'late'); mark('s-mo', 9, 'sick', 'Flu');
+    mark('s-priya', 5, 'sick', 'Cold'); mark('s-kerry', 12, 'cannot_work', 'Childcare');
+    // Upcoming problems for the Rota alert
+    const fut = (n, sess, job) => shifts.find(x => x.shift_date === d(n) && x.session === sess && x.job === job);
+    const a = fut(4, 'eve', 'event'); if (a){ a.status = 'cannot_work'; a.reason = 'Hospital appointment'; }
+    const b2 = fut(11, 'eve', 'door'); const unavail = [];
+    if (b2){ b2.status = 'cannot_work'; b2.reason = 'Holiday'; unavail.push({ id: 900, staff_id: b2.staff_id, off_date: d(11), reason: 'Holiday' }); }
+    unavail.push({ id: 901, staff_id: 's-priya', off_date: d(21), reason: 'Family wedding' });
+    return {
+      seq: 20000, session: null,
+      users: [
+        { id: 'u-admin', email: 'admin@demo.pub', first_name: 'Sam', last_name: 'Carter', phone: '07700 900001', membership_no: '', role: 'admin', skill: null, pw: 'demo' },
+        { id: 'u-user', email: 'user@demo.pub', first_name: 'Jo', last_name: 'Bloggs', phone: '07700 900123', membership_no: 'ARC-0412', role: 'user', skill: null, pw: 'demo' },
+        { id: 'u-pat', email: 'pat@demo.pub', first_name: 'Pat', last_name: 'Doyle', phone: '07700 900124', membership_no: 'ARC-0377', role: 'user', skill: null, pw: 'demo' },
+        { id: 's-dave', email: 'staff@demo.pub', first_name: 'Dave', last_name: 'Mills', phone: '07700 900201', membership_no: '', role: 'staff', skill: 'both', pw: 'demo' },
+        { id: 's-kerry', email: 'kerry@demo.pub', first_name: 'Kerry', last_name: 'Ward', phone: '07700 900202', membership_no: '', role: 'staff', skill: 'bar', pw: 'demo' },
+        { id: 's-tom', email: 'tom@demo.pub', first_name: 'Tom', last_name: 'Reid', phone: '07700 900203', membership_no: '', role: 'staff', skill: 'door', pw: 'demo' },
+        { id: 's-priya', email: 'priya@demo.pub', first_name: 'Priya', last_name: 'Shah', phone: '07700 900204', membership_no: '', role: 'staff', skill: 'bar', pw: 'demo' },
+        { id: 's-lee', email: 'lee@demo.pub', first_name: 'Lee', last_name: 'Hart', phone: '07700 900205', membership_no: '', role: 'staff', skill: 'both', pw: 'demo' },
+        { id: 's-jess', email: 'jess@demo.pub', first_name: 'Jess', last_name: 'Cole', phone: '07700 900206', membership_no: '', role: 'staff', skill: 'bar', pw: 'demo' },
+        { id: 's-mo', email: 'mo@demo.pub', first_name: 'Mo', last_name: 'Ahmed', phone: '07700 900207', membership_no: '', role: 'staff', skill: 'door', pw: 'demo' }
+      ],
+      events, bookings, shifts, unavail,
+      payments: [
+        { id: 960, booking_id: 18, user_id: null, amount: DEPOSIT, kind: 'deposit', method: 'cash', paid_on: d(-30), note: '' },
+        { id: 961, booking_id: 18, user_id: null, amount: bookings.find(b => b.id === 18).price - DEPOSIT, kind: 'balance', method: 'card', paid_on: d(-4), note: 'Paid on the night' },
+        { id: 962, booking_id: 11, user_id: null, amount: DEPOSIT, kind: 'deposit', method: 'cash', paid_on: d(-10), note: '' },
+        { id: 963, booking_id: 13, user_id: null, amount: DEPOSIT, kind: 'deposit', method: 'bank', paid_on: d(-40), note: 'Ref HUGHES-WED' },
+        { id: 964, booking_id: 13, user_id: null, amount: 150, kind: 'balance', method: 'bank', paid_on: d(-6), note: '' },
+        { id: 965, booking_id: 17, user_id: null, amount: 50, kind: 'deposit', method: 'card', paid_on: d(-2), note: 'Rest of deposit next week' }
+      ],
+      closed: [{ id: 970, closed_date: d(20), part: 'all', reason: 'Darts league final. No private hire.' }, { id: 971, closed_date: d(6), part: 'evening', reason: 'Club quiz night' }],
+      notes: [
+        { id: 950, staff_id: 's-tom', note_date: d(-30), kind: 'note', note: 'Handled a difficult guest well at the Adams engagement.' },
+        { id: 951, staff_id: 's-jess', note_date: d(-18), kind: 'late', note: 'Arrived 40 minutes late, no message.' }
+      ]
+    };
+  }
+  const pub = u => { if (!u) return null; const { pw, ...rest } = u; return rest; };
+  const live = b => b.status !== 'cancelled';
+  function clash(b, ignoreId){
+    return s.bookings.some(x => live(x) && x.id !== ignoreId && x.room === b.room && x.booking_date === b.booking_date &&
+      (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day'));
+  }
+  const closedOn = b => s.closed.some(c => c.closed_date === b.booking_date && PART_SLOTS[c.part || 'all'].includes(b.slot));
+  const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.session === x.session && y.staff_id === x.staff_id);
+  const byDate = (a, b) => a.booking_date.localeCompare(b.booking_date) || bySlot(a, b);
+  const api = {
+    async currentUser(){ return pub(s.users.find(u => u.id === s.session)); },
+    async signIn(email, password){
+      const u = s.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (!u || u.pw !== password) throw new Error('Email or password is wrong. Demo logins use the password "demo".');
+      s.session = u.id; save(); return pub(u);
+    },
+    async signUp({ email, password, ...meta }){
+      if (s.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with that email already exists.');
+      const u = { id: 'u-' + nextId(), email, ...meta, role: 'user', skill: null, pw: password };
+      s.users.push(u); s.session = u.id; save(); return pub(u);
+    },
+    async signOut(){ s.session = null; save(); },
+    async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
+      return s.events.filter(e => new Date(e.starts_at) >= from).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
+    async eventsBetween(from, to){ return s.events.filter(e => { const d = ymd(new Date(e.starts_at)); return d >= from && d <= to; }).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
+    async addEvent(e){ const ev = { ...e, id: nextId() }; s.events.push(ev); save(); return ev; },
+    async deleteEvent(id){ s.events = s.events.filter(e => e.id !== id); save(); },
+    async availability(from, to){ return s.bookings.filter(b => live(b) && b.booking_date >= from && b.booking_date <= to)
+      .map(({ booking_date, room, slot, status }) => ({ booking_date, room, slot, status })); },
+    async myBookings(uid){ return s.bookings.filter(b => b.user_id === uid).sort(byDate); },
+    async requestBooking(b, uid){ if (closedOn(b)) throw new Error('Sorry, the club isn’t taking bookings for that day.'); if (clash(b)) throw new Error('Sorry, that session has just been taken. Pick another.');
+      const x = { ...b, id: nextId(), user_id: uid, status: 'pending' }; s.bookings.push(x); save(); return x; },
+    async cancelMine(id){ const b = s.bookings.find(b => b.id === id); if (b) b.status = 'cancelled'; save(); },
+    async bookingsBetween(from, to){ return s.bookings.filter(b => b.booking_date >= from && b.booking_date <= to).sort(byDate); },
+    async pendingBookings(){ return s.bookings.filter(b => b.status === 'pending' && b.booking_date >= todayStr()).sort(byDate); },
+    async addBooking(b){
+      if (live(b) && clash(b)) throw new Error('That room is already booked for this session.');
+      const x = { deposit_required: DEPOSIT, ...b, id: nextId(), user_id: b.user_id || null, created_at: new Date().toISOString() }; s.bookings.push(x); save(); return x; },
+    async getBooking(id){ const b = s.bookings.find(b => b.id === id); if (!b) throw new Error('Booking not found.'); return { ...b }; },
+    async updateBooking(id, patch){ const b = s.bookings.find(b => b.id === id); if (!b) throw new Error('Booking not found.');
+      const next = { ...b, ...patch };
+      if (live(next) && clash(next, id)) throw new Error('That room is already booked for this session.');
+      Object.assign(b, patch); save(); },
+    async linkAccount(id, uid){ const b = s.bookings.find(b => b.id === id); b.user_id = uid; s.payments.filter(x => x.booking_id === id).forEach(x => x.user_id = uid); save(); },
+    async paymentsFor(ids){ return s.payments.filter(x => ids.includes(x.booking_id)); },
+    async paymentsBetween(from, to){ return s.payments.filter(x => x.paid_on >= from && x.paid_on <= to).sort((a, b) => b.paid_on.localeCompare(a.paid_on)); },
+    async addPayment(x){ s.payments.push({ ...x, id: nextId() }); save(); },
+    async deletePayment(id){ s.payments = s.payments.filter(x => x.id !== id); save(); },
+    async closedBetween(from, to){ return s.closed.filter(c => c.closed_date >= from && c.closed_date <= to); },
+    async closeDay(c){ if (s.closed.some(x => x.closed_date === c.closed_date && (x.part === 'all' || x.part === c.part))) throw new Error('That is already set to no bookings.');
+      s.closed.push({ ...c, id: nextId() }); save(); },
+    async reopenDay(id){ s.closed = s.closed.filter(c => c.id !== id); save(); },
+    async setStatus(id, status){ const b = s.bookings.find(b => b.id === id);
+      if (b && status !== 'cancelled' && clash(b, id)) throw new Error('Another booking already holds this session.');
+      if (b) b.status = status; save(); },
+    async deleteBooking(id){ s.bookings = s.bookings.filter(b => b.id !== id); s.payments = s.payments.filter(x => x.booking_id !== id); save(); },
+    // rota
+    async daySummaries(from, to){ return s.bookings.filter(b => live(b) && b.booking_date >= from && b.booking_date <= to)
+      .map(b => ({ booking_date: b.booking_date, room: b.room, slot: b.slot, event_type: b.event_type, guests: b.guests, status: b.status, booking_name: bname(b) })); },
+    async listStaff(){ return s.users.filter(u => (u.role === 'staff' || u.role === 'admin') && u.skill).map(pub).sort(byName); },
+    async shiftsBetween(from, to){ return s.shifts.filter(x => x.shift_date >= from && x.shift_date <= to); },
+    async assignShift(x){
+      if (busy(x)) throw new Error('They are already working that shift.');
+      const n = { id: nextId(), shift_date: x.shift_date, session: x.session, job: x.job, staff_id: x.staff_id, status: 'assigned', reason: null, covered: false };
+      s.shifts.push(n); save(); return n;
+    },
+    async updateShift(id, patch){ const x = s.shifts.find(x => x.id === id); if (!x) throw new Error('Shift not found.');
+      const next = { ...x, ...patch }; if (ACTIVE(next) && busy(next, id)) throw new Error('They are already working that shift.');
+      Object.assign(x, patch); save(); },
+    async removeShift(id){ s.shifts = s.shifts.filter(x => x.id !== id); save(); },
+    async staffSetShift(id, status, reason){
+      const x = s.shifts.find(x => x.id === id && x.staff_id === s.session); if (!x) throw new Error('Shift not found.');
+      x.status = status; x.reason = reason || null; save(); },
+    async unavailBetween(from, to){ return s.unavail.filter(u => u.off_date >= from && u.off_date <= to); },
+    async markUnavailable(date, reason){
+      if (s.unavail.some(u => u.staff_id === s.session && u.off_date === date)) throw new Error('You have already marked that day.');
+      s.unavail.push({ id: nextId(), staff_id: s.session, off_date: date, reason: reason || null });
+      s.shifts.filter(x => x.staff_id === s.session && x.shift_date === date && ACTIVE(x))
+        .forEach(x => { x.status = 'cannot_work'; x.reason = reason || 'Marked as can’t work'; });
+      save(); },
+    async removeUnavailable(id){ const u = s.unavail.find(x => x.id === id); s.unavail = s.unavail.filter(x => x.id !== id);
+      // back on any shift that day the manager hasn't already covered
+      if (u) s.shifts.filter(x => x.staff_id === u.staff_id && x.shift_date === u.off_date && x.status === 'cannot_work' && !x.covered && !busy({ ...x }, x.id)).forEach(x => { x.status = 'assigned'; x.reason = null; });
+      save(); },
+    // staff records
+    async listProfiles(){ return s.users.map(pub).sort(byName); },
+    async updateProfile(id, patch){ const u = s.users.find(u => u.id === id); if (!u) return;
+      u.role = patch.role; u.skill = patch.skill;
+      if (u.role === 'user') u.skill = null; else if (u.role === 'staff' && !u.skill) u.skill = 'both';
+      save(); },
+    async notesBetween(from, to){ return s.notes.filter(n => n.note_date >= from && n.note_date <= to); },
+    async addNote(n){ s.notes.push({ ...n, id: nextId() }); save(); },
+    async deleteNote(id){ s.notes = s.notes.filter(n => n.id !== id); save(); }
+  };
+  return api;
+}
+
+const api = LIVE ? makeSupabaseApi() : makeDemoApi();
+
+/* =====================================================================
+   STATE + LOADING
+   ===================================================================== */
+const state = {
+  user: null, view: 'login', authTab: 'login',
+  room: 'hall', month: startOfMonth(new Date()),
+  bkTab: 'upcoming', bkMonth: startOfMonth(new Date()), newDate: null,
+  rotaWeek: startOfWeek(new Date()), offMonth: startOfMonth(new Date()),
+  events: [], avail: [], mine: [], myPayments: [], closed: [], profiles: [],
+  bk: { bookings: [], payments: [] }, cur: null, bookingId: null, editBooking: false,
+  ops: { bookings: [], shifts: [], unavail: [], staff: [], events: [], payments: [] },
+  rec: { shifts: [], notes: [], unavail: [] },
+  sheet: null
+};
+const isAdmin = () => state.user?.role === 'admin';
+const isStaff = () => state.user?.role === 'staff';
+const ahead = n => ymd(addDays(new Date(), n));
+const WEEKS_BACK = 12;
+
+async function go(view, params = {}){
+  Object.assign(state, params, { view });
+  closeSheet();
+  try { await load(view); } catch(e){ toast(e.message); }
+  render(); window.scrollTo(0, 0);
+}
+async function loadOps(from, to, summaries = false){
+  const [bookings, shifts, unavail, staff, events, closed] = await Promise.all([
+    summaries ? api.daySummaries(from, to) : api.bookingsBetween(from, to),
+    api.shiftsBetween(from, to), api.unavailBetween(from, to), api.listStaff(), api.eventsBetween(from, to), api.closedBetween(from, to)]);
+  state.ops = { from, to, bookings, shifts, unavail, staff, events, payments: [] };
+  state.closed = closed;
+}
+async function loadMoney(){
+  const bookings = await api.bookingsBetween(ahead(-120), ahead(500));
+  state.bk = { bookings, payments: await api.paymentsFor(bookings.map(b => b.id)) };
+}
+async function load(view){
+  if (view === 'hub'){
+    state.events = await api.listEvents();
+    if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
+    if (isStaff()) await loadOps(todayStr(), ahead(60), true);
+  }
+  if (view === 'whatson') state.events = await api.listEvents();
+  if (view === 'book'){ const r = monthRange(state.month);
+    [state.avail, state.closed] = await Promise.all([api.availability(ymd(r.start), ymd(r.end)), api.closedBetween(ymd(r.start), ymd(r.end))]); }
+  if (view === 'mine'){ state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
+  if (view === 'bookings'){ await loadMoney(); state.closed = await api.closedBetween(ahead(-120), ahead(500)); }
+  if (view === 'booking'){
+    try { const b = await api.getBooking(state.bookingId); state.cur = { b, payments: await api.paymentsFor([b.id]) }; }
+    catch(e){ state.cur = null; }
+    state.profiles = await api.listProfiles();
+  }
+  if (view === 'newbooking'){ state.profiles = await api.listProfiles(); state.closed = await api.closedBetween(ahead(-1), ahead(500)); }
+  if (view === 'rota'){
+    const ws = ymd(state.rotaWeek), we = ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
+    await loadOps(ws < t ? ws : t, we > f ? we : f, !isAdmin());
+  }
+  if (view === 'staff'){
+    const from = ahead(-7 * WEEKS_BACK), to = ahead(27);
+    const [profiles, shifts, notes, unavail, staff] = await Promise.all([api.listProfiles(), api.shiftsBetween(from, to), api.notesBetween(from, to), api.unavailBetween(from, to), api.listStaff()]);
+    state.profiles = profiles; state.rec = { shifts, notes, unavail }; state.ops = { ...state.ops, staff };
+  }
+  if (view === 'myshifts'){ const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps(todayStr(), end, true); }
+}
+async function refresh(){
+  const sh = state.sheet; const y = window.scrollY;
+  await load(state.view); render(); window.scrollTo(0, y);
+  if (sh?.type === 'bkday') openBkDay(sh.date);
+  if (sh?.type === 'staff') openStaffProfile(sh.id);
+  if (sh?.type === 'addstaff') openAddStaff();
+}
+
+/* =====================================================================
+   SHELL
+   ===================================================================== */
+const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICONS = {
+  home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'),
+  cal: svg('<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
+  rota: svg('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
+  team: svg('<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0 1 12 0M14 20a4.5 4.5 0 0 1 8 0"/>'),
+  music: svg('<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>'),
+  hall: svg('<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'),
+  lounge: svg('<path d="M4 12V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2z"/>'),
+  check: svg('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>')
+};
+function navItems(){
+  if (isAdmin()) return [['hub','Home','home'],['bookings','Bookings','cal'],['rota','Rota','rota'],['staff','Staff','team'],['whatson','What’s On','music']];
+  if (isStaff()) return [['hub','Home','home'],['myshifts','My shifts','check'],['rota','Rota','rota'],['whatson','What’s On','music']];
+  return [['hub','Home','home'],['whatson','What’s On','music'],['book','Book','hall'],['mine','My bookings','check']];
+}
+const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking'));
+const navBtn = (v, label, ic, withIcon) => `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}</button>`;
+function render(){
+  $('#demoBar').hidden = LIVE;
+  const app = $('#app');
+  if (!state.user){ app.innerHTML = `<main><div class="wrap">${loginView()}</div></main>`; return; }
+  const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView };
+  app.innerHTML = `<header class="band"><div class="wrap">
+      <button class="brand" data-action="go" data-view="hub" aria-label="Home"><span class="mark">ARC</span><b>${esc(CONFIG.TOWN)} ${esc(CONFIG.CLUB_NAME)}</b></button>
+      <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
+      <button class="btn ghost sm signout" data-action="signout">Sign out</button></div></header>
+    <main><div class="wrap">${(views[state.view] || homeView)()}</div></main>
+    <nav class="tabbar" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, true)).join('')}</nav>`;
+}
+const page = (title, extra = '', back = null) => `${back ? `<button class="back" data-action="go" data-view="${back[0]}">← ${back[1]}</button>` : ''}<div class="head"><h1>${esc(title)}</h1>${extra}</div>`;
+const seg = (action, cur, opts, label) => `<div class="tabs" role="group" aria-label="${label}">${opts.map(([k, l]) => `<button data-action="${action}" data-val="${k}" aria-pressed="${k === cur}">${l}</button>`).join('')}</div>`;
+const stepper = (action, label, disablePrev = false) => `<div class="stepper"><button class="btn ghost sm" data-action="${action}" data-step="-1" aria-label="Previous" ${disablePrev ? 'disabled' : ''}>‹</button><b>${label}</b><button class="btn ghost sm" data-action="${action}" data-step="1" aria-label="Next">›</button></div>`;
+const dbox = ds => { const d = parseYmd(ds); return `<div class="dbox${ds === todayStr() ? ' today' : ''}"><span class="w">${d.toLocaleDateString('en-GB', { weekday:'short' })}</span><span class="n">${d.getDate()}</span><span class="w">${d.toLocaleDateString('en-GB', { month:'short' })}</span></div>`; };
+const tile = (ic, title, sub, view, n = 0, extra = '') => `<button class="tile" data-action="go" data-view="${view}" ${extra}><span class="ic">${ICONS[ic]}</span><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`;
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening'; };
+
+/* ---------- Login ---------- */
+function loginView(){
+  const signup = state.authTab === 'signup';
+  return `<div class="auth">
+    <section><h1>${esc(CONFIG.CLUB_NAME)}<span>${esc(CONFIG.TOWN)}</span></h1>
+      <p class="lead">What’s on at the club, and room hire for your party. Call us on ${esc(CONFIG.PHONE)}.</p></section>
+    <div class="login">
+      <h2>${signup ? 'Join the club' : 'Sign in'}</h2>
+      ${seg('authtab', state.authTab, [['login','Sign in'],['signup','Register']], 'Sign in or register')}
+      <form class="stack" data-form="${signup ? 'signup' : 'login'}">
+        ${signup ? `<div class="grid2"><label class="f">First name<input id="su-fn" name="first_name" required autocomplete="given-name"></label>
+          <label class="f">Last name<input id="su-ln" name="last_name" required autocomplete="family-name"></label></div>
+          <div class="grid2"><label class="f">Mobile<input id="su-phone" name="phone" type="tel" autocomplete="tel"></label>
+          <label class="f">Membership no.<input id="su-mem" name="membership_no" placeholder="If you have one"></label></div>` : ''}
+        <label class="f">Email<input id="${signup ? 'su' : 'li'}-email" name="email" type="email" required autocomplete="email"></label>
+        <label class="f">Password<input id="${signup ? 'su' : 'li'}-pw" name="password" type="password" required minlength="${signup ? 6 : 1}" autocomplete="${signup ? 'new-password' : 'current-password'}"></label>
+        <div class="err"></div><button class="btn" type="submit">${signup ? 'Create account' : 'Sign in'}</button>
+      </form>
+      ${LIVE ? '' : `<div class="demo"><span class="muted" style="width:100%;font-size:13px">Try the demo as:</span>
+        <button class="btn ghost sm" data-action="demologin" data-email="admin@demo.pub">Admin</button>
+        <button class="btn ghost sm" data-action="demologin" data-email="staff@demo.pub">Staff</button>
+        <button class="btn ghost sm" data-action="demologin" data-email="user@demo.pub">Customer</button></div>`}
+    </div></div>`;
+}
+
+/* ---------- Home ---------- */
+function homeView(){
+  const first = state.user.first_name || ''; const today = todayStr();
+  let h = `<div class="hello"><h2>${greeting()}${first ? `, ${esc(first)}` : ''}</h2></div>`;
+  const next = state.events[0];
+  const nextTxt = next ? `Next: ${next.title}, ${fmtDate(ymd(new Date(next.starts_at)))}` : 'Nothing listed yet';
+  if (isAdmin()){
+    const i = dayInfo(today, state.ops);
+    const req = state.bk.bookings.filter(b => b.status === 'pending' && b.booking_date >= today).length;
+    const up = state.bk.bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today).length;
+    const week = rangeDays(today, ahead(6)).map(ds => dayInfo(ds, state.ops));
+    const gaps = week.reduce((a, x) => a + x.short, 0);
+    const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today).length;
+    h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
+    <div class="tiles">
+      ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
+      ${tile('rota', 'Rota', gaps ? `${plural(gaps, 'shift')} to fill this week` : probs ? `${probs} can’t work` : 'This week is filled', 'rota', gaps + probs)}
+      ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
+      ${tile('music', 'What’s On', nextTxt, 'whatson')}
+    </div>`;
+    return h;
+  }
+  if (isStaff()){
+    const me = state.user.id;
+    const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
+    const nx = mine[0]; const offs = state.ops.unavail.filter(u => u.staff_id === me).length;
+    h += nx ? `<div class="spot">${dbox(nx.shift_date)}<div class="txt"><span class="muted">Your next shift</span><b>${JOBS[nx.job]} · ${SESS[nx.session]} ${sessTimes(nx.shift_date, nx.session).join('–')}</b></div>
+        </div>`
+      : '<div class="empty" style="margin-bottom:16px">No shifts in the next 2 months.</div>';
+    h += `<div class="tiles">${tile('check', 'My shifts & days off', `${plural(mine.length, 'shift')} coming up · tap days you can’t work`, 'myshifts')}
+      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}</div>`;
+    return h;
+  }
+  if (next){ const d = new Date(next.starts_at);
+    h += `<div class="spot"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${timeOf(next.starts_at)}</div></div>
+      <div class="txt"><span class="muted">Next up</span><b>${esc(next.title)}</b>${next.description ? `<span class="muted">${esc(next.description)}</span>` : ''}</div></div>`; }
+  h += `<div class="tiles">${tile('music', 'What’s On', nextTxt, 'whatson')}
+    ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
+    ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
+    ${tile('check', 'My bookings', 'Requests, confirmed dates and deposits', 'mine')}</div>`;
+  return h;
+}
+
+/* =====================================================================
+   BOOKINGS (admin)
+   ===================================================================== */
+function bkRow(b, payments, { date = false, decide = false } = {}){
+  const pi = payInfo(b, payments);
+  return `<div class="row" role="button" tabindex="0" data-action="openbooking" data-id="${b.id}">
+    <span class="room ${b.room}">${ROOMS[b.room].short}</span>
+    <div class="row-main"><b>${esc(b.event_type || 'Booking')} · ${esc(bname(b))}</b>
+      <span class="sub">${date ? fmtDate(b.booking_date) + ' · ' : ''}${slotLabel(b.slot)} · ${b.guests ?? '?'} guests${b.price != null ? ' · ' + money(b.price) : ''}</span></div>
+    ${b.status !== 'confirmed' ? `<span class="pill ${b.status}">${b.status}</span>` : ''}${b.status !== 'pending' ? payPill(pi, true) : ''}
+    ${decide ? `<div class="acts"><button class="btn sm" data-action="status" data-id="${b.id}" data-status="confirmed">Confirm</button><button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="cancelled">Decline</button></div>` : '<span class="go" aria-hidden="true">›</span>'}
+  </div>`;
+}
+function grouped(list, payments){
+  const days = [...new Set(list.map(b => b.booking_date))];
+  return `<div class="list">${days.map(ds => `<div class="dgroup">${dbox(ds)}<div class="list">${list.filter(b => b.booking_date === ds).sort(bySlot).map(b => bkRow(b, payments)).join('')}</div></div>`).join('')}</div>`;
+}
+function bookingsView(){
+  const { bookings, payments } = state.bk; const today = todayStr(); const tab = state.bkTab;
+  const req = bookings.filter(b => b.status === 'pending' && b.booking_date >= today);
+  let h = page('Bookings', `<button class="btn" data-action="newon">+ New booking</button>`);
+  if (req.length) h += `<div class="label">Requests to confirm (${req.length})</div><div class="list">${req.map(b => bkRow(b, payments, { date: true, decide: true })).join('')}</div><div style="height:24px"></div>`;
+  h += `<div class="bar">${seg('bktab', tab, [['upcoming','Upcoming'],['calendar','Calendar'],['past','Past']], 'Show')}<span class="grow"></span>${tab === 'calendar' ? stepper('bkmonth', fmtMonth(state.bkMonth)) : ''}</div>`;
+  if (tab === 'upcoming'){
+    const up = bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today);
+    h += up.length ? grouped(up, payments) : '<div class="empty">No confirmed bookings coming up.</div>';
+  } else if (tab === 'past'){
+    const past = bookings.filter(b => b.booking_date < today || b.status === 'cancelled').sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+    h += past.length ? `<div class="list">${past.map(b => bkRow(b, payments, { date: true })).join('')}</div>` : '<div class="empty">Nothing here yet.</div>';
+  } else {
+    h += calendar(state.bkMonth, (ds, o) => {
+      const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort(bySlot);
+      const cl = closedParts(ds); const allDay = closedAllDay(ds);
+      return `<button class="day${o.out ? ' out' : ''}${o.past ? ' past' : ''}${o.today ? ' today' : ''}" data-action="bkday" data-date="${ds}" aria-label="${fmtDate(ds)}: ${plural(bks.length, 'booking')}">
+        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 2).map(b => `<span class="l ${b.room}">${ROOMS[b.room].short} ${slotShort(b.slot)}${b.status === 'pending' ? '?' : ''}</span>`).join('')}${bks.length > 2 ? `<span class="l">+${bks.length - 2}</span>` : ''}</button>`;
+    }) + `<div class="legend"><span style="color:var(--teal)">Function</span><span style="color:var(--violet)">Lounge</span><span>? = not confirmed yet</span><span>Tap a day to add a booking or set no bookings</span></div>`;
+  }
+  return h;
+}
+function openBkDay(ds){
+  state.sheet = { type: 'bkday', date: ds };
+  const list = state.bk.bookings.filter(b => b.booking_date === ds).sort(bySlot);
+  const cl = closedParts(ds); const allDay = closedAllDay(ds);
+  const left = Object.keys(CLOSE_PARTS).filter(k => !cl.some(c => c.part === k || c.part === 'all'));
+  openSheet(`<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2><p class="muted">${openText(ds)}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    ${cl.map(c => `<div class="alert"><b class="t">${closedLabel(c)}</b>${c.reason ? `<span>${esc(c.reason)}</span>` : ''}<span class="muted">Members can’t book this. You still can.</span>
+      <div><button class="btn ghost sm" data-action="reopenday" data-id="${c.id}">Allow bookings again</button></div></div>`).join('')}
+    ${list.length ? `<div class="list">${list.map(b => bkRow(b, state.bk.payments)).join('')}</div>` : '<div class="empty">No bookings on this day.</div>'}
+    <button class="btn wide" data-action="newon" data-date="${ds}">+ Add a booking${cl.length ? ' anyway' : ''}</button>
+    ${!allDay && left.length ? `<form class="panel stack" data-form="closeday" data-date="${ds}"><b>No bookings</b>
+      <p class="muted" style="font-size:13px">Stop members booking this day. Bookings already made stay, and you can still add one yourself.</p>
+      <div class="grid2"><select class="in" id="cd-part" name="part" aria-label="When">${left.map(k => `<option value="${k}">${CLOSE_PARTS[k]}</option>`).join('')}</select>
+        <input class="in" id="cd-reason" name="reason" placeholder="Reason (only admins see it)" aria-label="Reason"></div>
+      <button class="btn ghost" type="submit">Set no bookings</button></form>` : ''}`);
+}
+
+/* ---------- Booking form (new + edit) ---------- */
+const eventTypeSelect = (id, val = 'Birthday') => `<select id="${id}" name="event_type" required data-evtype>${EVENT_TYPES.map(t => `<option ${t === val ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+const x18Fields = (idp, ex = null) => `<fieldset class="x18" ${ex ? '' : 'hidden'}><legend>18th birthday</legend>
+    <label class="f">Name of the person turning 18<input id="${idp}-e18name" name="e18_name" ${ex ? 'required' : ''} value="${esc(ex?.celebrant)}"></label>
+    <label class="check"><input type="checkbox" id="${idp}-e18id" name="e18_id" ${ex?.id_checks ? 'checked' : ''}> ID checks agreed (Challenge 25)</label>
+    <label class="f">Notes for door staff<textarea id="${idp}-e18notes" name="e18_notes">${esc(ex?.door_notes)}</textarea></label></fieldset>`;
+const eventDetails = f => f.event_type.value === '18th Birthday' ? { celebrant: f.e18_name.value.trim(), id_checks: f.e18_id.checked, door_notes: f.e18_notes.value.trim() } : {};
+function bookingForm({ b = null, date = todayStr(), idp = 'nb' } = {}){
+  const v = b || {}; const slot = v.slot || 'evening'; const room = v.room || 'hall'; date = v.booking_date || date;
+  const members = b ? [] : state.profiles.filter(p => p.role === 'user').sort(byName);
+  return `<form class="stack" data-form="${b ? 'editbooking' : 'addbooking'}" ${b ? `data-id="${b.id}"` : ''}>
+    ${members.length ? `<label class="f">Existing member (optional)<select id="${idp}-member" data-memberpick><option value="">New customer</option>${members.map(p => `<option value="${p.id}">${esc(pname(p))}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</option>`).join('')}</select></label>` : ''}
+    ${b ? '' : '<input type="hidden" name="user_id" value="">'}
+    <div class="grid2"><label class="f">First name<input id="${idp}-fn" name="first_name" required value="${esc(v.first_name)}"></label>
+      <label class="f">Last name<input id="${idp}-ln" name="last_name" required value="${esc(v.last_name)}"></label></div>
+    <div class="grid2"><label class="f">Phone<input id="${idp}-phone" name="customer_phone" type="tel" required value="${esc(v.customer_phone)}"></label>
+      <label class="f">Email<input id="${idp}-email" name="customer_email" type="email" value="${esc(v.customer_email)}"></label></div>
+    <label class="f">Membership number<input id="${idp}-mem" name="membership_no" value="${esc(v.membership_no)}"></label>
+    <div class="grid2"><label class="f">Date<input id="${idp}-date" name="booking_date" type="date" required value="${date}" data-reprice></label>
+      <label class="f">Event type${eventTypeSelect(`${idp}-type`, v.event_type || 'Birthday')}</label></div>
+    ${x18Fields(idp, v.event_type === '18th Birthday' ? (v.event_details || {}) : null)}
+    <div class="grid2"><label class="f">Room<select id="${idp}-room" name="room" data-reprice>${Object.entries(ROOMS).map(([k, r]) => `<option value="${k}" ${k === room ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label>
+      <label class="f">Session<select id="${idp}-slot" name="slot" data-reprice>${SLOTS.map(s => `<option value="${s.id}" ${s.id === slot ? 'selected' : ''}>${s.label} ${s.time}</option>`).join('')}</select></label></div>
+    <div class="grid2"><label class="f">Guests<input id="${idp}-guests" name="guests" type="number" min="1" required value="${v.guests ?? 40}"></label>
+      <label class="f">Hire price (£)<input id="${idp}-price" name="price" type="number" min="0" step="1" value="${v.price ?? priceFor(room, slot, date)}" ${b ? '' : 'data-autoprice'}></label></div>
+    <label class="f">Status<select id="${idp}-status" name="status">${[['confirmed','Confirmed'],['pending','Not confirmed yet'], ...(b ? [['cancelled','Cancelled']] : [])].map(([k, l]) => `<option value="${k}" ${k === (v.status || 'confirmed') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="f">Notes<textarea id="${idp}-notes" name="notes">${esc(v.notes)}</textarea></label>
+    <div class="err" id="${idp}-err"></div>
+    <button class="btn" type="submit">${b ? 'Save changes' : 'Save booking'}</button></form>`;
+}
+function newBookingView(){
+  const ds = state.newDate || todayStr(); const cl = closedParts(ds);
+  return page('New booking', '', ['bookings', 'Bookings'])
+    + (cl.length ? `<div class="note">${fmtDate(ds)} is set to ${cl.map(c => closedLabel(c).toLowerCase()).join(' and ')}. You can still add a booking.</div>` : '')
+    + `<div class="panel">${bookingForm({ date: ds })}</div>`;
+}
+
+/* ---------- One booking ---------- */
+function bookingView(){
+  const c = state.cur;
+  if (!c) return page('Booking', '', ['bookings', 'Bookings']) + '<div class="empty">This booking no longer exists.</div>';
+  const b = c.b; const pi = payInfo(b, c.payments); const ex = b.event_details || {}; const slot = SLOTS.find(s => s.id === b.slot);
+  const acts = [
+    b.status === 'pending' ? `<button class="btn sm" data-action="status" data-id="${b.id}" data-status="confirmed">Confirm</button><button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="cancelled">Decline</button>` : '',
+    b.status === 'confirmed' ? `<button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="cancelled">Cancel booking</button>` : '',
+    b.status === 'cancelled' ? `<button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="confirmed">Reinstate</button>` : '',
+    `<button class="btn ghost sm" data-action="editbooking">${state.editBooking ? 'Close edit' : 'Edit'}</button>`,
+    `<button class="btn ghost sm" data-action="delbooking" data-id="${b.id}">Delete</button>`].join('');
+  const kv = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  const pct = pi.price ? Math.min(100, Math.round(100 * pi.paid / pi.price)) : 0;
+  return page(`${b.event_type || 'Booking'} · ${bname(b)}`, '', ['bookings', 'Bookings']) + `
+    <div class="title-row"><span class="pill ${b.status}">${b.status}</span>${payPill(pi)}<span class="grow"></span></div>
+    <div class="bar">${acts}</div>
+    ${state.editBooking ? `<div class="panel" style="margin-bottom:14px">${bookingForm({ b, idp: 'eb' })}</div>` : ''}
+    <div class="cols">
+      <section class="panel"><h3>Details</h3><dl class="kv">
+        ${kv('Date', fmtDate(b.booking_date, { weekday:'long', day:'numeric', month:'long', year:'numeric' }))}
+        ${kv('Room', ROOMS[b.room].name)}${kv('Session', `${slot?.label} ${slot?.time}`)}${kv('Guests', b.guests ?? '—')}
+        ${kv('Hire price', b.price != null ? money(b.price) : '—')}${kv('Name', esc(bname(b)))}${kv('Phone', esc(b.customer_phone || '—'))}
+        ${kv('Email', esc(b.customer_email || '—'))}${kv('Membership', esc(b.membership_no || '—'))}
+        ${b.event_type === '18th Birthday' ? kv('Turning 18', esc(ex.celebrant || '—')) + kv('ID checks', ex.id_checks ? 'Agreed' : '<span style="color:var(--red)">Not agreed</span>') + (ex.door_notes ? kv('Door notes', esc(ex.door_notes)) : '') : ''}
+        ${b.notes ? kv('Notes', esc(b.notes)) : ''}${kv('App account', b.user_id ? 'Linked, they can see it in the app' : 'Not linked')}</dl></section>
+      <section class="panel"><h3>Payments</h3>
+        <div class="money"><b>${money(pi.paid)}</b><span class="muted">paid of ${money(pi.price)}</span></div>
+        <div class="progress" aria-hidden="true"><span style="width:${pct}%"></span></div>
+        <p>Deposit ${money(pi.dep)}: ${pi.depositDue ? `<b style="color:var(--red)">${money(pi.depositDue)} due</b>` : '<b style="color:var(--green)">paid</b>'} · Left to pay <b>${money(pi.balance)}</b></p>
+        <div style="margin-top:10px">${pi.ps.map(x => `<div class="payrow"><span>${fmtDate(x.paid_on, { day:'numeric', month:'short' })}</span><span class="grow">${PAY_KINDS[x.kind]} · ${PAY_METHODS[x.method] || x.method}${x.note ? ' · ' + esc(x.note) : ''}</span>
+          <b>${x.kind === 'refund' ? '−' : ''}${money(x.amount)}</b><button class="linkbtn" data-action="delpayment" data-id="${x.id}">Remove</button></div>`).join('') || '<p class="muted">No payments yet.</p>'}</div>
+        <form class="payform" data-form="addpayment" data-id="${b.id}">
+          <label class="f">Amount (£)<input id="pay-amt" name="amount" type="number" min="0.01" step="0.01" required value="${(pi.depositDue || pi.balance) || ''}"></label>
+          <label class="f">For<select id="pay-kind" name="kind">${Object.entries(PAY_KINDS).map(([k, l]) => `<option value="${k}" ${k === (pi.depositDue ? 'deposit' : 'balance') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="f">Paid by<select id="pay-method" name="method">${Object.entries(PAY_METHODS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+          <label class="f">Date<input id="pay-date" name="paid_on" type="date" required value="${todayStr()}"></label>
+          <div class="err" style="grid-column:1/-1"></div><button class="btn" type="submit">Record payment</button></form>
+      </section>
+    </div>`;
+}
+
+/* =====================================================================
+   ROTA (admin edits, staff view only)
+   ===================================================================== */
+function staffSelect(ds, x, job, shift, cover, k){
+  const busy = new Set(x.on.filter(s => s !== shift).map(s => s.staff_id));
+  const off = new Map(state.ops.unavail.filter(u => u.off_date === ds).map(u => [u.staff_id, u.reason]));
+  const probs = new Set(x.problems.map(s => s.staff_id));
+  const opts = state.ops.staff.filter(p => canDo(p, job) || p.id === shift?.staff_id).map(p => {
+    const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? 'already on' : off.has(p.id) ? 'day off' : probs.has(p.id) ? 'can’t work' : '';
+    return { p, why };
+  }).sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || byName(a.p, b.p));
+  const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
+  return `<select id="sel-${ds}-${x.sess}-${job}-${k}" data-slotsel data-date="${ds}" data-sess="${x.sess}" data-job="${job}" data-shift="${shift?.id || ''}" data-cover="${cover?.id || ''}" aria-label="${JOBS[job]}, ${SESS[x.sess]}, ${fmtDate(ds)}">
+    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : ''}</option>`).join('')}</select>`;
+}
+const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
+  <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
+function slotsHtml(ds, x){
+  const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = '';
+  for (const job of JOB_ORDER){
+    const on = x.on.filter(s => s.job === job); const probs = x.problems.filter(s => s.job === job);
+    const n = Math.max(x.need[job], on.length); let c = 0;
+    for (let k = 0; k < n; k++){
+      const s = on[k]; const label = JOBS[job] + (n > 1 ? ' ' + (k + 1) : '');
+      if (s){
+        h += `<div class="slot"><span class="job">${label}</span>${admin ? staffSelect(ds, x, job, s, null, k) : `<span class="who ${s.staff_id === me ? 'me' : ''}">${esc(pname(map[s.staff_id]))}</span>`}
+          <span class="side">${admin && ds <= today ? outcomeSelect(s) : s.status === 'late' ? '<span class="pill late">Late</span>' : ''}</span></div>`;
+      } else {
+        const p = probs[c++];
+        h += `<div class="slot gap"><span class="job">${label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side"></span>
+          ${p ? `<span class="why">${esc(pfirst(map[p.staff_id]))}: ${SHIFT_STATUS[p.status].toLowerCase()}${p.reason ? ` (“${esc(p.reason)}”)` : ''}${admin && p.status !== 'cannot_work' ? ` <button class="linkbtn" data-action="undoproblem" data-id="${p.id}">Undo</button>` : ''}</span>` : ''}</div>`;
+      }
+    }
+  }
+  return h;
+}
+function rotaView(){
+  const admin = isAdmin(); const ws = state.rotaWeek; const days = rangeDays(ymd(ws), ymd(addDays(ws, 6))); const today = todayStr(); const map = staffMap();
+  const infos = days.map(ds => dayInfo(ds, state.ops));
+  const gaps = infos.reduce((a, i) => a + i.short, 0);
+  let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'shift')} to fill` : 'All filled'}</span>`);
+  if (admin){
+    const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
+    if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
+  }
+  h += `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
+  if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. 1 Lounge Bar when open, 1 Door every evening, 1 Event bar per ${STAFF_RULES.guestsPerEventBar} booked guests.</p>`;
+  h += `<div class="list">${infos.map(i => `<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
+      <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}</div>
+      ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
+        ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${b.guests ?? '?'} guests`).join(' · ')}</p>` : ''}
+        ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
+      ${i.off.length ? `<p class="muted" style="font-size:13px">Day off: ${i.off.map(u => esc(pfirst(map[u.staff_id]))).join(', ')}</p>` : ''}</div>`).join('')}</div>`;
+  return h;
+}
+
+/* =====================================================================
+   STAFF (admin)
+   ===================================================================== */
+function staffStats(pid){
+  const r = state.rec; const today = todayStr(); const from = ahead(-7 * WEEKS_BACK);
+  const past = r.shifts.filter(s => s.staff_id === pid && s.shift_date < today && s.shift_date >= from);
+  const notes = r.notes.filter(n => n.staff_id === pid && n.note_date >= from);
+  const worked = past.filter(s => ['assigned', 'confirmed', 'late'].includes(s.status));
+  const count = k => past.filter(s => s.status === k).length + notes.filter(n => n.kind === k).length;
+  const sick = count('sick'), noShow = count('no_show'), late = count('late'), cant = count('cannot_work');
+  const hours = worked.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0);
+  const expected = worked.length + past.filter(s => s.status === 'sick' || s.status === 'no_show').length;
+  const rel = expected ? Math.round(100 * worked.length / expected) : null;
+  const relCls = rel == null ? 'new' : rel >= 95 && noShow === 0 ? 'good' : rel >= 85 ? 'mid' : 'poor';
+  const upcoming = r.shifts.filter(s => s.staff_id === pid && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
+  return { worked: worked.length, hours, sick, noShow, late, cant, rel, relCls, upcoming };
+}
+const relBadge = st => `<span class="rel ${st.relCls}">${st.rel == null ? 'New' : st.rel + '% reliable'}</span>`;
+function staffView(){
+  const staff = state.profiles.filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort(byName);
+  return page('Staff', `<button class="btn ghost" data-action="addstaff">+ Add staff</button>`)
+    + `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Last ${WEEKS_BACK} weeks. Tap someone to see their record.</p>
+    <div class="list">${staff.map(p => { const st = staffStats(p.id);
+      return `<div class="row" role="button" tabindex="0" data-action="staffprofile" data-id="${p.id}"><div class="row-main"><b>${esc(pname(p))}</b>
+        <span class="sub">${SKILLS[p.skill] || '—'} · ${st.worked} shifts · ${st.sick} sick · ${st.noShow} didn’t turn up · ${st.late} late</span></div>${relBadge(st)}<span class="go" aria-hidden="true">›</span></div>`; }).join('') || '<div class="empty">No staff yet. Use “Add staff”.</div>'}</div>`;
+}
+function openStaffProfile(pid){
+  state.sheet = { type: 'staff', id: pid };
+  const p = state.profiles.find(x => x.id === pid); if (!p) return;
+  const st = staffStats(pid); const r = state.rec; const me = state.user.id;
+  const hist = [
+    ...r.shifts.filter(s => s.staff_id === pid && ['late', 'sick', 'no_show', 'cannot_work'].includes(s.status))
+      .map(s => ({ date: s.shift_date, kind: s.status, label: SHIFT_STATUS[s.status], text: `${SESS[s.session]} ${JOBS[s.job]}${s.reason ? ` · “${s.reason}”` : ''}` })),
+    ...r.notes.filter(n => n.staff_id === pid).map(n => ({ date: n.note_date, kind: n.kind, label: NOTE_KINDS[n.kind], text: n.note || '', id: n.id })),
+    ...r.unavail.filter(u => u.staff_id === pid).map(u => ({ date: u.off_date, kind: 'assigned', label: 'Day off', text: u.reason || '' }))
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  const num = (v, k, bad) => `<div class="num ${bad ? 'bad' : ''}"><b>${v}</b><span>${k}</span></div>`;
+  openSheet(`<div class="sheet-h"><div><h2>${esc(pname(p))}</h2><p class="muted">${esc(p.phone || '')} ${esc(p.email || '')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="grid2"><label class="f">Account<select id="role-${p.id}" data-profile="${p.id}" ${p.id === me ? 'disabled' : ''}>${Object.entries(ROLES).map(([k, l]) => `<option value="${k}" ${k === p.role ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="f">Can work<select id="skill-${p.id}" data-profile="${p.id}">${p.role === 'admin' ? `<option value="" ${!p.skill ? 'selected' : ''}>Not on the rota</option>` : ''}${Object.entries(SKILLS).map(([k, l]) => `<option value="${k}" ${k === p.skill ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    <div class="title-row" style="margin:0">${relBadge(st)}<span class="muted" style="font-size:13px">Last ${WEEKS_BACK} weeks</span></div>
+    <div class="nums">${num(st.worked, 'Shifts')}${num(Math.round(st.hours), 'Hours')}${num(st.late, 'Late', st.late > 1)}${num(st.sick, 'Sick', st.sick > 1)}${num(st.noShow, 'Didn’t turn up', st.noShow)}${num(st.cant, 'Can’t work')}</div>
+    <p class="muted" style="font-size:13px">Next: ${st.upcoming.slice(0, 3).map(s => `${fmtDate(s.shift_date)} ${s.session === 'day' ? 'day' : 'eve'} (${JOBS[s.job]})`).join(', ') || 'no shifts'}</p>
+    <form class="panel stack" data-form="addnote" data-staff="${p.id}"><b>Add to their record</b>
+      <div class="grid2"><input class="in" id="nt-date" name="date" type="date" required value="${todayStr()}" aria-label="Date">
+        <select class="in" id="nt-kind" name="kind" aria-label="Type">${Object.entries(NOTE_KINDS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+      <input class="in" id="nt-text" name="note" placeholder="What happened?" aria-label="Note"><button class="btn ghost" type="submit">Add</button></form>
+    <div class="hist">${hist.map(x => `<div><span class="when2">${fmtDate(x.date, { day:'numeric', month:'short' })}</span><span class="pill ${x.kind}">${esc(x.label)}</span><span class="muted">${esc(x.text)}</span>
+      ${x.id ? `<button class="linkbtn" data-action="delnote" data-id="${x.id}" style="margin-left:auto">Remove</button>` : ''}</div>`).join('') || '<p class="muted">Nothing on their record.</p>'}</div>`);
+}
+function openAddStaff(){
+  state.sheet = { type: 'addstaff' };
+  const users = state.profiles.filter(p => p.role === 'user').sort(byName);
+  openSheet(`<div class="sheet-h"><div><h2>Add staff</h2><p class="muted">They need to register in the app first. Then pick them here.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="list">${users.map(p => `<div class="row"><div class="row-main"><b>${esc(pname(p))}</b><span class="sub">${esc(p.email || '')}</span></div><button class="btn sm" data-action="makestaff" data-id="${p.id}">Make staff</button></div>`).join('') || '<div class="empty">No one else has registered yet.</div>'}</div>`);
+}
+
+/* =====================================================================
+   WHAT'S ON
+   ===================================================================== */
+function whatsOnView(){
+  const admin = isAdmin();
+  const list = state.events.map(e => { const d = new Date(e.starts_at);
+    return `<div class="event"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="txt"><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span><b>${esc(e.title)}</b>${e.description ? `<p>${esc(e.description)}</p>` : ''}</div>
+      ${admin ? `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</div>`; }).join('');
+  return page('What’s On') + (admin ? `<form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
+      <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
+        <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
+      <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
+      <input class="in" id="ev-desc" name="description" placeholder="Details (optional)" aria-label="Details"><button class="btn" type="submit">Add to What’s On</button></form>` : '')
+    + `<div class="list">${list || '<div class="empty">Nothing on yet.</div>'}</div>`;
+}
+
+/* =====================================================================
+   STAFF MEMBER: MY SHIFTS
+   ===================================================================== */
+function myShiftsView(){
+  const me = state.user.id; const today = todayStr(); const o = state.ops;
+  const mine = o.shifts.filter(s => s.staff_id === me && s.shift_date >= today && (ACTIVE(s) || (s.status === 'cannot_work' && !s.covered)))
+    .sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
+  const offMap = new Map(o.unavail.filter(u => u.staff_id === me).map(u => [u.off_date, u]));
+  const cal = calendar(state.offMonth, (ds, c) => {
+    if (c.out) return '<div class="day out"></div>';
+    if (c.past) return `<div class="day past"><span class="n">${c.day}</span></div>`;
+    const off = offMap.get(ds); const sh = mine.find(s => s.shift_date === ds && ACTIVE(s));
+    return `<button class="day${off ? ' full' : ''}${c.today ? ' today' : ''}" data-action="toggleoff" data-date="${ds}" aria-pressed="${!!off}" aria-label="${fmtDate(ds)}${off ? ', can’t work' : sh ? ', on the rota' : ''}">
+      <span class="n">${c.day}</span>${off ? '<span class="l">Can’t work</span>' : sh ? `<span class="l hall">${JOBS[sh.job]}</span>` : ''}</button>`;
+  });
+  return page('My shifts') + `
+    <div class="label">Days I can’t work</div>
+    <div class="panel stack">
+      <p class="muted" style="font-size:14px">You’re counted as free unless you say so. Tap the days you can’t work, and tap again to undo. If you’re already on the rota that day, the manager is told so they can find cover.</p>
+      <div class="bar" style="margin:0"><input class="in" id="off-reason" placeholder="Reason for the days you tap (optional)" aria-label="Reason" style="flex:1 1 220px">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
+      ${cal}
+      <div class="legend" style="margin:0"><span style="color:var(--red)">Can’t work</span><span style="color:var(--teal)">You’re on the rota</span></div>
+    </div>
+    <div class="label" style="margin-top:28px">My next shifts</div>
+    <div class="list">${mine.map(s => { const x = dayInfo(s.shift_date, o).sessions.find(y => y.sess === s.session);
+      return `<div class="dgroup">${dbox(s.shift_date)}<div class="panel stack" style="padding:12px 14px;gap:8px">
+        <b>${JOBS[s.job]} · ${sessTimes(s.shift_date, s.session).join('–')}</b>
+        <span class="muted" style="font-size:13px">${x?.bks.length ? x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${b.guests ?? '?'} guests`).join(' · ') : 'Normal opening'}</span>
+        ${ACTIVE(s) ? `<div><button class="btn ghost sm" data-action="cantwork" data-id="${s.id}">Can’t make it</button></div>
+          <form class="stack" data-form="cantwork" data-id="${s.id}" id="cw-${s.id}" hidden><input class="in" id="cw-r-${s.id}" name="reason" placeholder="Reason (optional), the manager sees this" aria-label="Reason"><button class="btn sm" type="submit">Tell the manager</button></form>`
+        : `<span style="font-size:13px;color:var(--red);font-weight:700">You said you can’t make this${s.reason ? `: “${esc(s.reason)}”` : ''}. The manager will find cover.</span>`}
+      </div></div>`; }).join('') || '<div class="empty">No shifts in the next 2 months.</div>'}</div>`;
+}
+
+/* =====================================================================
+   CUSTOMER: BOOK + MY BOOKINGS
+   ===================================================================== */
+function calendar(month, cell){
+  const r = monthRange(month); const today = todayStr();
+  let h = `<div class="cal"><div class="cal-head">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div>${d}</div>`).join('')}</div><div class="cal-grid">`;
+  for (let i = 0; i < r.cells; i++){ const d = addDays(r.start, i); const ds = ymd(d);
+    h += cell(ds, { day: d.getDate(), out: d.getMonth() !== r.first.getMonth(), past: ds < today, today: ds === today }); }
+  return h + '</div></div>';
+}
+function takenFor(ds){
+  const t = new Set((takenMap(state.avail, state.room)[ds]) || []);
+  closedParts(ds).forEach(c => t.add((c.part || 'all') === 'all' ? 'full_day' : c.part));
+  return t;
+}
+function takenMap(rows, room){ const m = {}; rows.filter(r => r.room === room && r.status !== 'cancelled').forEach(r => (m[r.booking_date] ||= new Set()).add(r.slot)); return m; }
+function bookView(){
+  const room = ROOMS[state.room]; const taken = takenMap(state.avail, state.room);
+  const cal = calendar(state.month, (ds, o) => {
+    if (o.out || o.past) return `<div class="day ${o.out ? 'out' : 'past'}"><span class="n">${o.day}</span></div>`;
+    if (closedAllDay(ds)) return `<div class="day full"><span class="n">${o.day}</span><span class="l">Not available</span></div>`;
+    const t = takenFor(ds); const free = SLOTS.filter(s => slotFree(t, s.id));
+    const st = free.length === 3 ? 'free' : free.length ? 'some' : 'full';
+    if (st === 'full') return `<div class="day full"><span class="n">${o.day}</span><span class="l">Booked</span></div>`;
+    const from = Math.min(...free.map(s => priceFor(state.room, s.id, ds)));
+    return `<button class="day ${st}${o.today ? ' today' : ''}" data-action="openday" data-date="${ds}" aria-label="${fmtDate(ds)}, from ${money(from)}"><span class="n">${o.day}</span><span class="l">from ${money(from)}</span></button>`;
+  });
+  return page('Book a room') + `<div class="bar">${seg('setroom', state.room, Object.entries(ROOMS).map(([k, r]) => [k, r.name]), 'Room')}<span class="grow"></span>${stepper('bookmonth', fmtMonth(state.month), state.month <= startOfMonth(new Date()))}</div>
+    <p class="muted" style="margin-bottom:12px;font-size:14px">${esc(room.blurb)} Up to ${room.capacity} guests. Tap a date to see prices and request it.</p>
+    ${cal}<div class="legend"><span style="color:var(--teal)">All sessions free</span><span style="color:var(--amber)">Some free</span><span style="color:var(--red)">Booked</span></div>`;
+}
+function openUserDay(ds){
+  const taken = takenFor(ds); const room = ROOMS[state.room]; const u = state.user;
+  const firstFree = SLOTS.find(s => slotFree(taken, s.id));
+  state.sheet = { type: 'userday', date: ds };
+  openSheet(`<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2><p class="muted">${room.name}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="request" data-date="${ds}">
+      <div class="slots">${SLOTS.map(s => { const ok = slotFree(taken, s.id);
+        return `<label class="opt ${ok ? '' : 'taken'}"><input type="radio" name="slot" value="${s.id}" ${ok ? '' : 'disabled'} ${s === firstFree ? 'checked' : ''}>
+          <span><b>${s.label}</b><br><span class="t">${s.time}</span></span><b>${ok ? money(priceFor(state.room, s.id, ds)) : 'Not available'}</b></label>`; }).join('')}</div>
+      <div class="grid2"><label class="f">First name<input id="rq-fn" name="first_name" required value="${esc(u.first_name)}"></label><label class="f">Last name<input id="rq-ln" name="last_name" required value="${esc(u.last_name)}"></label></div>
+      <div class="grid2"><label class="f">Phone<input id="rq-phone" name="customer_phone" type="tel" required value="${esc(u.phone)}"></label><label class="f">Email<input id="rq-email" name="customer_email" type="email" required value="${esc(u.email)}"></label></div>
+      <div class="grid2"><label class="f">Event type${eventTypeSelect('rq-type')}</label><label class="f">Guests<input id="rq-guests" name="guests" type="number" min="1" max="${room.capacity}" required value="${Math.min(30, room.capacity)}"></label></div>
+      ${x18Fields('rq')}
+      <label class="f">Membership number<input id="rq-mem" name="membership_no" value="${esc(u.membership_no)}" placeholder="If you have one"></label>
+      <label class="f">Anything else?<textarea id="rq-notes" name="notes"></textarea></label>
+      <p class="muted" style="font-size:13px">A ${money(DEPOSIT)} deposit secures your booking once the club confirms it. Pay at the bar or call ${esc(CONFIG.PHONE)}.</p>
+      <div class="err"></div><button class="btn" type="submit">Request booking</button></form>`);
+}
+function mineView(){
+  const today = todayStr();
+  const row = b => { const pi = payInfo(b, state.myPayments);
+    return `<div class="row"><span class="room ${b.room}">${ROOMS[b.room].short}</span><div class="row-main"><b>${fmtDate(b.booking_date, { weekday:'short', day:'numeric', month:'short', year:'numeric' })} · ${esc(b.event_type || 'Booking')}</b>
+      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}${b.status === 'confirmed' && pi.depositDue ? ` · Pay your ${money(pi.depositDue)} deposit at the bar` : ''}</span></div>
+      <span class="pill ${b.status}">${b.status}</span>${b.status === 'confirmed' ? payPill(pi, true) : ''}
+      ${b.status !== 'cancelled' && b.booking_date >= today ? `<button class="btn ghost sm" data-action="cancelmine" data-id="${b.id}">Cancel</button>` : ''}</div>`; };
+  const up = state.mine.filter(b => b.booking_date >= today), past = state.mine.filter(b => b.booking_date < today);
+  return page('My bookings', `<button class="btn" data-action="go" data-view="book" data-room="hall">Book a room</button>`)
+    + `<div class="list">${up.map(row).join('') || '<div class="empty">No bookings coming up.</div>'}</div>`
+    + (past.length ? `<div class="label" style="margin-top:24px">Past</div><div class="list">${past.map(row).join('')}</div>` : '');
+}
+
+/* ---------- Sheet ---------- */
+function openSheet(html){
+  $('#sheetRoot').innerHTML = `<div class="sheet-wrap" data-action="backdrop"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $('#sheetRoot .x')?.focus();
+}
+function closeSheet(){ $('#sheetRoot').innerHTML = ''; state.sheet = null; }
+
+/* =====================================================================
+   EVENTS
+   ===================================================================== */
+function armed(btn){ // tap twice to delete, since the viewer can't show confirm() dialogs
+  if (btn.dataset.armed === '1') return true;
+  btn.dataset.armed = '1'; const old = btn.textContent; btn.textContent = 'Tap again';
+  setTimeout(() => { if (btn.isConnected){ btn.dataset.armed = '0'; btn.textContent = old; } }, 3000);
+  return false;
+}
+const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
+const actions = {
+  go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
+  authtab: t => { state.authTab = t.dataset.val; render(); },
+  demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
+  signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); },
+  setroom: t => go('book', { room: t.dataset.val }),
+  bookmonth: t => go('book', { month: stepMonth(state.month, t.dataset.step) }),
+  openday: t => openUserDay(t.dataset.date),
+  cancelmine: async t => { if (!armed(t)) return; await api.cancelMine(Number(t.dataset.id)); toast('Booking cancelled'); refresh(); },
+  // bookings
+  bktab: t => { state.bkTab = t.dataset.val; render(); },
+  bkmonth: t => { state.bkMonth = stepMonth(state.bkMonth, t.dataset.step); render(); },
+  bkday: t => openBkDay(t.dataset.date),
+  newon: t => go('newbooking', { newDate: t.dataset.date || todayStr() }),
+  openbooking: t => go('booking', { bookingId: Number(t.dataset.id), editBooking: false }),
+  status: async t => { await api.setStatus(Number(t.dataset.id), t.dataset.status); toast(t.dataset.status === 'confirmed' ? 'Confirmed' : 'Cancelled'); refresh(); },
+  editbooking: () => { state.editBooking = !state.editBooking; render(); },
+  delbooking: async t => { if (!armed(t)) return; await api.deleteBooking(Number(t.dataset.id)); toast('Booking deleted'); go('bookings'); },
+  delpayment: async t => { if (!armed(t)) return; await api.deletePayment(Number(t.dataset.id)); toast('Payment removed'); refresh(); },
+  reopenday: async t => { await api.reopenDay(Number(t.dataset.id)); toast('Bookings allowed again'); refresh(); },
+  // rota
+  rotaweek: t => go('rota', { rotaWeek: Number(t.dataset.step) ? addDays(state.rotaWeek, 7 * Number(t.dataset.step)) : startOfWeek(new Date()) }),
+  rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)) }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
+  undoproblem: async t => { await api.updateShift(Number(t.dataset.id), { status: 'confirmed', covered: false }); toast('Put back on the shift'); refresh(); },
+  // staff
+  staffprofile: t => openStaffProfile(t.dataset.id),
+  addstaff: () => openAddStaff(),
+  makestaff: async t => { await api.updateProfile(t.dataset.id, { role: 'staff', skill: 'both' }); toast('Added to the staff'); refresh(); },
+  delnote: async t => { if (!armed(t)) return; await api.deleteNote(Number(t.dataset.id)); toast('Removed'); refresh(); },
+  // what's on
+  delevent: async t => { if (!armed(t)) return; await api.deleteEvent(Number(t.dataset.id)); toast('Event removed'); refresh(); },
+  // staff member
+  offmonth: t => go('myshifts', { offMonth: stepMonth(state.offMonth, t.dataset.step) }),
+  toggleoff: async t => {
+    const ds = t.dataset.date; const me = state.user.id;
+    const off = state.ops.unavail.find(u => u.staff_id === me && u.off_date === ds);
+    if (off){ await api.removeUnavailable(off.id); toast('Done. You’re free that day again.'); }
+    else {
+      const onShift = state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s));
+      await api.markUnavailable(ds, $('#off-reason')?.value.trim() || '');
+      toast(onShift ? 'Marked. The manager has been told to find cover.' : 'Marked as can’t work');
+    }
+    const reason = $('#off-reason')?.value; await refresh(); if (reason && $('#off-reason')) $('#off-reason').value = reason;
+  },
+  cantwork: t => { const f = document.getElementById('cw-' + t.dataset.id); if (f){ f.hidden = !f.hidden; if (!f.hidden) f.querySelector('input').focus(); } },
+  removeoff: async t => { if (!armed(t)) return; await api.removeUnavailable(Number(t.dataset.id)); toast('Removed'); refresh(); },
+  closesheet: () => closeSheet(),
+  backdrop: (t, e) => { if (e.target === t) closeSheet(); }
+};
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-action]'); if (!t) return;
+  if (t.dataset.action === 'backdrop' && e.target !== t) return;
+  const fn = actions[t.dataset.action]; if (!fn) return;
+  try { await fn(t, e); } catch(err){ toast(err.message); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') return closeSheet();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[role="button"][data-action]')){ e.preventDefault(); e.target.click(); }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  try {
+    if (el.matches('[data-reprice]')){ const f = el.form; if (f.booking_date.value && f.price.hasAttribute('data-autoprice')) f.price.value = priceFor(f.room.value, f.slot.value, f.booking_date.value); }
+    if (el.matches('[data-evtype]')){ const fs = el.form.querySelector('fieldset.x18'); const on = el.value === '18th Birthday'; fs.hidden = !on; fs.querySelector('[name=e18_name]').required = on; }
+    if (el.matches('[data-memberpick]')){ const f = el.form; const p = state.profiles.find(x => x.id === el.value); f.user_id.value = p ? p.id : '';
+      if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
+    if (el.matches('[data-profile]')){ const id = el.dataset.profile;
+      await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-slotsel]')){
+      const { date, sess, job, shift, cover } = el.dataset; const who = el.value;
+      if (shift && !who){ await api.removeShift(Number(shift)); toast('Taken off the shift'); }
+      else if (shift){ await api.updateShift(Number(shift), { staff_id: who, status: 'assigned' }); toast('Changed'); }
+      else if (who){ await api.assignShift({ shift_date: date, session: sess, job, staff_id: who }); if (cover) await api.updateShift(Number(cover), { covered: true }); toast(cover ? 'Cover sorted' : 'Saved'); }
+      refresh();
+    }
+    if (el.matches('[data-outcome]')){ await api.updateShift(Number(el.dataset.id), { status: el.value });
+      toast(el.value === 'sick' || el.value === 'no_show' ? 'Added to their record' : 'Saved'); refresh(); }
+  } catch(err){ toast(err.message); refresh(); }
+});
+
+function bookingFromForm(f){
+  const b = { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), customer_phone: f.customer_phone.value.trim(),
+    customer_email: f.customer_email.value.trim(), membership_no: f.membership_no.value.trim(),
+    event_type: f.event_type.value, event_details: eventDetails(f), guests: Number(f.guests.value), notes: f.notes.value.trim() };
+  if (f.user_id) b.user_id = f.user_id.value || null;
+  return b;
+}
+function adminBooking(f){
+  const room = f.room.value;
+  const b = { ...bookingFromForm(f), room, booking_date: f.booking_date.value, slot: f.slot.value, status: f.status.value, price: f.price.value ? Number(f.price.value) : null };
+  if (b.guests > ROOMS[room].capacity) throw new Error(`The ${ROOMS[room].name} holds up to ${ROOMS[room].capacity} guests.`);
+  return b;
+}
+const forms = {
+  async login(f){ state.user = await api.signIn(f.email.value.trim(), f.password.value); go('hub'); },
+  async signup(f){
+    const r = await api.signUp({ email: f.email.value.trim(), password: f.password.value, first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), phone: f.phone.value.trim(), membership_no: f.membership_no.value.trim() });
+    if (r.needsConfirm){ state.authTab = 'login'; render(); toast('Check your email to confirm, then sign in.'); return; }
+    state.user = r; go('hub');
+  },
+  async request(f){
+    const slot = f.slot.value; const ds = f.dataset.date;
+    await api.requestBooking({ ...bookingFromForm(f), room: state.room, booking_date: ds, slot, price: priceFor(state.room, slot, ds), deposit_required: DEPOSIT }, state.user.id);
+    closeSheet(); toast('Request sent. The club will confirm soon.'); refresh();
+  },
+  async addbooking(f){ const b = adminBooking(f); const x = await api.addBooking({ ...b, deposit_required: DEPOSIT }); toast('Booking saved'); go('booking', { bookingId: x.id, editBooking: false }); },
+  async editbooking(f){ await api.updateBooking(Number(f.dataset.id), adminBooking(f)); state.editBooking = false; toast('Saved'); refresh(); },
+  async addpayment(f){
+    const amount = Number(f.amount.value); if (!(amount > 0)) throw new Error('Enter an amount above £0.');
+    await api.addPayment({ booking_id: Number(f.dataset.id), user_id: state.cur?.b.user_id || null, amount, kind: f.kind.value, method: f.method.value, paid_on: f.paid_on.value, note: '' });
+    toast(`${money(amount)} recorded`); refresh();
+  },
+  async closeday(f){ await api.closeDay({ closed_date: f.dataset.date, part: f.part.value, reason: f.reason.value.trim() || null }); toast('Set to no bookings'); refresh(); },
+  async addevent(f){ await api.addEvent({ title: f.title.value.trim(), category: f.category.value, description: f.description.value.trim(), starts_at: new Date(`${f.date.value}T${f.time.value}`).toISOString() }); toast('Added'); refresh(); },
+  async addnote(f){ await api.addNote({ staff_id: f.dataset.staff, note_date: f.date.value, kind: f.kind.value, note: f.note.value.trim() }); toast('Added to their record'); refresh(); },
+  async cantwork(f){ await api.staffSetShift(Number(f.dataset.id), 'cannot_work', f.reason.value.trim()); toast('The manager has been told'); refresh(); },
+  async markoff(f){ await api.markUnavailable(f.date.value, f.reason.value.trim()); toast('Day added'); refresh(); }
+};
+document.addEventListener('submit', async e => {
+  const f = e.target.closest('[data-form]'); if (!f) return;
+  e.preventDefault();
+  const errEl = f.querySelector('.err'); if (errEl) errEl.textContent = '';
+  const btn = f.querySelector('[type=submit]'); if (btn) btn.disabled = true;
+  try { await forms[f.dataset.form](f); }
+  catch(err){ if (errEl && errEl.isConnected) errEl.textContent = err.message; else toast(err.message); }
+  finally { if (btn && btn.isConnected) btn.disabled = false; }
+});
+
+/* ---------- start ---------- */
+(async () => {
+  try { state.user = await api.currentUser(); } catch(e) {}
+  if (state.user) go('hub'); else render();
+})();
+</script>
