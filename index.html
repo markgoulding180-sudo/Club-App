@@ -251,9 +251,11 @@ div.day{cursor:default}
 .hist .when2{color:var(--muted);min-width:80px}
 
 /* What's On */
-.event{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
-.event .txt{flex:1;min-width:0;display:grid;gap:2px}
-.event .txt p{color:var(--muted);font-size:14px}
+.event{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.ehead{display:flex;gap:12px;align-items:center}
+.etitle{flex:1;min-width:0;display:grid;gap:2px}
+.etitle b{font-size:17px;overflow-wrap:anywhere}
+.edesc{color:var(--muted);font-size:14px}
 .event .meta{font-size:13px;color:var(--amber);font-weight:800}
 
 /* Sheet + toast */
@@ -296,6 +298,47 @@ body.authpage::before{background:linear-gradient(180deg,rgba(7,12,26,.35) 0%,rgb
 .auth section{display:grid;gap:6px;justify-items:start}
 .authpage .auth .lead{color:#e6ecff;text-shadow:0 1px 8px rgba(0,0,0,.8)}
 @media (max-width:760px){ .auth section{justify-items:center;text-align:center} .auth .lead{margin-inline:auto} }
+/* Header name on two lines so it always fits */
+.bname{display:grid;line-height:1.1;min-width:0;text-align:left}
+.bname b{font-family:var(--display);font-weight:700;font-size:15px;white-space:nowrap}
+.bname small{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+/* Booking calendar: colour only, prices listed underneath */
+.day .dot{width:8px;height:8px;border-radius:50%;margin-top:auto;background:var(--muted)}
+.day.free{background:rgba(46,230,200,.10)} .day.free .dot{background:var(--teal)}
+.day.some{background:rgba(255,181,71,.10)} .day.some .dot{background:var(--amber)}
+.day.full .dot{background:var(--red)}
+.ldot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.ldot.free{background:var(--teal)} .ldot.some{background:var(--amber)} .ldot.full{background:var(--red)}
+.pricebox{margin-top:14px;display:grid;gap:4px}
+.prow{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.prow small{display:block;color:var(--muted);font-size:12px}
+.prow b{font-variant-numeric:tabular-nums}
+/* Phones: use the full width */
+@media (max-width:600px){
+  .wrap{padding-inline:8px}
+  main{padding-top:14px}
+  .panel{padding:12px}
+  .row{padding:10px 12px}
+  .cal{padding:3px;border-radius:12px;margin-inline:-4px}
+  .cal-head,.cal-grid{gap:2px}
+  .day{min-height:50px;padding:5px;border-radius:8px}
+  .day .n{font-size:15px}
+  .head{margin-bottom:12px}
+  .head h1{font-size:22px}
+  .bar{gap:8px}
+  .bar .tabs{width:100%}
+  .bar .tabs button,.bar .tabs .pick{flex:1;padding-inline:8px}
+  .stepper{width:100%;justify-content:space-between}
+  .stepper b{min-width:0}
+  .band .wrap{gap:8px}
+  .signout{padding:6px 10px}
+  .event{padding:12px}
+  .rday{padding:12px}
+  .slot{grid-template-columns:minmax(0,1fr) auto}
+  .dgroup{grid-template-columns:48px minmax(0,1fr);gap:8px}
+  .prow{grid-template-columns:1fr 1fr;row-gap:2px} .prow > span:first-child{grid-column:1 / -1}
+}
+@media (min-width:1000px){ .wrap{max-width:1040px} }
 button.today{width:100%;cursor:pointer;color:var(--ink);text-align:left}
 button.today:hover{border-color:var(--teal)}
 .pill.note{background:var(--surface-2);color:var(--muted)}
@@ -883,7 +926,7 @@ function render(){
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView };
   app.innerHTML = `<header class="band"><div class="wrap">
-      <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><b>${esc(CONFIG.TOWN)} ${esc(CONFIG.CLUB_NAME)}</b></button>
+      <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
       <button class="btn ghost sm signout" data-action="signout">Sign out</button></div></header>
     <main><div class="wrap">${(views[state.view] || homeView)()}</div></main>
@@ -1263,9 +1306,10 @@ function openAddStaff(){
 function whatsOnView(){
   const admin = isAdmin();
   const list = state.events.map(e => { const d = new Date(e.starts_at);
-    return `<div class="event"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="txt"><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span><b>${esc(e.title)}</b>${e.description ? `<p>${esc(e.description)}</p>` : ''}</div>
-      ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>`; }).join('');
+    return `<div class="event"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>
+      ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
+      ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}</div>`; }).join('');
   return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
@@ -1328,16 +1372,19 @@ function bookView(){
   const room = ROOMS[state.room]; const taken = takenMap(state.avail, state.room);
   const cal = calendar(state.month, (ds, o) => {
     if (o.out || o.past) return `<div class="day ${o.out ? 'out' : 'past'}"><span class="n">${o.day}</span></div>`;
-    if (closedAllDay(ds)) return `<div class="day full"><span class="n">${o.day}</span><span class="l">Not available</span></div>`;
+    if (closedAllDay(ds)) return `<div class="day full" aria-label="${fmtDate(ds)}, not available"><span class="n">${o.day}</span><span class="dot"></span></div>`;
     const t = takenFor(ds); const free = SLOTS.filter(s => slotFree(t, s.id));
     const st = free.length === 3 ? 'free' : free.length ? 'some' : 'full';
-    if (st === 'full') return `<div class="day full"><span class="n">${o.day}</span><span class="l">Booked</span></div>`;
+    if (st === 'full') return `<div class="day full" aria-label="${fmtDate(ds)}, booked"><span class="n">${o.day}</span><span class="dot"></span></div>`;
     const from = Math.min(...free.map(s => priceFor(state.room, s.id, ds)));
-    return `<button class="day ${st}${o.today ? ' today' : ''}" data-action="openday" data-date="${ds}" aria-label="${fmtDate(ds)}, from ${money(from)}"><span class="n">${o.day}</span><span class="l">from ${money(from)}</span></button>`;
+    return `<button class="day ${st}${o.today ? ' today' : ''}" data-action="openday" data-date="${ds}" aria-label="${fmtDate(ds)}, ${st === 'free' ? 'all sessions free' : 'some sessions free'}"><span class="n">${o.day}</span><span class="dot"></span></button>`;
   });
   return page('Book a room') + `<div class="bar">${seg('setroom', state.room, Object.entries(ROOMS).map(([k, r]) => [k, r.name]), 'Room')}<span class="grow"></span>${stepper('bookmonth', fmtMonth(state.month), state.month <= startOfMonth(new Date()))}</div>
-    <p class="muted" style="margin-bottom:12px;font-size:14px">${esc(room.blurb)} Up to ${room.capacity} guests. Tap a date to see prices and request it.</p>
-    ${cal}<div class="legend"><span style="color:var(--teal)">All sessions free</span><span style="color:var(--amber)">Some free</span><span style="color:var(--red)">Booked</span></div>`;
+    <p class="muted" style="margin-bottom:12px;font-size:14px">${esc(room.blurb)} Up to ${room.capacity} guests. Tap a date to request it.</p>
+    ${cal}<div class="legend"><span><i class="ldot free"></i>All sessions free</span><span><i class="ldot some"></i>Some free</span><span><i class="ldot full"></i>Booked</span></div>
+    <div class="panel pricebox"><b>${room.name} prices</b>
+      ${SLOTS.map(s => `<div class="prow"><span>${s.label}<small>${s.time}</small></span><span>Sun–Thu <b>${money(PRICES[state.room][s.id].weekday)}</b></span><span>Fri &amp; Sat <b>${money(PRICES[state.room][s.id].weekend)}</b></span></div>`).join('')}
+      <p class="muted" style="font-size:13px;margin-top:8px">A ${money(DEPOSIT)} deposit secures your booking once the club confirms it.</p></div>`;
 }
 function openUserDay(ds){
   const taken = takenFor(ds); const room = ROOMS[state.room]; const u = state.user;
