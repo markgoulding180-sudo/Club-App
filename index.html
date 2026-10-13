@@ -344,8 +344,11 @@ const EVENT_CATS = ['Bingo', 'Live music', 'Cabaret', 'Quiz', 'Sport', 'Darts & 
 const EVENT_TYPES = ['Birthday', '18th Birthday', 'Wedding reception', 'Engagement', 'Anniversary', 'Christening', 'Wake', 'Meeting', 'Club function', 'Other'];
 
 const SESS = { day: 'Daytime', eve: 'Evening' };
-const JOBS = { lounge: 'Lounge Bar', event: 'Event bar', door: 'Door' };
-const JOB_ORDER = ['lounge', 'event', 'door'];
+/* Bar staff are all just "Bar": the normal bar person plus any extras for bookings and club events.
+   (Older shifts saved as 'event' count as Bar too.) */
+const JOBS = { lounge: 'Bar', event: 'Bar', door: 'Door' };
+const JOB_ORDER = ['lounge', 'door'];
+const jobOf = s => s.job === 'event' ? 'lounge' : s.job;
 const SKILLS = { both: 'Bar & door', bar: 'Bar', door: 'Door' };
 const ROLES = { user: 'Customer', staff: 'Staff', admin: 'Admin' };
 const SHIFT_STATUS = { assigned: 'On the rota', confirmed: 'On the rota', cannot_work: 'Can’t work', late: 'Late', sick: 'Sick', no_show: 'Didn’t turn up' };
@@ -411,7 +414,9 @@ const isClub = b => b.booking_kind === 'club';
 const clubStaffDefault = room => room === 'hall' ? 1 : 0;
 const clubStaff = b => b.bar_staff ?? clubStaffDefault(b.room);
 const eventNeedFor = b => isClub(b) ? clubStaff(b) : eventBarFor(b);
-const clubStaffText = b => { const n = clubStaff(b); return n ? `${plural(n, 'extra bar staff member', 'extra bar staff')} on the rota, on top of the normal Lounge Bar${b.slot !== 'afternoon' ? ' and door' : ''}` : 'No extra staff. Covered by the normal Lounge Bar staff'; };
+const clubStaffText = b => { const n = clubStaff(b); const sess = b.slot === 'afternoon' ? 'day' : 'eve';
+  const base = openOn(b.booking_date)[sess] ? STAFF_RULES.loungeBar : 0; const total = base + n;
+  return `${total} bar staff that ${sess === 'day' ? 'afternoon' : 'evening'}${base && n ? ` (${base} normal + ${n} extra)` : ''}${sess === 'eve' && openOn(b.booking_date).eve ? ', plus the door' : ''}`; };
 const tmin = t => { if (!t) return 0; const [h2, m] = t.slice(0, 5).split(':').map(Number); return (h2 === 0 && m === 0) ? 1440 : h2 * 60 + m; };
 const hhmm = t => (t || '').slice(0, 5);
 /* Work out which session(s) a club event's times fall in, so it blocks the room correctly. */
@@ -424,9 +429,9 @@ function sessionNeeds(ds, bookings){
     const sb = bks.filter(b => SLOT_SESS[b.slot].includes(sess));
     const open = !!o[sess];
     return { sess, open, bks: sb, times: sessTimes(ds, sess), need: {
-      lounge: open ? STAFF_RULES.loungeBar : 0,
+      lounge: (open ? STAFF_RULES.loungeBar : 0) + sb.reduce((a, b) => a + eventNeedFor(b), 0),
       door: open && sess === 'eve' ? STAFF_RULES.doorEvenings : 0,
-      event: sb.reduce((a, b) => a + eventNeedFor(b), 0) } };
+      event: 0 } };
   });
 }
 function dayInfo(ds, ops){
@@ -435,7 +440,7 @@ function dayInfo(ds, ops){
     const ss = shifts.filter(s => s.session === x.sess);
     const on = ss.filter(ACTIVE);
     const have = {}; let short = 0, needed = 0;
-    JOB_ORDER.forEach(j => { have[j] = on.filter(s => s.job === j).length; short += Math.max(0, x.need[j] - have[j]); needed += x.need[j]; });
+    JOB_ORDER.forEach(j => { have[j] = on.filter(s => jobOf(s) === j).length; short += Math.max(0, x.need[j] - have[j]); needed += x.need[j]; });
     const problems = ss.filter(s => PROBLEM.includes(s.status) && !s.covered);
     return { ...x, shifts: ss, on, have, short, needed, problems };
   }).filter(x => x.needed || x.shifts.length);
@@ -1035,7 +1040,7 @@ function clubForm({ b = null, date = todayStr(), idp = 'cb' } = {}){
     <div class="grid2"><label class="f">Date<input id="${idp}-date" name="booking_date" type="date" required value="${date}"></label>
       <label class="f">Room<select id="${idp}-room" name="room" data-clubroom>${Object.entries(ROOMS).map(([k, r]) => `<option value="${k}" ${k === (v.room || 'hall') ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label></div>
     <label class="f">Extra bar staff for this event<select id="${idp}-staff" name="bar_staff" ${b ? 'data-touched="1"' : ''}>${[0, 1, 2, 3, 4].map(n => `<option value="${n}" ${n === (b ? clubStaff(v) : clubStaffDefault(v.room || 'hall')) ? 'selected' : ''}>${n === 0 ? 'None, normal bar staff cover it' : `${n} extra`}</option>`).join('')}</select>
-      <span class="muted" style="font-weight:500;font-size:12px">Added to the rota automatically, on top of the normal Lounge Bar person and the door.</span></label>
+      <span class="muted" style="font-weight:500;font-size:12px">Added to the rota as extra Bar shifts, on top of the 1 normal bar person. Example: 1 extra = 2 bar staff that session.</span></label>
     <div class="grid2"><label class="f">Starts${timeSelect(`${idp}-start`, 'start_time', hhmm(v.start_time) || '19:00')}</label>
       <label class="f">Finishes${timeSelect(`${idp}-end`, 'end_time', hhmm(v.end_time) || '23:00')}</label></div>
     <div class="f">Entry<div class="tabs" role="group" aria-label="Entry">
@@ -1135,7 +1140,7 @@ const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="H
 function slotsHtml(ds, x){
   const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = '';
   for (const job of JOB_ORDER){
-    const on = x.on.filter(s => s.job === job); const probs = x.problems.filter(s => s.job === job);
+    const on = x.on.filter(s => jobOf(s) === job); const probs = x.problems.filter(s => jobOf(s) === job);
     const n = Math.max(x.need[job], on.length); let c = 0;
     for (let k = 0; k < n; k++){
       const s = on[k]; const label = JOBS[job] + (n > 1 ? ' ' + (k + 1) : '');
@@ -1161,7 +1166,7 @@ function rotaView(){
     if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
   }
   h += `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
-  if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. 1 Lounge Bar when open, 1 Door every evening, 1 Event bar per ${STAFF_RULES.guestsPerEventBar} booked guests.</p>`;
+  if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. 1 Bar when open, 1 Door every evening, plus extra Bar for club events and 1 per ${STAFF_RULES.guestsPerEventBar} guests on room hire.</p>`;
   h += `<div class="list">${infos.map(i => `<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
       <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}</div>
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
