@@ -739,6 +739,22 @@ main.authmain{padding:0 !important}
 @media (max-width:760px){ .hero-btns{gap:10px} .hero-hint{margin-top:-4px;font-size:13px} }
 .wo-top{padding-top:clamp(18px,1.6vw,30px)}
 @media (max-width:760px){ .wo-top{padding-top:30px} }
+/* Phones: What's On as a small swipeable row, two cards side by side with the next peeking in */
+@media (max-width:760px){
+  .wo-top{padding-inline:0;margin-bottom:20px}
+  .wo-top .wo-h,.wo-top .wo-foot{padding-inline:12px}
+  .wo-top .wo-list{display:flex;grid-template-columns:none;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 12px 6px;scroll-padding-inline:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .wo-top .wo-list::-webkit-scrollbar{display:none}
+  .wo-top .wo-item{flex:0 0 44%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px}
+  .wo-top .wo-item .when{display:flex;gap:5px;align-items:baseline;min-width:0;padding:3px 9px;border-radius:99px}
+  .wo-top .wo-item .when .m{font-size:10px;letter-spacing:.06em}
+  .wo-top .wo-item .when .d{font-size:14px;line-height:1.2}
+  .wo-top .wo-item .t{width:100%}
+  .wo-top .wo-item .t b{font-size:14.5px}
+  .wo-top .wo-item .t span{font-size:12px}
+  .wo-top .wo-item .t small{font-size:11px}
+  .wo-top .wo-foot{font-size:12px}
+}
 </style>
 
 </head>
