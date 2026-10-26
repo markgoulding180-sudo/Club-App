@@ -775,6 +775,16 @@ main.authmain{padding:0 !important}
   .hero-cta .wo-top .wo-h{justify-content:center}
   .hero-cta .wo-top .wo-list{padding-inline:calc(19vw - 12px)}
   .hero-cta .wo-top .wo-foot{display:none}
+  .hero-cta .wo-top .wo-list{display:block;overflow:visible;padding:0 12px}
+  .hero-cta .wo-top .wo-item{display:none}
+  .hero-cta .wo-top .wo-item:first-child{display:flex;width:100%;opacity:1;transform:none;border-color:rgba(242,195,91,.6);padding:10px 12px}
+  .hero-cta .wo-top .wo-item:first-child .t small{display:block}
+  .hero-cta .wo-h b::after{content:" · Next up"}
+  .hero-cta .wo-h span{display:none}
+  .wo-open{display:flex;justify-content:center;margin:12px 0 0}
+  .wo-open .opennow{margin:0;padding:5px 12px;font-size:13px}
+  .slide-card .slide-img{order:0}
+  .slide-card .slide-img::after{inset:0 0 auto 0;height:30%;background:linear-gradient(180deg,rgba(14,23,52,.96),rgba(14,23,52,0))}
 }
 </style>
 
@@ -1481,6 +1491,8 @@ function initWo(){
   const list = document.querySelector('.wo-top .wo-list'); if (!list) return;
   const items = [...list.querySelectorAll('.wo-item')]; if (!items.length) return;
   items.forEach((el, i) => el.dataset.i = i);
+  const inBox = !!list.closest('.hero-cta');
+  if (inBox){ woCenter(); return; }
   if (items.length > 2){
     const mk = el => { const c = el.cloneNode(true); c.classList.add('clone'); c.setAttribute('aria-hidden', 'true'); return c; };
     items.forEach(el => list.appendChild(mk(el)));
@@ -1595,7 +1607,7 @@ function render(){
     <div class="hero-cta"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
       <p class="hero-hint">Log in to see the full members’ site</p></div></header>
     <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`;
-    if (woMobile()){ const box = app.querySelector('.hero-cta'), wo = app.querySelector('.wo-top'); if (box && wo) box.appendChild(wo); }
+    if (woMobile()){ const box = app.querySelector('.hero-cta'), wo = app.querySelector('.wo-top'); if (box && wo){ box.appendChild(wo); wo.insertAdjacentHTML('beforeend', `<div id="openNow" class="wo-open">${openNowHtml()}</div>`); } }
     initWo(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
