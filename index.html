@@ -1096,6 +1096,17 @@ html,body{overflow-x:clip;max-width:100%}
   .lp-gallery{grid-template-columns:repeat(3,1fr)}
   .lp-foot .lp-wrap{grid-template-columns:1fr}
 }
+/* Sign-in box: what members get */
+.lbox{max-width:620px}
+.lperks{width:100%;margin-top:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15);text-align:left}
+.lperks-h{display:block;text-align:center;font-family:var(--display);font-size:16px;color:#f2c35b}
+.lperks > p{margin:2px 0 10px;text-align:center;font-size:13.5px;color:#c9d4f5}
+.lperks ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lperks li{display:flex;gap:9px;align-items:flex-start;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(242,195,91,.25)}
+.lperks i{font-style:normal;flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:linear-gradient(135deg,#f6d27a,#d9a23a);color:#1d1404;font-weight:900}
+.lperks li span{display:grid;gap:1px;font-size:12px;line-height:1.35;color:#a9b6e0}
+.lperks li b{font-size:13px;color:#fff}
+@media (max-width:760px){ .lperks ul{grid-template-columns:1fr;gap:7px} .lperks li{padding:8px 10px} }
 </style>
 
 </head>
@@ -1925,7 +1936,13 @@ function render(){
   const app = $('#app');
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-m2-800.webp 800w, img/hero-m2-1200.webp 1200w" sizes="100vw" width="2048" height="768"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture></header>
     <div class="lbox"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
-      <p class="hero-hint">Log in to see the full members’ site</p></div>
+      <div class="lperks"><b class="lperks-h">Your own members’ area</b>
+        <p>Sign in and the app is tailored to you.</p>
+        <ul>
+          <li><i>★</i><span><b>Your events first</b>Pick what you enjoy and we’ll show you those nights</span></li>
+          <li><i>🎟</i><span><b>Your tickets &amp; bookings</b>Everything you’ve reserved, in one place</span></li>
+          <li><i>✓</i><span><b>Book in a few taps</b>Hall hire and event tickets from your phone</span></li>
+        </ul></div></div>
     <nav class="pubnav" aria-label="Club information">${LSECS.map(([id, label]) => `<button data-action="pubnav" data-to="${id}">${label}</button>`).join('')}</nav>
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
