@@ -683,10 +683,10 @@ main.authmain{padding:0 !important}
   .sl-nav{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .slides{transition:none} }
-.info3{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px) minmax(0,1fr);gap:20px;align-items:start}
+.info3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
 .info3 .hours{margin:0;width:100%}
 .info3 .wo-list{grid-template-columns:1fr}
-@media (max-width:1000px){ .info3{grid-template-columns:1fr 1fr} .info3 .wo-slot{grid-column:1 / -1} }
+
 @media (max-width:760px){ .info3{grid-template-columns:1fr} }
 @media (min-width:1000px){ .authmain .wrap{max-width:none;padding-inline:clamp(12px,4vw,80px)} }
 .amen{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
@@ -722,6 +722,13 @@ main.authmain{padding:0 !important}
 .amen.one{grid-template-columns:1fr}
 .slide-txt a.btn{display:inline-flex;align-items:center;text-decoration:none}
 @media (max-width:520px){ .hire.mem{grid-template-columns:1fr 1fr 1fr} .hire.mem .hire-box{padding:8px} }
+/* Sign-in page: next 3 What's On, straight under the hero */
+.wo-top{padding:0 clamp(12px,4vw,80px);margin:-4px 0 26px}
+.wo-top .wo-h b{font-size:clamp(18px,1.6vw,26px)}
+.wo-top .wo-list{gap:clamp(10px,1.2vw,20px)}
+.wo-top .wo-item{padding:clamp(10px,1vw,16px) clamp(12px,1.2vw,20px);border-color:rgba(242,195,91,.35)}
+.wo-top .wo-item .t b{font-size:clamp(16px,1.15vw,20px)}
+.wo-top .wo-foot{text-align:left}
 </style>
 
 </head>
@@ -1508,7 +1515,7 @@ function render(){
   const app = $('#app');
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" srcset="img/hero-tall.jpg"><img src="img/hero-wide.jpg" alt="The Railway Club, Ashford"></picture>
     <div class="hero-cta"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div></header>
-    <section class="mainbody">${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; return; }
+    <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
@@ -1651,7 +1658,6 @@ function loginView(){
         <p class="muted" style="font-size:13px">Just off Beaver Road, with our own access road round to the car park. There’s plenty of parking.</p>
       </section>
       ${hoursHtml()}
-      <div id="woSlot" class="wo-slot">${woHtml()}</div>
     </div></div>`;
 }
 
