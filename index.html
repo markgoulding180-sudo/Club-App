@@ -1635,7 +1635,7 @@ function render(){
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-m2-800.webp 800w, img/hero-m2-1200.webp 1200w" sizes="100vw" width="2048" height="768"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture>
     <div class="hero-cta"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
       <p class="hero-hint">Log in to see the full members’ site</p></div></header>
-    <nav class="pubnav" aria-label="Club information">${[['0', 'About us'], ['3', 'Membership'], ['2', 'Hall hire'], ['wo', 'What’s On']].map(([k, l]) => `<button data-action="pubnav" data-to="${k}">${l}</button>`).join('')}</nav>
+    <nav class="pubnav" aria-label="Club information">${[['0', 'About Us'], ['3', 'Membership'], ['2', 'Hall Hire'], ['wo', 'What’s On']].map(([k, l]) => `<button data-action="pubnav" data-to="${k}">${l}</button>`).join('')}</nav>
     <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`;
     if (woMobile()){ const box = app.querySelector('.hero-cta'), wo = app.querySelector('.wo-top'); const nav = app.querySelector('.pubnav'); if (box && nav) nav.after(box);
       if (box && wo){ box.appendChild(wo); wo.insertAdjacentHTML('beforeend', `<div id="openNow" class="wo-open">${openNowHtml()}</div>`); } }
@@ -1699,7 +1699,7 @@ const SLIDES = [
       <p>We’re <b>family-friendly</b>, and members can sign guests in for <b>£2</b>.</p>
       <div class="chips"><span>Members’ club</span><span>Guests £2</span><span>Family-friendly</span><span>Function room</span></div>` },
   { imgs: [['slide-sport', 'Watching the football on the big screen'], ['slide-pool', 'The pool table and members’ bar'], ['slide-family', 'Families and friends at the bar']], html: () => `
-      <h2 class="welcome-h">Club amenities</h2>
+      <h2 class="welcome-h">Club Amenities</h2>
       <p>Everything for a night out, a big match or a family get-together.</p>
       <ul class="amen">
         <li><b>Large private members’ bar</b><span>Well-stocked bar with plenty of seating</span></li>
@@ -1710,7 +1710,7 @@ const SLIDES = [
         <li><b>Club nights</b><span>Bingo, quiz, karaoke and live music</span></li>
       </ul>` },
   { imgs: [['slide-hall1', 'Dancing in the function room'], ['slide-hall2', 'A Halloween party in the function room'], ['slide-hall3', 'A soul night in the function room']], html: () => `
-      <h2 class="welcome-h">Function room hire</h2>
+      <h2 class="welcome-h">Function Room Hire</h2>
       <p><b>Members</b> can hire our function room for <b>birthdays, engagements, weddings</b> and <b>awards nights</b>.</p>
       <div class="hire">
         <div class="hire-box"><b>130</b><span>seated</span></div>
