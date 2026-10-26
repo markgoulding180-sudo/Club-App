@@ -557,6 +557,28 @@ begin
 end $$;
 grant execute on function public.cancel_my_tickets(bigint) to authenticated;
 
+-- ---------- Sign-in page What's On ----------
+-- Sign-in page: the next few What's On items (What's On list + club events), no personal details
+create or replace function public.get_public_whats_on(max_rows int default 3)
+returns table (title text, starts_at timestamptz, info text, kind text)
+language sql stable security definer set search_path = '' as $$
+  select x.title, x.starts_at, x.info, x.kind from (
+    select e.title, e.starts_at, coalesce(e.category, '') as info, 'event'::text as kind
+    from public.events e
+    where e.starts_at >= date_trunc('day', now())
+    union all
+    select b.event_type,
+           (b.booking_date + coalesce(b.start_time, time '19:00')) at time zone 'Europe/London',
+           (case b.room when 'hall' then 'Function Room' else 'Lounge Bar' end) || (case when b.ticketed then ' · Tickets' else ' · Free entry' end),
+           'club'
+    from public.bookings b
+    where b.booking_kind = 'club' and b.status <> 'cancelled' and b.booking_date >= current_date
+  ) x
+  order by x.starts_at
+  limit least(greatest(coalesce(max_rows, 3), 1), 10);
+$$;
+grant execute on function public.get_public_whats_on(int) to anon, authenticated;
+
 -- =====================================================================
 -- AFTER you have signed up in the app with your own email, make yourself
 -- admin by running this (change the email):

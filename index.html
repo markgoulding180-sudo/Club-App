@@ -576,6 +576,21 @@ body{margin:0;font-size:15.5px;-webkit-font-smoothing:antialiased}
 .pill.reserved{background:var(--teal-soft);color:var(--teal)}
 .pill.paid{background:var(--green-soft);color:var(--green)}
 .tabbar:has(button:nth-child(6)) button{font-size:10px;white-space:nowrap;letter-spacing:-.01em}
+/* Sign-in page: next 3 What's On */
+.wo-slot{grid-column:1 / -1;min-width:0}
+.auth section.wo{display:grid;gap:10px;justify-items:stretch;text-align:left}
+.wo-h{display:flex;align-items:baseline;gap:10px}
+.wo-h b{font-family:var(--display);font-weight:800;font-size:18px}
+.wo-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:760px){ .wo-list{grid-template-columns:1fr} }
+.wo-item{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:10px 12px;box-shadow:var(--lift);min-width:0}
+.wo-item .when{min-width:54px;padding:6px 8px;border-radius:12px}
+.wo-item .when .d{font-size:21px}
+.wo-item .t{display:grid;gap:1px;min-width:0}
+.wo-item .t b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-item .t span{font-size:13px;color:var(--amber);font-weight:700}
+.wo-item .t small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-foot{font-size:13px;color:var(--muted);text-align:center}
 </style>
 
 </head>
@@ -840,6 +855,13 @@ function makeSupabaseApi(){
       return profileFor(d.user);
     },
     async signOut(){ await sb.auth.signOut(); },
+    async publicWhatsOn(n){
+      const r = await sb.rpc('get_public_whats_on', { max_rows: n });
+      if (!r.error) return r.data || [];
+      // before the SQL is run: What's On items only
+      const from = new Date(); from.setHours(0,0,0,0);
+      return (ok(await sb.from('events').select('title,starts_at,category').gte('starts_at', from.toISOString()).order('starts_at').limit(n))).map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
+    },
     async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
       return ok(await sb.from('events').select('*').gte('starts_at', from.toISOString()).order('starts_at')); },
     async eventsBetween(from, to){ return ok(await sb.from('events').select('*').gte('starts_at', dayStart(from)).lt('starts_at', dayEnd(to)).order('starts_at')); },
@@ -1037,6 +1059,11 @@ function makeDemoApi(){
       s.users.push(u); s.session = u.id; save(); return pub(u);
     },
     async signOut(){ s.session = null; save(); },
+    async publicWhatsOn(n){ const from = new Date(); from.setHours(0,0,0,0);
+      const ev = s.events.map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
+      const club = s.bookings.filter(b => isClub(b) && live(b)).map(b => ({ title: b.event_type, starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString(),
+        info: `${ROOMS[b.room].name} · ${b.ticketed ? 'Tickets' : 'Free entry'}`, kind: 'club' }));
+      return [...ev, ...club].filter(e => new Date(e.starts_at) >= from).sort((a, b) => a.starts_at.localeCompare(b.starts_at)).slice(0, n); },
     async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
       return s.events.filter(e => new Date(e.starts_at) >= from).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
     async eventsBetween(from, to){ return s.events.filter(e => { const d = ymd(new Date(e.starts_at)); return d >= from && d <= to; }).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
@@ -1192,7 +1219,7 @@ const state = {
   bkTab: 'upcoming', bkKind: 'all', bkMonth: startOfMonth(new Date()), newDate: null, newKind: 'member',
   rotaWeek: startOfWeek(new Date()), offMonth: startOfMonth(new Date()), rotaTab: 'rota',
   holidays: [], holSel: [], holNote: '', holMonth: startOfMonth(new Date()),
-  sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
+  publicEvents: [], sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
   events: [], avail: [], mine: [], myPayments: [], closed: [], profiles: [],
   bk: { bookings: [], payments: [] }, cur: null, bookingId: null, editBooking: false,
   ops: { bookings: [], shifts: [], unavail: [], staff: [], events: [], payments: [] },
@@ -1220,6 +1247,10 @@ async function loadOps(from, to, summaries = false){
 async function loadMoney(){
   const bookings = await api.bookingsBetween(ahead(-120), ahead(500));
   state.bk = { bookings, payments: await api.paymentsFor(bookings.map(b => b.id)) };
+}
+async function loadPublicEvents(){
+  try { state.publicEvents = await api.publicWhatsOn(3); } catch(e){ state.publicEvents = []; }
+  const slot = document.getElementById('woSlot'); if (slot) slot.innerHTML = woHtml();
 }
 async function loadTickets(){
   const [club, res] = await Promise.all([api.clubEvents(ahead(-400), ahead(400)), api.ticketsAll()]);
@@ -1331,6 +1362,13 @@ const tile = (ic, title, sub, view, n = 0, extra = '') => `<button class="tile" 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening'; };
 
 /* ---------- Login ---------- */
+function woHtml(){
+  return state.publicEvents.length ? `<section class="wo" aria-label="What’s On"><div class="wo-h"><b>What’s On</b><span class="muted" style="font-size:13px">Coming up next</span></div>
+      <div class="wo-list">${state.publicEvents.map(e => { const d = new Date(e.starts_at);
+        return `<div class="wo-item"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+          <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}</span>${e.info ? `<small>${esc(e.info)}</small>` : ''}</div></div>`; }).join('')}</div>
+      <p class="wo-foot">Sign in to see everything on and reserve tickets.</p></section>` : '';
+}
 function loginView(){
   const signup = state.authTab === 'signup';
   return `<div class="auth">
@@ -1352,7 +1390,9 @@ function loginView(){
         <button class="btn ghost sm" data-action="demologin" data-email="admin@demo.pub">Admin</button>
         <button class="btn ghost sm" data-action="demologin" data-email="staff@demo.pub">Staff</button>
         <button class="btn ghost sm" data-action="demologin" data-email="user@demo.pub">Customer</button></div>`}
-    </div></div>`;
+    </div>
+    <div id="woSlot" class="wo-slot">${woHtml()}</div>
+    </div>`;
 }
 
 /* ---------- Home ---------- */
@@ -2084,7 +2124,7 @@ const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
   authtab: t => { state.authTab = t.dataset.val; render(); },
   demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
-  signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); },
+  signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); loadPublicEvents(); },
   setroom: t => go('book', { room: t.dataset.val }),
   bookmonth: t => go('book', { month: stepMonth(state.month, t.dataset.step) }),
   openday: t => openUserDay(t.dataset.date),
@@ -2280,7 +2320,7 @@ document.addEventListener('submit', async e => {
 /* ---------- start ---------- */
 (async () => {
   try { state.user = await api.currentUser(); } catch(e) {}
-  if (state.user) go('hub'); else render();
+  if (state.user) go('hub'); else { render(); loadPublicEvents(); }
 })();
 </script>
 </body>
