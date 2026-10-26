@@ -739,24 +739,26 @@ main.authmain{padding:0 !important}
 @media (max-width:760px){ .hero-btns{gap:10px} .hero-hint{margin-top:-4px;font-size:13px} }
 .wo-top{padding-top:clamp(18px,1.6vw,30px)}
 @media (max-width:760px){ .wo-top{padding-top:30px} }
-/* Phones: What's On as a small swipeable row, two cards side by side with the next peeking in */
+/* What's On: up to 5 in a row on computers */
+.wo-top .wo-list{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.wo-item.clone{display:none}
+/* Phones: short cards in a looping carousel, centre card highlighted */
 @media (max-width:760px){
-  .wo-top{padding-inline:0;margin-bottom:20px}
+  .wo-top{padding-inline:0;margin-bottom:18px}
   .wo-top .wo-h,.wo-top .wo-foot{padding-inline:12px}
-  .wo-top .wo-list{position:relative;display:flex;grid-template-columns:none;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 22vw 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .wo-top .wo-foot{text-align:center;font-size:12px;margin-top:2px}
+  .wo-top .wo-list{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 19vw 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .wo-top .wo-list::-webkit-scrollbar{display:none}
-  .wo-top .wo-item{flex:0 0 56vw;margin-inline:-3vw;scroll-snap-align:center;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:12px 14px;border-radius:16px;transform-origin:center;will-change:transform;position:relative}
-  .wo-top .wo-item.center{z-index:2;border-color:rgba(242,195,91,.8);box-shadow:0 16px 34px -14px rgba(0,0,0,.9),0 0 0 3px rgba(242,195,91,.12)}
-  .wo-top .wo-item.center .t b{font-size:16px}
-  .wo-top .wo-foot{text-align:center}
-  .wo-top .wo-item .when{display:flex;gap:5px;align-items:baseline;min-width:0;padding:3px 9px;border-radius:99px}
-  .wo-top .wo-item .when .m{font-size:10px;letter-spacing:.06em}
-  .wo-top .wo-item .when .d{font-size:14px;line-height:1.2}
-  .wo-top .wo-item .t{width:100%}
+  .wo-item.clone{display:flex}
+  .wo-top .wo-item{flex:0 0 62vw;scroll-snap-align:center;gap:10px;padding:8px 10px;border-radius:14px;min-height:0;opacity:.5;transform:scale(.93);transition:opacity .25s,transform .25s,border-color .25s}
+  .wo-top .wo-item.center{opacity:1;transform:none;border-color:rgba(242,195,91,.75)}
+  .wo-top .wo-item .when{min-width:42px;padding:3px 6px;border-radius:10px}
+  .wo-top .wo-item .when .m{font-size:9px;letter-spacing:.06em}
+  .wo-top .wo-item .when .d{font-size:16px;line-height:1.1}
+  .wo-top .wo-item .when .m:last-child{display:none}
   .wo-top .wo-item .t b{font-size:14.5px}
   .wo-top .wo-item .t span{font-size:12px}
-  .wo-top .wo-item .t small{font-size:11px}
-  .wo-top .wo-foot{font-size:12px}
+  .wo-top .wo-item .t small{display:none}
 }
 </style>
 
@@ -1444,25 +1446,38 @@ async function loadMoney(){
 }
 setInterval(() => { const el = document.getElementById('openNow'); if (el) el.innerHTML = openNowHtml(); }, 60000);
 window.addEventListener('load', () => setTimeout(preloadNext, 2000));
-/* Phones: What's On centre card big, the ones either side smaller */
-function woCoverflow(){
-  const list = document.querySelector('.wo-top .wo-list'); if (!list) return;
-  const items = [...list.querySelectorAll('.wo-item')];
-  if (window.innerWidth > 760){ items.forEach(el => { el.style.transform = ''; el.style.opacity = ''; el.classList.remove('center'); }); return; }
-  const c = list.scrollLeft + list.clientWidth / 2;
-  items.forEach(el => { const d = Math.min(1, Math.abs(el.offsetLeft + el.offsetWidth / 2 - c) / el.offsetWidth);
-    el.style.transform = `scale(${(1 - 0.2 * d).toFixed(3)})`; el.style.opacity = (1 - 0.35 * d).toFixed(2); el.classList.toggle('center', d < 0.5); });
+/* Phones: What's On loops round, so the last event sits to the left of the first */
+const woMobile = () => window.innerWidth <= 760;
+function woCenter(){
+  const list = document.querySelector('.wo-top .wo-list'); if (!list) return null;
+  const c = list.scrollLeft + list.clientWidth / 2; let best = null, bd = 1e9;
+  list.querySelectorAll('.wo-item').forEach(el => { const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - c); if (d < bd){ bd = d; best = el; } el.classList.remove('center'); });
+  best?.classList.add('center'); return best;
+}
+const woScrollTo = (list, el) => { list.scrollLeft = el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2; };
+function woWrap(){
+  const list = document.querySelector('.wo-top .wo-list'); if (!list || !woMobile()) return;
+  const el = woCenter(); if (!el || !el.classList.contains('clone')) return;
+  const real = list.querySelector(`.wo-item:not(.clone)[data-i="${el.dataset.i}"]`);
+  if (real){ list.style.scrollSnapType = 'none'; woScrollTo(list, real); list.offsetWidth; list.style.scrollSnapType = ''; woCenter(); }
 }
 function initWo(){
   const list = document.querySelector('.wo-top .wo-list'); if (!list) return;
-  const items = list.querySelectorAll('.wo-item'); const mid = items[Math.min(1, items.length - 1)];
-  if (window.innerWidth <= 760 && mid) list.scrollLeft = mid.offsetLeft - (list.clientWidth - mid.offsetWidth) / 2;
-  let raf = 0; list.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(woCoverflow); }, { passive: true });
-  woCoverflow();
+  const items = [...list.querySelectorAll('.wo-item')]; if (!items.length) return;
+  items.forEach((el, i) => el.dataset.i = i);
+  if (items.length > 2){
+    const mk = el => { const c = el.cloneNode(true); c.classList.add('clone'); c.setAttribute('aria-hidden', 'true'); return c; };
+    items.forEach(el => list.appendChild(mk(el)));
+    [...items].reverse().forEach(el => list.insertBefore(mk(el), list.firstChild));
+  }
+  if (woMobile()) woScrollTo(list, items[0]);
+  let t = 0;
+  list.addEventListener('scroll', () => { woCenter(); clearTimeout(t); t = setTimeout(woWrap, 140); }, { passive: true });
+  woCenter();
 }
-window.addEventListener('resize', () => woCoverflow());
+window.addEventListener('resize', () => { const list = document.querySelector('.wo-top .wo-list'); const first = list?.querySelector('.wo-item:not(.clone)'); if (list && first && woMobile()) woScrollTo(list, first); woCenter(); });
 async function loadPublicEvents(){
-  try { state.publicEvents = await api.publicWhatsOn(3); } catch(e){ state.publicEvents = []; }
+  try { state.publicEvents = await api.publicWhatsOn(5); } catch(e){ state.publicEvents = []; }
   const slot = document.getElementById('woSlot'); if (slot){ slot.innerHTML = woHtml(); initWo(); }
 }
 async function loadTickets(){
