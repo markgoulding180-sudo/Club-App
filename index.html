@@ -895,6 +895,12 @@ html,body{overflow-x:clip;max-width:100%}
 .mainbody{gap:22px}
 /* Section cards: textured blue backdrop (darkened a little behind the text so it reads well) */
 .lcard{background:linear-gradient(150deg,rgba(6,14,40,.35),rgba(6,14,40,.55)),url('img/sec-bg.webp') center/cover no-repeat,#0b2a5c}
+/* Sections run edge to edge */
+.authmain .mainbody{padding:0 0 32px;gap:0}
+.lcard{border-radius:0;border-left:0;border-right:0;border-top:1px solid rgba(242,195,91,.45);border-bottom:0;box-shadow:none}
+.lsec:last-child .lcard{border-bottom:1px solid rgba(242,195,91,.45)}
+@media (min-width:761px){ .lcard .ltxt{padding-left:max(clamp(18px,2.6vw,44px),calc((100vw - 1400px) / 2 + 40px))} }
+@media (min-width:761px){ .lcard.plain .ltxt{padding-right:max(clamp(18px,2.6vw,44px),calc((100vw - 1400px) / 2 + 40px))} }
 </style>
 
 </head>
