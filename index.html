@@ -729,6 +729,12 @@ main.authmain{padding:0 !important}
 .wo-top .wo-item{padding:clamp(10px,1vw,16px) clamp(12px,1.2vw,20px);border-color:rgba(242,195,91,.35)}
 .wo-top .wo-item .t b{font-size:clamp(16px,1.15vw,20px)}
 .wo-top .wo-foot{text-align:left}
+.hero-cta{flex-direction:column;align-items:center;height:0;transform:translateX(-50%);gap:0}
+.hero-btns{display:flex;gap:14px;transform:translateY(-50%)}
+.hero-hint{margin:-6px 0 0;white-space:nowrap;font-size:clamp(12px,.8vw,15px);font-weight:700;letter-spacing:.04em;color:#f6d27a;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+@media (max-width:760px){ .hero-btns{gap:10px} .hero-hint{margin-top:-4px;font-size:13px} }
+.wo-top{padding-top:clamp(18px,1.6vw,30px)}
+@media (max-width:760px){ .wo-top{padding-top:30px} }
 </style>
 
 </head>
@@ -1514,7 +1520,8 @@ function render(){
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" srcset="img/hero-tall.jpg"><img src="img/hero-wide.jpg" alt="The Railway Club, Ashford"></picture>
-    <div class="hero-cta"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div></header>
+    <div class="hero-cta"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
+      <p class="hero-hint">Log in to see the full members’ site</p></div></header>
     <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
