@@ -1107,6 +1107,23 @@ html,body{overflow-x:clip;max-width:100%}
 .lperks li span{display:grid;gap:1px;font-size:12px;line-height:1.35;color:#a9b6e0}
 .lperks li b{font-size:13px;color:#fff}
 @media (max-width:760px){ .lperks ul{grid-template-columns:1fr;gap:7px} .lperks li{padding:8px 10px} }
+/* Desktop: sign-in box becomes a slim one-line info bar */
+@media (min-width:1000px){
+  .lbox{max-width:none;margin:0;flex-direction:row;justify-content:center;align-items:center;gap:28px;padding:12px max(24px,calc((100vw - 1400px) / 2));
+    border:0;border-top:1px solid rgba(242,195,91,.35);border-radius:0;background:linear-gradient(90deg,rgba(242,195,91,.05),rgba(255,255,255,.04) 50%,rgba(242,195,91,.05))}
+  .lbox .hero-btns{order:2;gap:10px;flex:none}
+  .lbox .btn{min-height:38px;padding:7px 22px;font-size:14px}
+  .lperks{order:1;display:flex;align-items:center;gap:22px;width:auto;margin:0;padding:0;border:0}
+  .lperks-h{font-size:15px;white-space:nowrap;padding-right:22px;border-right:1px solid rgba(242,195,91,.35)}
+  .lperks > p{display:none}
+  .lperks ul{display:flex;gap:22px}
+  .lperks li{padding:0;background:none;border:0;align-items:center;gap:8px}
+  .lperks i{width:22px;height:22px;font-size:11px}
+  .lperks li span{display:block}
+  .lperks li span{font-size:0}
+  .lperks li b{font-size:13.5px;font-weight:700;color:#e6ecff;white-space:nowrap}
+}
+@media (min-width:1000px) and (max-width:1280px){ .lperks-h{display:none} .lbox{gap:20px} .lperks ul{gap:16px} }
 </style>
 
 </head>
