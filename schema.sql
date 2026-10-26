@@ -1,5 +1,5 @@
 -- =====================================================================
--- Ashford Railway Club app — Supabase schema (v8: member + club bookings, rota, staff records, payments, no-booking days)
+-- Ashford Railway Club app — Supabase schema (v10: tickets, holidays, member + club bookings, rota, staff records, payments, no-booking days)
 -- Run once in the NEW project: Dashboard → SQL Editor → paste → Run.
 -- =====================================================================
 
@@ -119,7 +119,7 @@ create table public.bookings (
   ticketed        boolean not null default false,        -- club events: ticket or free
   price_member    numeric(8,2),
   price_guest     numeric(8,2),
-  bar_staff       int check (bar_staff is null or bar_staff between 0 and 10),  -- club events: extra bar staff needed
+  bar_staff       int check (bar_staff is null or bar_staff between 0 and 10),  -- club events: people on that room's bar (1 or 2)
   created_at      timestamptz not null default now()
 );
 create index bookings_date_room_idx on public.bookings (booking_date, room);
@@ -350,6 +350,212 @@ begin
 end $$;
 grant execute on function public.staff_remove_unavailable(bigint) to authenticated;
 
+
+-- ---------- Holidays ----------
+-- Holiday requests: staff ask, admin approves. 28 days a year (Jan–Dec).
+create table if not exists public.holiday_requests (
+  id          bigint generated always as identity primary key,
+  staff_id    uuid not null default auth.uid() references public.profiles on delete cascade,
+  days        date[] not null check (cardinality(days) between 1 and 28),
+  note        text,
+  status      text not null default 'pending' check (status in ('pending', 'approved', 'declined', 'cancelled')),
+  admin_note  text,
+  decided_by  uuid references auth.users on delete set null,
+  decided_at  timestamptz,
+  created_at  timestamptz not null default now()
+);
+create index if not exists holiday_requests_staff_idx on public.holiday_requests (staff_id);
+alter table public.holiday_requests enable row level security;
+drop policy if exists "staff see their own holidays, admins all" on public.holiday_requests;
+create policy "staff see their own holidays, admins all" on public.holiday_requests
+  for select to authenticated using (staff_id = auth.uid() or public.is_admin());
+-- (all changes go through the functions below)
+
+-- Approved holiday days show as days off on the rota
+alter table public.staff_unavailability add column if not exists holiday_id bigint references public.holiday_requests on delete cascade;
+
+-- Days used (approved) + waiting (pending) in a year
+create or replace function public.holiday_days_taken(who uuid, yr int)
+returns int language sql stable security definer set search_path = '' as $$
+  select coalesce(sum((select count(*) from unnest(h.days) d where extract(year from d) = yr)), 0)::int
+  from public.holiday_requests h where h.staff_id = who and h.status in ('pending', 'approved');
+$$;
+
+-- Staff: ask for holiday
+create or replace function public.staff_request_holiday(want date[], why text default null)
+returns bigint language plpgsql security definer set search_path = '' as $$
+declare picked date[]; yr int; n int; clash date; new_id bigint;
+begin
+  if not public.is_staff_or_admin() then raise exception 'Only staff can book holiday.'; end if;
+  picked := array(select distinct d from unnest(want) d where d is not null order by d);
+  if cardinality(picked) = 0 then raise exception 'Pick at least one day.'; end if;
+  if picked[1] < current_date then raise exception 'Pick today or later.'; end if;
+  select d into clash from public.holiday_requests h, unnest(h.days) d
+   where h.staff_id = auth.uid() and h.status in ('pending', 'approved') and d = any(picked) limit 1;
+  if clash is not null then raise exception 'You already have holiday booked or asked for on %.', to_char(clash, 'Dy DD Mon'); end if;
+  for yr, n in select extract(year from d)::int, count(*) from unnest(picked) d group by 1 loop
+    if public.holiday_days_taken(auth.uid(), yr) + n > 28 then
+      raise exception 'That would go over your 28 days for %. You have % left.', yr, greatest(0, 28 - public.holiday_days_taken(auth.uid(), yr));
+    end if;
+  end loop;
+  insert into public.holiday_requests (staff_id, days, note) values (auth.uid(), picked, nullif(trim(why), '')) returning id into new_id;
+  return new_id;
+end $$;
+grant execute on function public.staff_request_holiday(date[], text) to authenticated;
+
+-- Staff: withdraw a request that hasn't been decided yet
+create or replace function public.staff_cancel_holiday(req bigint)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.holiday_requests set status = 'cancelled' where id = req and staff_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'Request not found, or the manager has already answered it.'; end if;
+end $$;
+grant execute on function public.staff_cancel_holiday(bigint) to authenticated;
+
+-- Admin: approve / decline a request, or cancel an approved holiday
+create or replace function public.admin_decide_holiday(req bigint, new_status text, why text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+declare r public.holiday_requests;
+begin
+  if not public.is_admin() then raise exception 'Only admins can do this.'; end if;
+  select * into r from public.holiday_requests where id = req for update;
+  if r.id is null then raise exception 'Request not found.'; end if;
+  if new_status in ('approved', 'declined') and r.status <> 'pending' then raise exception 'That request has already been answered.'; end if;
+  if new_status = 'cancelled' and r.status <> 'approved' then raise exception 'Only approved holidays can be cancelled here.'; end if;
+  if new_status not in ('approved', 'declined', 'cancelled') then raise exception 'Unknown choice.'; end if;
+
+  update public.holiday_requests set status = new_status, admin_note = nullif(trim(why), ''), decided_by = auth.uid(), decided_at = now() where id = req;
+
+  if new_status = 'approved' then
+    insert into public.staff_unavailability (staff_id, off_date, reason, holiday_id)
+      select r.staff_id, d, 'Holiday', r.id from unnest(r.days) d
+    on conflict (staff_id, off_date) do nothing;   -- already marked off: keep their own entry
+    update public.shifts set status = 'cannot_work', reason = 'Holiday'
+     where staff_id = r.staff_id and shift_date = any(r.days) and status in ('assigned', 'confirmed');
+  elsif new_status = 'cancelled' then
+    delete from public.staff_unavailability where holiday_id = r.id;
+    update public.shifts s set status = 'assigned', reason = null
+     where s.staff_id = r.staff_id and s.shift_date = any(r.days) and s.shift_date >= current_date
+       and s.status = 'cannot_work' and s.reason = 'Holiday' and not s.covered
+       and not exists (select 1 from public.shifts o where o.staff_id = s.staff_id and o.shift_date = s.shift_date and o.session = s.session and o.id <> s.id and o.status in ('assigned','confirmed','late'));
+  end if;
+end $$;
+grant execute on function public.admin_decide_holiday(bigint, text, text) to authenticated;
+
+-- Staff can't untick a booked holiday day themselves (the manager cancels it instead)
+create or replace function public.staff_remove_unavailable(off_id bigint)
+returns void language plpgsql security definer set search_path = '' as $$
+declare d date; who uuid;
+begin
+  if exists (select 1 from public.staff_unavailability where id = off_id and holiday_id is not null) and not public.is_admin() then
+    raise exception 'That day is booked holiday. Ask the manager if you want to change it.';
+  end if;
+  delete from public.staff_unavailability where id = off_id and (staff_id = auth.uid() or public.is_admin())
+  returning off_date, staff_id into d, who;
+  if d is null then raise exception 'Day not found.'; end if;
+  update public.shifts s set status = 'assigned', reason = null
+  where s.staff_id = who and s.shift_date = d and s.status = 'cannot_work' and not s.covered
+    and not exists (select 1 from public.shifts o where o.staff_id = who and o.shift_date = d and o.session = s.session and o.id <> s.id and o.status in ('assigned','confirmed','late'));
+end $$;
+grant execute on function public.staff_remove_unavailable(bigint) to authenticated;
+
+-- ---------- Tickets ----------
+-- Tickets: members pre-book tickets for ticketed club events. Payment is recorded by the admin for now.
+alter table public.bookings add column if not exists tickets_total int check (tickets_total is null or tickets_total > 0);  -- blank = no limit
+alter table public.bookings add column if not exists banner_url text;                                                      -- optional picture for the event
+
+create table if not exists public.ticket_reservations (
+  id            bigint generated always as identity primary key,
+  booking_id    bigint not null references public.bookings on delete cascade,
+  user_id       uuid default auth.uid() references auth.users on delete set null,
+  first_name    text,
+  last_name     text,
+  email         text,
+  phone         text,
+  membership_no text,
+  member_qty    int not null default 0 check (member_qty between 0 and 50),
+  guest_qty     int not null default 0 check (guest_qty between 0 and 50),
+  price_member  numeric(8,2) not null default 0,
+  price_guest   numeric(8,2) not null default 0,
+  total         numeric(8,2) not null default 0,
+  status        text not null default 'reserved' check (status in ('reserved', 'paid', 'cancelled')),
+  note          text,
+  paid_at       timestamptz,
+  created_at    timestamptz not null default now(),
+  check (member_qty + guest_qty > 0)
+);
+create index if not exists ticket_reservations_booking_idx on public.ticket_reservations (booking_id);
+create index if not exists ticket_reservations_user_idx on public.ticket_reservations (user_id);
+
+alter table public.ticket_reservations enable row level security;
+drop policy if exists "members see their own tickets, admins all" on public.ticket_reservations;
+create policy "members see their own tickets, admins all" on public.ticket_reservations
+  for select to authenticated using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "admins manage tickets" on public.ticket_reservations;
+create policy "admins manage tickets" on public.ticket_reservations
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- How many tickets are taken for each event (no names)
+create or replace function public.get_ticket_counts(ids bigint[])
+returns table (booking_id bigint, sold int)
+language sql stable security definer set search_path = '' as $$
+  select t.booking_id, coalesce(sum(t.member_qty + t.guest_qty), 0)::int
+  from public.ticket_reservations t
+  where t.booking_id = any(ids) and t.status <> 'cancelled'
+  group by t.booking_id;
+$$;
+grant execute on function public.get_ticket_counts(bigint[]) to authenticated;
+
+-- Member: reserve (or change) their tickets for an event
+create or replace function public.reserve_tickets(event_id bigint, members int, guests int, why text default null)
+returns bigint language plpgsql security definer set search_path = '' as $$
+declare ev public.bookings; me public.profiles; mine public.ticket_reservations; taken int; new_id bigint;
+begin
+  if auth.uid() is null then raise exception 'Please sign in first.'; end if;
+  select * into ev from public.bookings where id = event_id for update;
+  if ev.id is null or ev.booking_kind <> 'club' or not ev.ticketed or ev.status = 'cancelled' then raise exception 'Tickets aren''t available for this event.'; end if;
+  if ev.booking_date < current_date then raise exception 'This event has already happened.'; end if;
+  members := coalesce(members, 0); guests := coalesce(guests, 0);
+  if members < 0 or guests < 0 or members + guests < 1 then raise exception 'Pick at least one ticket.'; end if;
+  if members + guests > 20 then raise exception 'You can reserve up to 20 tickets. Call the club for more.'; end if;
+
+  select * into mine from public.ticket_reservations
+   where booking_id = event_id and user_id = auth.uid() and status = 'reserved' order by id desc limit 1;
+  select coalesce(sum(member_qty + guest_qty), 0) into taken from public.ticket_reservations
+   where booking_id = event_id and status <> 'cancelled' and id is distinct from mine.id;
+  if ev.tickets_total is not null and taken + members + guests > ev.tickets_total then
+    raise exception 'Sorry, only % tickets left.', greatest(0, ev.tickets_total - taken);
+  end if;
+
+  select * into me from public.profiles where id = auth.uid();
+  if mine.id is not null then
+    update public.ticket_reservations set member_qty = members, guest_qty = guests,
+      price_member = coalesce(ev.price_member, 0), price_guest = coalesce(ev.price_guest, 0),
+      total = members * coalesce(ev.price_member, 0) + guests * coalesce(ev.price_guest, 0),
+      note = nullif(trim(why), '')
+    where id = mine.id;
+    return mine.id;
+  end if;
+  insert into public.ticket_reservations (booking_id, user_id, first_name, last_name, email, phone, membership_no,
+    member_qty, guest_qty, price_member, price_guest, total, note)
+  values (event_id, auth.uid(), me.first_name, me.last_name, me.email, me.phone, me.membership_no,
+    members, guests, coalesce(ev.price_member, 0), coalesce(ev.price_guest, 0),
+    members * coalesce(ev.price_member, 0) + guests * coalesce(ev.price_guest, 0), nullif(trim(why), ''))
+  returning id into new_id;
+  return new_id;
+end $$;
+grant execute on function public.reserve_tickets(bigint, int, int, text) to authenticated;
+
+-- Member: cancel their reservation before the event (not once it's paid)
+create or replace function public.cancel_my_tickets(res bigint)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.ticket_reservations t set status = 'cancelled'
+  where t.id = res and t.user_id = auth.uid() and t.status = 'reserved'
+    and exists (select 1 from public.bookings b where b.id = t.booking_id and b.booking_date >= current_date);
+  if not found then raise exception 'Those tickets can''t be cancelled. Please speak to the club.'; end if;
+end $$;
+grant execute on function public.cancel_my_tickets(bigint) to authenticated;
 
 -- =====================================================================
 -- AFTER you have signed up in the app with your own email, make yourself
