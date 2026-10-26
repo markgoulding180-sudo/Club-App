@@ -666,7 +666,11 @@ main.authmain{padding:0 !important}
 .slide-txt .welcome-h{font-size:clamp(26px,2.8vw,48px);max-width:none}
 .slide-txt #openNow .opennow{margin-top:0}
 .slide-img{position:relative;border-radius:24px;overflow:hidden;border:1.5px solid rgba(242,195,91,.55);box-shadow:0 20px 50px -20px rgba(0,0,0,.9),0 0 0 6px rgba(242,195,91,.08)}
-.slide-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.slide-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity 1s ease,transform 6s ease}
+.slide-img img.on{opacity:1;transform:scale(1)}
+.pic-dots{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:7px;padding:6px 10px;border-radius:99px;background:rgba(6,12,32,.55);backdrop-filter:blur(4px)}
+.pic-dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45);transition:all .3s}
+.pic-dots span.on{background:#f2c35b;width:22px;border-radius:99px}
 .sl-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1px solid var(--edge);background:rgba(6,12,32,.7);color:#fff;font-size:24px;cursor:pointer;z-index:2}
 .sl-nav.prev{left:clamp(4px,1.5vw,30px)} .sl-nav.next{right:clamp(4px,1.5vw,30px)}
 .sl-dots{display:flex;justify-content:center;gap:8px;margin-top:14px}
@@ -1339,7 +1343,7 @@ const state = {
   bkTab: 'upcoming', bkKind: 'all', bkMonth: startOfMonth(new Date()), newDate: null, newKind: 'member',
   rotaWeek: startOfWeek(new Date()), offMonth: startOfMonth(new Date()), rotaTab: 'rota',
   holidays: [], holSel: [], holNote: '', holMonth: startOfMonth(new Date()),
-  publicEvents: [], sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
+  publicEvents: [], slide: 0, pic: 0, sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
   events: [], avail: [], mine: [], myPayments: [], closed: [], profiles: [],
   bk: { bookings: [], payments: [] }, cur: null, bookingId: null, editBooking: false,
   ops: { bookings: [], shifts: [], unavail: [], staff: [], events: [], payments: [] },
@@ -1521,9 +1525,9 @@ function openAuth(tab = state.authTab){
   if (keep) $('#sheetRoot .sheet').style.animation = 'none';
   setTimeout(() => $('#sheetRoot input[name=' + (signup ? 'first_name' : 'email') + ']')?.focus(), 50);
 }
-/* Sign-in page slideshow. Add more slides here: { img, alt, html } */
+/* Sign-in page slideshow. Each slide has text and a set of pictures that change in turn; after the last picture it moves to the next slide. */
 const SLIDES = [
-  { img: 'img/slide-bar.jpg', alt: 'Members and guests in the club bar', html: () => `
+  { imgs: [['img/slide-bar.jpg', 'Members and guests in the club bar'], ['img/slide-band.jpg', 'Live band night in the function room'], ['img/slide-party.jpg', 'A party on the dance floor']], html: () => `
       <h2 class="welcome-h">Welcome to Ashford Railway Club</h2>
       <div id="openNow">${openNowHtml()}</div>
       <p>Ashford Railway Club (Kent) is a <b>members’ club</b>, sometimes known as the <b>British Rail Sports &amp; Social Club</b>. We’re based just opposite Ashford International station.</p>
@@ -1535,19 +1539,32 @@ function slideshowHtml(){
   return `<section class="slideshow" aria-roledescription="carousel" aria-label="About the club">
     <div class="slides" style="transform:translateX(-${i * 100}%)">${SLIDES.map((sl, k) => `<div class="slide" aria-roledescription="slide" aria-label="${k + 1} of ${n}" ${k === i ? '' : 'aria-hidden="true"'}>
       <div class="slide-txt">${sl.html()}</div>
-      <div class="slide-img"><img src="${sl.img}" alt="${esc(sl.alt)}" loading="${k ? 'lazy' : 'eager'}"></div></div>`).join('')}</div>
+      <div class="slide-img">${sl.imgs.map(([src, alt], j) => `<img src="${src}" alt="${esc(alt)}" class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}" loading="${k || j ? 'lazy' : 'eager'}">`).join('')}
+        ${sl.imgs.length > 1 ? `<div class="pic-dots">${sl.imgs.map((_, j) => `<span class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}"></span>`).join('')}</div>` : ''}</div></div>`).join('')}</div>
     ${n > 1 ? `<button class="sl-nav prev" data-action="slide" data-step="-1" aria-label="Previous slide">‹</button><button class="sl-nav next" data-action="slide" data-step="1" aria-label="Next slide">›</button>
       <div class="sl-dots">${SLIDES.map((_, k) => `<button data-action="slide" data-to="${k}" aria-label="Slide ${k + 1}" aria-current="${k === i}"></button>`).join('')}</div>` : ''}
   </section>`;
 }
+function showPic(j){
+  const box = document.querySelectorAll('.slideshow .slide')[state.slide || 0]; if (!box) return;
+  state.pic = j;
+  box.querySelectorAll('.slide-img img').forEach((el, k) => el.classList.toggle('on', k === j));
+  box.querySelectorAll('.pic-dots span').forEach((el, k) => el.classList.toggle('on', k === j));
+}
 function goSlide(i){
-  const n = SLIDES.length; state.slide = ((i % n) + n) % n;
+  const n = SLIDES.length; state.slide = ((i % n) + n) % n; state.pic = 0;
+  document.querySelectorAll('.slideshow .slide').forEach(sl => { sl.querySelectorAll('.slide-img img').forEach((el, k) => el.classList.toggle('on', k === 0)); sl.querySelectorAll('.pic-dots span').forEach((el, k) => el.classList.toggle('on', k === 0)); });
   const box = document.querySelector('.slideshow'); if (!box) return;
   box.querySelector('.slides').style.transform = `translateX(-${state.slide * 100}%)`;
   box.querySelectorAll('.slide').forEach((el, k) => el.toggleAttribute('aria-hidden', k !== state.slide));
   box.querySelectorAll('.sl-dots button').forEach((el, k) => el.setAttribute('aria-current', k === state.slide));
 }
-setInterval(() => { const box = document.querySelector('.slideshow'); if (SLIDES.length > 1 && box && !box.matches(':hover')) goSlide((state.slide || 0) + 1); }, 8000);
+// Every 5 seconds: next picture on this slide; after the last picture, next slide (or back to the first picture)
+setInterval(() => {
+  const box = document.querySelector('.slideshow'); if (!box || box.matches(':hover')) return;
+  const sl = SLIDES[state.slide || 0]; const next = (state.pic || 0) + 1;
+  if (next < sl.imgs.length) showPic(next); else if (SLIDES.length > 1) goSlide((state.slide || 0) + 1); else showPic(0);
+}, 5000);
 function loginView(){
   return `<div class="auth2"><h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
     <div class="info3">
