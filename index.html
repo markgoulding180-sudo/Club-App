@@ -591,6 +591,25 @@ body{margin:0;font-size:15.5px;-webkit-font-smoothing:antialiased}
 .wo-item .t span{font-size:13px;color:var(--amber);font-weight:700}
 .wo-item .t small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wo-foot{font-size:13px;color:var(--muted);text-align:center}
+/* Sign-in page: open now + opening times */
+.opennow{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:8px 14px;border-radius:99px;font-size:14px;margin-top:10px;border:1px solid}
+.opennow i{width:10px;height:10px;border-radius:50%;flex:none}
+.opennow.on{background:linear-gradient(135deg,rgba(61,220,132,.24),rgba(61,220,132,.08));border-color:rgba(61,220,132,.55);color:#bff5d6}
+.opennow.on b{color:var(--green)}
+.opennow.on i{background:var(--green);box-shadow:0 0 0 0 rgba(61,220,132,.7);animation:pulse 1.8s infinite}
+.opennow.off{background:linear-gradient(135deg,rgba(255,107,125,.22),rgba(255,107,125,.06));border-color:rgba(255,107,125,.5);color:#ffd0d6}
+.opennow.off b{color:var(--red)}
+.opennow.off i{background:var(--red)}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+@media (prefers-reduced-motion:reduce){ .opennow.on i{animation:none} }
+.hours{width:min(100%,360px);margin-top:12px;background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:12px 14px;box-shadow:var(--lift);display:grid;gap:2px;text-align:left}
+.hours-h{font-family:var(--display);font-weight:700;font-size:14px;margin-bottom:4px}
+.hours-mob{display:none}
+@media (max-width:760px){ .hours-desk{display:none} .hours-mob{display:grid;width:100%;margin:0} }
+.hrow{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:4px 8px;border-radius:8px;color:var(--muted)}
+.hrow span:last-child{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.hrow.hnow{background:rgba(46,230,200,.12);color:var(--teal);font-weight:800}
+.hrow.hnow span:last-child{color:var(--teal)}
 </style>
 
 </head>
@@ -727,6 +746,31 @@ function openText(ds){
   if (!p.length) return 'Closed';
   if (p.length === 2 && p[0][1] === p[1][0]) return `Open ${p[0][0]}–${p[1][1]}`;
   return 'Open ' + p.map(x => x.join('–')).join(' & ');
+}
+/* Opening hours as merged ranges in minutes, e.g. Fri: [[660, 1410]] */
+function openRanges(dow){
+  const o = OPENING[dow] || {}; const out = [];
+  ['day', 'eve'].filter(k => o[k]).forEach(k => { const a = tmin(o[k][0]), b = tmin(o[k][1]) || 1440;
+    if (out.length && out[out.length - 1][1] === a) out[out.length - 1][1] = b; else out.push([a, b]); });
+  return out;
+}
+const mm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+function openNow(now = new Date()){
+  const cur = now.getHours() * 60 + now.getMinutes(); const dow = now.getDay();
+  const r = openRanges(dow).find(([a, b]) => cur >= a && cur < b);
+  if (r) return { open: true, text: 'Open now', sub: `until ${mm(r[1])}` };
+  const later = openRanges(dow).find(([a]) => a > cur);
+  if (later) return { open: false, text: 'Closed now', sub: `opens today at ${mm(later[0])}` };
+  for (let i = 1; i <= 7; i++){ const d = (dow + i) % 7; const n = openRanges(d)[0];
+    if (n) return { open: false, text: 'Closed now', sub: `opens ${i === 1 ? 'tomorrow' : ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d]} at ${mm(n[0])}` }; }
+  return { open: false, text: 'Closed', sub: '' };
+}
+function openNowHtml(){ const o = openNow();
+  return `<span class="opennow ${o.open ? 'on' : 'off'}"><i></i><b>${o.text}</b>${o.sub ? `<span>· ${o.sub}</span>` : ''}</span>`; }
+function hoursHtml(where = ''){
+  const today = new Date().getDay(); const names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  return `<div class="hours ${where}"><b class="hours-h">Opening times</b>${[1, 2, 3, 4, 5, 6, 0].map(d => { const r = openRanges(d);
+    return `<div class="hrow${d === today ? ' hnow' : ''}"><span>${names[d]}</span><span>${r.length ? r.map(([a, b]) => `${mm(a)}–${mm(b)}`).join(', ') : 'Closed'}</span></div>`; }).join('')}</div>`;
 }
 function hoursOf(ds, sess){
   const [a, b] = sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
@@ -1248,6 +1292,7 @@ async function loadMoney(){
   const bookings = await api.bookingsBetween(ahead(-120), ahead(500));
   state.bk = { bookings, payments: await api.paymentsFor(bookings.map(b => b.id)) };
 }
+setInterval(() => { const el = document.getElementById('openNow'); if (el) el.innerHTML = openNowHtml(); }, 60000);
 async function loadPublicEvents(){
   try { state.publicEvents = await api.publicWhatsOn(3); } catch(e){ state.publicEvents = []; }
   const slot = document.getElementById('woSlot'); if (slot) slot.innerHTML = woHtml();
@@ -1373,7 +1418,9 @@ function loginView(){
   const signup = state.authTab === 'signup';
   return `<div class="auth">
     <section><h1><img class="crest" src="${LOGO}" alt="The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}" width="240" height="240"></h1>
-      <p class="lead">What’s on at the club, and room hire for your party. Call us on ${esc(CONFIG.PHONE)}.</p></section>
+      <p class="lead">What’s on at the club, and room hire for your party. Call us on ${esc(CONFIG.PHONE)}.</p>
+      <div id="openNow">${openNowHtml()}</div>
+      ${hoursHtml('hours-desk')}</section>
     <div class="login">
       <h2>${signup ? 'Join the club' : 'Sign in'}</h2>
       ${seg('authtab', state.authTab, [['login','Sign in'],['signup','Register']], 'Sign in or register')}
@@ -1391,6 +1438,7 @@ function loginView(){
         <button class="btn ghost sm" data-action="demologin" data-email="staff@demo.pub">Staff</button>
         <button class="btn ghost sm" data-action="demologin" data-email="user@demo.pub">Customer</button></div>`}
     </div>
+    ${hoursHtml('hours-mob')}
     <div id="woSlot" class="wo-slot">${woHtml()}</div>
     </div>`;
 }
