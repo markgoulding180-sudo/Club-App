@@ -901,6 +901,34 @@ html,body{overflow-x:clip;max-width:100%}
 .lsec:last-child .lcard{border-bottom:1px solid rgba(242,195,91,.45)}
 @media (min-width:761px){ .lcard .ltxt{padding-left:max(clamp(18px,2.6vw,44px),calc((100vw - 1400px) / 2 + 40px))} }
 @media (min-width:761px){ .lcard.plain .ltxt{padding-right:max(clamp(18px,2.6vw,44px),calc((100vw - 1400px) / 2 + 40px))} }
+/* What's On: a slim bar, not a full-size section */
+#sec-whatson .lcard{height:auto}
+#sec-whatson .ltxt{padding-top:16px;padding-bottom:16px;gap:10px}
+#sec-whatson .welcome-h{font-size:22px}
+#sec-whatson .lnote{display:none}
+@media (min-width:761px){
+  #sec-whatson .ltxt{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"h list open";align-items:center;column-gap:24px}
+  #sec-whatson .welcome-h{grid-area:h;font-size:clamp(20px,1.5vw,26px);white-space:nowrap}
+  #sec-whatson .lopen{grid-area:open}
+  #sec-whatson .lwo{grid-area:list;min-width:0}
+  #sec-whatson .lwo-list{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+  #sec-whatson .lwo-list .wo-item{padding:7px 10px;gap:9px}
+  #sec-whatson .lwo-list .wo-item .when{min-width:42px;padding:3px 6px}
+  #sec-whatson .lwo-list .wo-item .when .d{font-size:16px}
+  #sec-whatson .lwo-list .wo-item .when .m:last-child{display:none}
+  #sec-whatson .lwo-list .wo-item .t span{white-space:nowrap}
+  #sec-whatson .lwo-list .wo-item .t small{display:none}
+}
+@media (min-width:1201px) and (max-width:2100px){ #sec-whatson .lwo-list{grid-template-columns:repeat(4,minmax(0,1fr))} #sec-whatson .lwo-list .wo-item:nth-child(n+5){display:none} }
+@media (min-width:761px) and (max-width:1200px){ #sec-whatson .lwo-list{grid-template-columns:repeat(3,minmax(0,1fr))} #sec-whatson .lwo-list .wo-item:nth-child(n+4){display:none} }
+@media (max-width:760px){
+  #sec-whatson .ltxt{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px 10px}
+  #sec-whatson .welcome-h{font-size:20px}
+  #sec-whatson .lopen{justify-self:end}
+  #sec-whatson .lopen .opennow span{display:none}
+  #sec-whatson .lwo{grid-column:1 / -1}
+  #sec-whatson .lwo-list .wo-item:nth-child(n+4){display:none}
+}
 </style>
 
 </head>
@@ -1931,7 +1959,7 @@ function woListHtml(){
   if (!state.publicEvents.length) return '<p class="muted">Nothing listed yet. Check back soon.</p>';
   return `<div class="lwo-list">${state.publicEvents.map(e => { const d = new Date(e.starts_at);
     return `<div class="wo-item"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}${e.info ? ` · <small>${esc(e.info)}</small>` : ''}</span></div></div>`; }).join('')}</div>`;
+      <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}${e.info ? `<small> · ${esc(e.info)}</small>` : ''}</span></div></div>`; }).join('')}</div>`;
 }
 const lLoad = img => { if (img?.dataset.src){ img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; delete img.dataset.srcset; } };
 let lObs = null, lSpy = null;
@@ -1944,7 +1972,7 @@ function initLanding(){
     lObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ const imgs = e.target.querySelectorAll('.limg img'); lLoad(imgs[0]); lObs.unobserve(e.target); } }), { rootMargin: '400px 0px' });
     document.querySelectorAll('.lcard.photo').forEach(c => lObs.observe(c));
     // nav: underline the section on screen
-    lSpy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) navOn(e.target.id.replace('sec-', '')); }), { rootMargin: '-45% 0px -50% 0px' });
+    lSpy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && Date.now() - (state.navClick || 0) > 1200) navOn(e.target.id.replace('sec-', '')); }), { rootMargin: '-45% 0px -50% 0px' });
     document.querySelectorAll('.lsec').forEach(sec => lSpy.observe(sec));
   } else document.querySelectorAll('.limg img').forEach(lLoad);
 }
@@ -1960,7 +1988,7 @@ function evenSections(){
   const base = mob ? Math.min(720, Math.max(520, window.innerHeight - navH - 24)) : Math.min(560, Math.max(440, Math.round(window.innerWidth * 0.3)));
   main.style.setProperty('--lsec-h', base + 'px');
   const minImg = mob ? 130 : 0;
-  const need = Math.max(...[...document.querySelectorAll('.lcard')].map(c => { const t = c.querySelector('.ltxt'); t.style.height = 'auto';
+  const need = Math.max(...[...document.querySelectorAll('.lsec:not(#sec-whatson) .lcard')].map(c => { const t = c.querySelector('.ltxt'); t.style.height = 'auto';
     const h = t.scrollHeight + (c.classList.contains('photo') ? minImg : 0); t.style.height = ''; return h; }));
   main.style.setProperty('--lsec-h', Math.max(base, need) + 'px');
 }
@@ -2702,7 +2730,7 @@ const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth
 const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
   pubnav: t => { const sec = document.getElementById('sec-' + t.dataset.to); if (!sec) return;
-    window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 10, behavior: 'smooth' }); navOn(t.dataset.to); },
+    window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 10, behavior: 'smooth' }); state.navClick = Date.now(); navOn(t.dataset.to); },
   slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
   authtab: t => { state.authTab = t.dataset.val; if ($('#sheetRoot .authsheet')) openAuth(t.dataset.val); else render(); },
   openauth: t => openAuth(t.dataset.val),
