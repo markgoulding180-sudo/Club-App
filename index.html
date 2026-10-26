@@ -709,6 +709,15 @@ main.authmain{padding:0 !important}
   .slide-card .slide-img{order:-1;aspect-ratio:4/3}
   .slide-card .slide-img::after{inset:auto 0 0 0;width:auto;height:35%;background:linear-gradient(0deg,rgba(14,23,52,.96),rgba(14,23,52,0))}
 }
+.hire{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.hire-box{display:grid;gap:2px;align-content:start;padding:10px 12px;border-radius:14px;background:linear-gradient(150deg,rgba(242,195,91,.16),rgba(242,195,91,.04));border:1px solid rgba(242,195,91,.4)}
+.hire-box b{font-family:var(--display);font-weight:800;font-size:clamp(20px,1.7vw,28px);color:#f6d27a;line-height:1.1}
+.hire-box b small{font-size:.55em;color:#e8c77a}
+.hire-box span{font-size:.78em;color:#c9d3f5;line-height:1.35}
+.hire-box span b{font-family:inherit;font-size:1em;color:#fff;font-weight:800}
+.hire-box.wide{grid-column:1 / -1;grid-template-columns:auto 1fr;align-items:center;gap:14px}
+.hire-note{font-size:.85em;color:#ffb3bd;font-weight:700}
+@media (max-width:520px){ .hire{grid-template-columns:1fr 1fr} .hire-box.wide{grid-template-columns:1fr} }
 </style>
 
 </head>
@@ -1564,7 +1573,19 @@ const SLIDES = [
         <li><b>Pool and darts</b><span>Pool table and darts boards for members</span></li>
         <li><b>Friendly, family atmosphere</b><span>Children welcome with their families</span></li>
         <li><b>Club nights</b><span>Bingo, quiz, karaoke and live music</span></li>
-      </ul>` }
+      </ul>` },
+  { imgs: [['img/slide-hall1.jpg', 'Dancing in the function room'], ['img/slide-hall2.jpg', 'A Halloween party in the function room'], ['img/slide-hall3.jpg', 'A soul night in the function room']], html: () => `
+      <h2 class="welcome-h">Function room hire</h2>
+      <p>Our function room can be hired by <b>members</b> for their events. It’s perfect for <b>birthday celebrations, engagements, weddings</b> and <b>presentation or awards nights</b>.</p>
+      <div class="hire">
+        <div class="hire-box"><b>130</b><span>seated</span></div>
+        <div class="hire-box"><b>180</b><span>maximum</span></div>
+        <div class="hire-box"><b>£20<small>/hr</small></b><span>midweek, no bar</span></div>
+        <div class="hire-box"><b>£30<small>/hr</small></b><span>midweek, with fully licensed bar</span></div>
+        <div class="hire-box wide"><b>£250</b><span>Friday and Saturday evenings, minimum hire, fully licensed bar included, plus a <b>£100 refundable deposit</b></span></div>
+      </div>
+      <p class="hire-note">Please note: 16th and 18th to 21st birthday parties are not permitted.</p>
+      <div><button class="btn" data-action="openauth" data-val="login">Sign in to book</button></div>` }
 ];
 function slideshowHtml(){
   const n = SLIDES.length; const i = (state.slide || 0) % n;
