@@ -305,8 +305,8 @@ div.day{cursor:default}
 .tabs .pick:has(input:checked) input{accent-color:var(--teal-ink)}
 /* Clubhouse photo behind every page, darkened so text stays readable; lighter on the sign-in page */
 body{position:relative}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(12,30,82,.80) 0%,rgba(8,20,58,.92) 55%,rgba(6,12,36,.97) 100%),var(--photo) center 35%/cover no-repeat,var(--bg)}
-body.authpage::before{background:linear-gradient(180deg,rgba(14,36,100,.62) 0%,rgba(10,26,78,.74) 45%,rgba(6,14,42,.95) 100%),var(--photo) center 35%/cover no-repeat,var(--bg)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(6,16,48,.92) 0%,rgba(4,11,34,.96) 55%,rgba(3,7,22,.985) 100%),var(--photo) center 35%/cover no-repeat,var(--bg)}
+body.authpage::before{background:linear-gradient(180deg,rgba(8,20,60,.82) 0%,rgba(5,14,42,.9) 45%,rgba(3,8,26,.97) 100%),var(--photo) center 35%/cover no-repeat,var(--bg)}
 .logo{width:40px;height:40px;flex:none;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
 .auth .crest{display:block;width:min(240px,60vw);height:auto;filter:drop-shadow(0 8px 24px rgba(0,0,0,.55))}
 .auth section{display:grid;gap:6px;justify-items:start}
