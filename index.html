@@ -743,9 +743,12 @@ main.authmain{padding:0 !important}
 @media (max-width:760px){
   .wo-top{padding-inline:0;margin-bottom:20px}
   .wo-top .wo-h,.wo-top .wo-foot{padding-inline:12px}
-  .wo-top .wo-list{display:flex;grid-template-columns:none;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 12px 6px;scroll-padding-inline:12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .wo-top .wo-list{position:relative;display:flex;grid-template-columns:none;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 22vw 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .wo-top .wo-list::-webkit-scrollbar{display:none}
-  .wo-top .wo-item{flex:0 0 44%;scroll-snap-align:start;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px}
+  .wo-top .wo-item{flex:0 0 56vw;margin-inline:-3vw;scroll-snap-align:center;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:12px 14px;border-radius:16px;transform-origin:center;will-change:transform;position:relative}
+  .wo-top .wo-item.center{z-index:2;border-color:rgba(242,195,91,.8);box-shadow:0 16px 34px -14px rgba(0,0,0,.9),0 0 0 3px rgba(242,195,91,.12)}
+  .wo-top .wo-item.center .t b{font-size:16px}
+  .wo-top .wo-foot{text-align:center}
   .wo-top .wo-item .when{display:flex;gap:5px;align-items:baseline;min-width:0;padding:3px 9px;border-radius:99px}
   .wo-top .wo-item .when .m{font-size:10px;letter-spacing:.06em}
   .wo-top .wo-item .when .d{font-size:14px;line-height:1.2}
@@ -1441,9 +1444,26 @@ async function loadMoney(){
 }
 setInterval(() => { const el = document.getElementById('openNow'); if (el) el.innerHTML = openNowHtml(); }, 60000);
 window.addEventListener('load', () => setTimeout(preloadNext, 2000));
+/* Phones: What's On centre card big, the ones either side smaller */
+function woCoverflow(){
+  const list = document.querySelector('.wo-top .wo-list'); if (!list) return;
+  const items = [...list.querySelectorAll('.wo-item')];
+  if (window.innerWidth > 760){ items.forEach(el => { el.style.transform = ''; el.style.opacity = ''; el.classList.remove('center'); }); return; }
+  const c = list.scrollLeft + list.clientWidth / 2;
+  items.forEach(el => { const d = Math.min(1, Math.abs(el.offsetLeft + el.offsetWidth / 2 - c) / el.offsetWidth);
+    el.style.transform = `scale(${(1 - 0.2 * d).toFixed(3)})`; el.style.opacity = (1 - 0.35 * d).toFixed(2); el.classList.toggle('center', d < 0.5); });
+}
+function initWo(){
+  const list = document.querySelector('.wo-top .wo-list'); if (!list) return;
+  const items = list.querySelectorAll('.wo-item'); const mid = items[Math.min(1, items.length - 1)];
+  if (window.innerWidth <= 760 && mid) list.scrollLeft = mid.offsetLeft - (list.clientWidth - mid.offsetWidth) / 2;
+  let raf = 0; list.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(woCoverflow); }, { passive: true });
+  woCoverflow();
+}
+window.addEventListener('resize', () => woCoverflow());
 async function loadPublicEvents(){
   try { state.publicEvents = await api.publicWhatsOn(3); } catch(e){ state.publicEvents = []; }
-  const slot = document.getElementById('woSlot'); if (slot) slot.innerHTML = woHtml();
+  const slot = document.getElementById('woSlot'); if (slot){ slot.innerHTML = woHtml(); initWo(); }
 }
 async function loadTickets(){
   const [club, res] = await Promise.all([api.clubEvents(ahead(-400), ahead(400)), api.ticketsAll()]);
@@ -1543,7 +1563,7 @@ function render(){
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-tall-640.webp 640w, img/hero-tall-1080.webp 941w" sizes="100vw" width="941" height="1672"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture>
     <div class="hero-cta"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
       <p class="hero-hint">Log in to see the full members’ site</p></div></header>
-    <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; return; }
+    <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; initWo(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
