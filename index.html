@@ -696,6 +696,19 @@ main.authmain{padding:0 !important}
 .amen b{color:#fff;font-size:.98em}
 .amen span{color:var(--muted);font-size:.82em}
 @media (max-width:520px){ .amen{grid-template-columns:1fr} }
+/* Slideshow: text and picture in one card */
+.slide{display:block}
+.slide-card{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);min-height:clamp(380px,32vw,600px);border-radius:26px;overflow:hidden;
+  background:linear-gradient(150deg,rgba(32,46,92,.9),rgba(10,18,44,.94));border:1.5px solid rgba(242,195,91,.5);box-shadow:0 24px 60px -24px rgba(0,0,0,.9),0 0 0 6px rgba(242,195,91,.07)}
+.slide-card .slide-txt{background:none;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;position:relative;z-index:1}
+.slide-card .slide-img{border:0;border-radius:0;box-shadow:none}
+.slide-card .slide-img::after{content:"";position:absolute;inset:0 auto 0 0;width:28%;background:linear-gradient(90deg,rgba(14,23,52,.96),rgba(14,23,52,0));pointer-events:none;z-index:1}
+.slide-card .pic-dots{z-index:2}
+@media (max-width:760px){
+  .slide-card{grid-template-columns:1fr;min-height:0}
+  .slide-card .slide-img{order:-1;aspect-ratio:4/3}
+  .slide-card .slide-img::after{inset:auto 0 0 0;width:auto;height:35%;background:linear-gradient(0deg,rgba(14,23,52,.96),rgba(14,23,52,0))}
+}
 </style>
 
 </head>
@@ -1557,9 +1570,9 @@ function slideshowHtml(){
   const n = SLIDES.length; const i = (state.slide || 0) % n;
   return `<section class="slideshow" aria-roledescription="carousel" aria-label="About the club">
     <div class="slides" style="transform:translateX(-${i * 100}%)">${SLIDES.map((sl, k) => `<div class="slide" aria-roledescription="slide" aria-label="${k + 1} of ${n}" ${k === i ? '' : 'aria-hidden="true"'}>
-      <div class="slide-txt">${sl.html()}</div>
+      <div class="slide-card"><div class="slide-txt">${sl.html()}</div>
       <div class="slide-img">${sl.imgs.map(([src, alt], j) => `<img src="${src}" alt="${esc(alt)}" class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}" loading="${k || j ? 'lazy' : 'eager'}">`).join('')}
-        ${sl.imgs.length > 1 ? `<div class="pic-dots">${sl.imgs.map((_, j) => `<span class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}"></span>`).join('')}</div>` : ''}</div></div>`).join('')}</div>
+        ${sl.imgs.length > 1 ? `<div class="pic-dots">${sl.imgs.map((_, j) => `<span class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}"></span>`).join('')}</div>` : ''}</div></div></div>`).join('')}</div>
     ${n > 1 ? `<button class="sl-nav prev" data-action="slide" data-step="-1" aria-label="Previous slide">‹</button><button class="sl-nav next" data-action="slide" data-step="1" aria-label="Next slide">›</button>
       <div class="sl-dots">${SLIDES.map((_, k) => `<button data-action="slide" data-to="${k}" aria-label="Slide ${k + 1}" aria-current="${k === i}"></button>`).join('')}</div>` : ''}
   </section>`;
@@ -1585,7 +1598,7 @@ function goSlide(i){
 }
 // Every 5 seconds: next picture on this slide; after the last picture, next slide (or back to the first picture)
 setInterval(() => {
-  const box = document.querySelector('.slideshow'); if (!box || box.matches(':hover')) return;
+  const box = document.querySelector('.slideshow'); if (!box || document.hidden) return;
   const sl = SLIDES[state.slide || 0]; const next = (state.pic || 0) + 1;
   if (next < sl.imgs.length) showPic(next); else if (SLIDES.length > 1) goSlide((state.slide || 0) + 1); else showPic(0);
 }, 5000);
