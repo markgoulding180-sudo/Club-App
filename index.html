@@ -814,6 +814,15 @@ html,body{overflow-x:clip;max-width:100%}
 .pubnav::-webkit-scrollbar{display:none}
 @media (max-width:760px){ .pubnav button{flex:1 1 0;min-width:0;font-family:var(--body);font-weight:800;font-size:12.5px;padding:12px 2px} }
 @media (max-width:360px){ .pubnav button{font-size:11.5px} }
+/* Nav bar: links never overlap; swipe sideways if they don't all fit */
+.pubnav{justify-content:safe center}
+.pubnav button.on{color:#fff}
+.pubnav button.on::after{transform:scaleX(1)}
+@media (max-width:760px){
+  .pubnav{justify-content:safe center;gap:0;padding:0 4px}
+  .pubnav button{flex:0 0 auto;min-width:auto;padding:12px 6px;font-size:12px;letter-spacing:0}
+}
+@media (max-width:380px){ .pubnav button{padding:12px 4px;font-size:11px} }
 </style>
 
 </head>
@@ -1648,7 +1657,7 @@ function render(){
     <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`;
     if (woMobile()){ const box = app.querySelector('.hero-cta'), wo = app.querySelector('.wo-top'); const nav = app.querySelector('.pubnav'); if (box && nav) nav.after(box);
       if (box && wo){ box.appendChild(wo); wo.insertAdjacentHTML('beforeend', `<div id="openNow" class="wo-open">${openNowHtml()}</div>`); } }
-    initWo(); evenSlides(); return; }
+    initWo(); evenSlides(); navMark(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
@@ -1794,11 +1803,15 @@ function goSlide(i){
   box.querySelector('.slides').style.transform = `translateX(-${state.slide * 100}%)`;
   box.querySelectorAll('.slide').forEach((el, k) => el.toggleAttribute('aria-hidden', k !== state.slide));
   box.querySelectorAll('.sl-dots button').forEach((el, k) => el.setAttribute('aria-current', k === state.slide));
+  navMark();
 }
+// Nav bar: highlight the slide that's showing (Amenities has no button)
+function navMark(){ document.querySelectorAll('.pubnav button').forEach(b => { const on = b.dataset.to === String(state.slide || 0); b.classList.toggle('on', on); if (on){ const n = b.parentElement; if (n.scrollWidth > n.clientWidth) n.scrollTo({ left: b.offsetLeft - (n.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' }); } }); }
 // Every 5 seconds: next picture on this slide; after the last picture, next slide (or back to the first picture)
 setInterval(() => {
   const box = document.querySelector('.slideshow'); if (!box || document.hidden) return;
   const sl = SLIDES[state.slide || 0]; const next = (state.pic || 0) + 1;
+  if (Date.now() - (state.jumped || 0) < 8000) return;
   if (next < sl.imgs.length) showPic(next); else if (SLIDES.length > 1) goSlide((state.slide || 0) + 1); else showPic(0);
 }, 5000);
 function loginView(){
@@ -2545,7 +2558,9 @@ const actions = {
   pubnav: t => {
     const to = t.dataset.to;
     if (to === 'wo'){ document.querySelector('.wo-top')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    goSlide(Number(to)); const el = document.querySelector('.slideshow');
+    const el = document.querySelector('.slideshow'); const track = el?.querySelector('.slides');
+    if (track){ track.style.transition = 'none'; goSlide(Number(to)); track.offsetWidth; track.style.transition = ''; }   // jump straight to the card, no slide animation
+    state.jumped = Date.now();
     if (el){ const y = el.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 8; window.scrollTo({ top: y, behavior: 'smooth' }); }
   },
   slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
