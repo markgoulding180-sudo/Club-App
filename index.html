@@ -625,6 +625,23 @@ main.authmain{padding:0 !important}
 .authmain .auth{padding-top:0;align-items:start}
 .auth section .lead{margin-top:0}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Sign-in page: buttons on the picture, info below */
+.hero-cta{position:absolute;left:50%;top:93.6%;transform:translate(-50%,-50%);display:flex;gap:14px;line-height:1.5;z-index:2}
+.hero-cta .btn{min-height:0;padding:clamp(7px,.55vw,12px) clamp(18px,1.6vw,34px);font-size:clamp(13px,.9vw,17px);letter-spacing:.02em}
+.btn.gold{background:linear-gradient(135deg,rgba(12,20,48,.85),rgba(6,12,32,.9));color:#f6d27a;border:1.5px solid #e4b54d;box-shadow:0 8px 22px -8px rgba(228,181,77,.6)}
+.btn.gold:hover{background:linear-gradient(135deg,#f6d27a,#d9a23a);color:#1d1404}
+@media (max-width:760px){ .hero-cta{top:96.6%;gap:10px} .hero-cta .btn{min-height:40px;padding:8px 22px;font-size:15px} }
+.auth2{display:grid;gap:20px;padding-block:8px}
+.auth2 .intro{display:grid;gap:6px;justify-items:center;text-align:center}
+.auth2 .lead{color:#e6ecff;font-size:17px;max-width:46ch;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.auth2 .info{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:20px;align-items:start}
+.auth2 .info .hours{margin:0;width:100%}
+.auth2 .info .wo-list{grid-template-columns:1fr}
+.auth2 .wo-slot{grid-column:auto}
+@media (max-width:760px){ .auth2 .info{grid-template-columns:1fr} }
+.authsheet .tabs{width:100%}
+.authsheet .tabs button{flex:1}
+.authsheet .demo{display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--line)}
 </style>
 
 </head>
@@ -1404,7 +1421,8 @@ function render(){
   $('#demoBar').hidden = LIVE;
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
-  if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" srcset="img/hero-tall.jpg"><img src="img/hero-wide.jpg" alt="The Railway Club, Ashford"></picture></header>
+  if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" srcset="img/hero-tall.jpg"><img src="img/hero-wide.jpg" alt="The Railway Club, Ashford"></picture>
+    <div class="hero-cta"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div></header>
     <section class="mainbody"><div class="wrap">${loginView()}</div></section></main>`; return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
@@ -1430,16 +1448,9 @@ function woHtml(){
           <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}</span>${e.info ? `<small>${esc(e.info)}</small>` : ''}</div></div>`; }).join('')}</div>
       <p class="wo-foot">Sign in to see everything on and reserve tickets.</p></section>` : '';
 }
-function loginView(){
+function authFormHtml(){
   const signup = state.authTab === 'signup';
-  return `<div class="auth">
-    <section><h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
-      <p class="lead">What’s on at the club, and room hire for your party. Call us on ${esc(CONFIG.PHONE)}.</p>
-      <div id="openNow">${openNowHtml()}</div>
-      ${hoursHtml('hours-desk')}</section>
-    <div class="login">
-      <h2>${signup ? 'Join the club' : 'Sign in'}</h2>
-      ${seg('authtab', state.authTab, [['login','Sign in'],['signup','Register']], 'Sign in or register')}
+  return `${seg('authtab', state.authTab, [['login','Sign in'],['signup','Register']], 'Sign in or register')}
       <form class="stack" data-form="${signup ? 'signup' : 'login'}">
         ${signup ? `<div class="grid2"><label class="f">First name<input id="su-fn" name="first_name" required autocomplete="given-name"></label>
           <label class="f">Last name<input id="su-ln" name="last_name" required autocomplete="family-name"></label></div>
@@ -1452,10 +1463,23 @@ function loginView(){
       ${LIVE ? '' : `<div class="demo"><span class="muted" style="width:100%;font-size:13px">Try the demo as:</span>
         <button class="btn ghost sm" data-action="demologin" data-email="admin@demo.pub">Admin</button>
         <button class="btn ghost sm" data-action="demologin" data-email="staff@demo.pub">Staff</button>
-        <button class="btn ghost sm" data-action="demologin" data-email="user@demo.pub">Customer</button></div>`}
-    </div>
-    ${hoursHtml('hours-mob')}
-    <div id="woSlot" class="wo-slot">${woHtml()}</div>
+        <button class="btn ghost sm" data-action="demologin" data-email="user@demo.pub">Customer</button></div>`}`;
+}
+function openAuth(tab = state.authTab){
+  state.authTab = tab; const signup = tab === 'signup';
+  const keep = !!$('#sheetRoot .authsheet');
+  state.sheet = { type: 'auth' };
+  openSheet(`<div class="authsheet stack"><div class="sheet-h"><div><h2>${signup ? 'Join the club' : 'Welcome back'}</h2><p class="muted">${signup ? 'Create your account to book rooms and reserve tickets.' : 'Sign in to your Railway Club account.'}</p></div>
+    <button class="x" data-action="closesheet" aria-label="Close">✕</button></div>${authFormHtml()}</div>`);
+  if (keep) $('#sheetRoot .sheet').style.animation = 'none';
+  setTimeout(() => $('#sheetRoot input[name=' + (signup ? 'first_name' : 'email') + ']')?.focus(), 50);
+}
+function loginView(){
+  return `<div class="auth2">
+    <section class="intro"><h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
+      <p class="lead">What’s on at the club, and room hire for your party. Call us on ${esc(CONFIG.PHONE)}.</p>
+      <div id="openNow">${openNowHtml()}</div></section>
+    <div class="info">${hoursHtml()}<div id="woSlot" class="wo-slot">${woHtml()}</div></div>
     </div>`;
 }
 
@@ -2186,7 +2210,8 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
-  authtab: t => { state.authTab = t.dataset.val; render(); },
+  authtab: t => { state.authTab = t.dataset.val; if ($('#sheetRoot .authsheet')) openAuth(t.dataset.val); else render(); },
+  openauth: t => openAuth(t.dataset.val),
   demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
   signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); loadPublicEvents(); },
   setroom: t => go('book', { room: t.dataset.val }),
@@ -2340,7 +2365,7 @@ const forms = {
   async login(f){ state.user = await api.signIn(f.email.value.trim(), f.password.value); go('hub'); },
   async signup(f){
     const r = await api.signUp({ email: f.email.value.trim(), password: f.password.value, first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), phone: f.phone.value.trim(), membership_no: f.membership_no.value.trim() });
-    if (r.needsConfirm){ state.authTab = 'login'; render(); toast('Check your email to confirm, then sign in.'); return; }
+    if (r.needsConfirm){ openAuth('login'); toast('Check your email to confirm, then sign in.'); return; }
     state.user = r; go('hub');
   },
   async request(f){
