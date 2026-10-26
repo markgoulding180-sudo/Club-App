@@ -760,6 +760,55 @@ main.authmain{padding:0 !important}
   .wo-top .wo-item .t span{font-size:12px}
   .wo-top .wo-item .t small{display:none}
 }
+/* Phones: hero = slideshow, every slide the same size as the hero picture */
+.mtrack{display:block}
+.mtrack .mslide:not(.m0),.mdots,.mhint{display:none}
+.mslide.m0{position:relative}
+@media (max-width:760px){
+  .hero{aspect-ratio:941/1672;overflow:hidden;line-height:1.5}
+  .hero::after{display:none}
+  .mslide.m0 .hero-cta{z-index:4}
+  .mtrack{display:flex;height:100%;transition:transform .6s ease}
+  .mtrack .mslide,.mtrack .mslide:not(.m0){display:block;flex:0 0 100%;height:100%;position:relative;overflow:hidden}
+  .mslide.m0 picture,.mslide.m0 img{height:100%}
+  .mslide.m0 img{object-fit:cover}
+  .mimgs{position:absolute;left:0;right:0;top:0;height:44%}
+  .mimgs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s ease}
+  .mimgs img.on{opacity:1}
+  .mimgs::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,14,40,0) 55%,#081536 100%)}
+  .mtrack .mslide:not(.m0){background:linear-gradient(180deg,#081536,#050d26)}
+  .mtxt{position:absolute;left:0;right:0;top:37%;bottom:64px;padding:0 16px;display:flex;flex-direction:column;justify-content:center;gap:9px;color:#dfe6ff;font-size:13.5px;line-height:1.5;overflow:hidden;z-index:1}
+  .mtxt p{margin:0}
+  .mtxt b{color:#fff}
+  .mtxt .welcome-h{font-size:24px;max-width:none}
+  .mtxt .opennow{margin:0;align-self:flex-start;padding:5px 11px;font-size:12.5px}
+  .mtxt .chips{gap:6px} .mtxt .chips span{font-size:11px;padding:3px 9px}
+  .mtxt .amen{grid-template-columns:1fr;gap:6px}
+  .mtxt .amen li{padding-left:26px} .mtxt .amen li::before{width:18px;height:18px;top:1px} .mtxt .amen li::after{left:6px;top:4px}
+  .mtxt .amen b{font-size:13.5px} .mtxt .amen span{font-size:11.5px}
+  .mtxt .hire{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .mtxt .hire.mem{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mtxt .hire-box{padding:6px 7px;border-radius:10px}
+  .mtxt .hire-box b{font-size:17px}
+  .mtxt .hire-box span{font-size:10.5px}
+  .mtxt .hire-box.wide{grid-template-columns:auto 1fr;gap:10px}
+  .mtxt .hire-note{font-size:11.5px}
+  .mtxt > div:last-child:has(> button.btn){display:none}
+  .mtxt a.btn{min-height:34px;padding:6px 14px;font-size:13px;text-decoration:none;display:inline-flex}
+  .mtxt .hire-box span b{font-size:inherit;font-family:inherit;color:#fff}
+  .mslide.m0 .hero-cta{top:95.6%}
+  .mslide.m0 .hero-hint{display:none}
+  .mhint{display:block;margin:10px 12px 0;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;color:#f6d27a}
+  .mcta{position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;gap:10px;z-index:2}
+  .mcta .btn{min-height:38px;padding:7px 22px}
+  .mdots{display:flex;position:absolute;top:10px;left:50%;transform:translateX(-50%);gap:6px;z-index:4;padding:5px 9px;border-radius:99px;background:rgba(6,12,32,.45)}
+  .mdots button{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.45);cursor:pointer}
+  .mdots button[aria-current="true"]{background:#f2c35b;width:20px;border-radius:99px}
+  .slideshow{display:none}
+}
+@media (max-width:374px){ .mtxt{font-size:12.5px;gap:7px;top:36%} .mtxt .welcome-h{font-size:21px} .mtxt .amen span{font-size:10.5px} .mtxt .amen b{font-size:12.5px} .mtxt .hire-box b{font-size:15px} }
+@media (max-width:340px){ .mtxt .amen span,.mtxt .chips{display:none} .mtxt{font-size:12px} .mtxt .hire-box span{font-size:9.5px} }
+@media (max-width:760px) and (prefers-reduced-motion:reduce){ .mtrack{transition:none} }
 </style>
 
 </head>
@@ -1415,7 +1464,7 @@ const state = {
   bkTab: 'upcoming', bkKind: 'all', bkMonth: startOfMonth(new Date()), newDate: null, newKind: 'member',
   rotaWeek: startOfWeek(new Date()), offMonth: startOfMonth(new Date()), rotaTab: 'rota',
   holidays: [], holSel: [], holNote: '', holMonth: startOfMonth(new Date()),
-  publicEvents: [], slide: 0, pic: 0, sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
+  publicEvents: [], slide: 0, pic: 0, ms: 0, mp: 0, mt: 0, sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
   events: [], avail: [], mine: [], myPayments: [], closed: [], profiles: [],
   bk: { bookings: [], payments: [] }, cur: null, bookingId: null, editBooking: false,
   ops: { bookings: [], shifts: [], unavail: [], staff: [], events: [], payments: [] },
@@ -1444,8 +1493,8 @@ async function loadMoney(){
   const bookings = await api.bookingsBetween(ahead(-120), ahead(500));
   state.bk = { bookings, payments: await api.paymentsFor(bookings.map(b => b.id)) };
 }
-setInterval(() => { const el = document.getElementById('openNow'); if (el) el.innerHTML = openNowHtml(); }, 60000);
-window.addEventListener('load', () => setTimeout(preloadNext, 2000));
+setInterval(() => { document.querySelectorAll('[id=openNow]').forEach(el => el.innerHTML = openNowHtml()); }, 60000);
+window.addEventListener('load', () => setTimeout(() => woMobile() ? mPreload() : preloadNext(), 2000));
 /* Phones: What's On loops round, so the last event sits to the left of the first */
 const woMobile = () => window.innerWidth <= 760;
 function woCenter(){
@@ -1575,10 +1624,11 @@ function render(){
   $('#demoBar').hidden = LIVE;
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
-  if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-tall-640.webp 640w, img/hero-tall-1080.webp 941w" sizes="100vw" width="941" height="1672"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture>
+  if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><div class="mtrack">
+    <div class="mslide m0"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-tall-640.webp 640w, img/hero-tall-1080.webp 941w" sizes="100vw" width="941" height="1672"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture>
     <div class="hero-cta"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
-      <p class="hero-hint">Log in to see the full members’ site</p></div></header>
-    <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; initWo(); return; }
+      <p class="hero-hint">Log in to see the full members’ site</p></div></div>${mobileSlidesHtml()}</div>${mobileDotsHtml()}</header>
+    <section class="mainbody"><p class="mhint">Log in to see the full members’ site</p><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; initWo(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
@@ -1674,12 +1724,43 @@ const SLIDES = [
       </ul>
       <div><a class="btn" href="mailto:${esc(CONFIG.EMAIL)}?subject=${encodeURIComponent('Membership application form request')}">Email for an application form</a></div>` }
 ];
+/* Phones: the hero itself is the slideshow. Slide 0 is the club picture with Sign in / Register,
+   then each SLIDES entry fills exactly the same space (text over its pictures). */
+const mCount = () => SLIDES.length + 1;
+function mobileSlidesHtml(){
+  return SLIDES.map((sl, k) => `<div class="mslide" aria-hidden="true">
+    <div class="mimgs">${sl.imgs.map(([name, alt], j) => `<img data-src="img/${name}-800.webp" alt="${esc(alt)}" class="${j ? '' : 'on'}" decoding="async">`).join('')}</div>
+    <div class="mtxt">${sl.html()}</div>
+    <div class="mcta"><button class="btn sm" data-action="openauth" data-val="login">Sign in</button><button class="btn gold sm" data-action="openauth" data-val="signup">Register</button></div></div>`).join('');
+}
+function mobileDotsHtml(){ return `<div class="mdots">${Array.from({ length: mCount() }, (_, k) => `<button data-action="mgo" data-to="${k}" aria-label="Slide ${k + 1}" aria-current="${k === (state.ms || 0)}"></button>`).join('')}</div>`; }
+function mLoad(si, pj){ const img = document.querySelectorAll('.hero .mslide')[si]?.querySelectorAll('.mimgs img')[pj]; if (img?.dataset.src){ img.src = img.dataset.src; delete img.dataset.src; } }
+function mPreload(){ const si = state.ms || 0, pj = state.mp || 0; const sl = SLIDES[si - 1];
+  if (sl && pj + 1 < sl.imgs.length) mLoad(si, pj + 1); else mLoad((si + 1) % mCount(), 0); }
+function mShowPic(j){ const box = document.querySelectorAll('.hero .mslide')[state.ms || 0]; if (!box) return; state.mp = j; mLoad(state.ms, j);
+  box.querySelectorAll('.mimgs img').forEach((el, k) => el.classList.toggle('on', k === j)); setTimeout(mPreload, 1500); }
+function mGo(i){
+  const n = mCount(); state.ms = ((i % n) + n) % n; state.mp = 0; state.mt = 0;
+  const hero = document.querySelector('.hero'); if (!hero) return;
+  hero.querySelector('.mtrack').style.transform = `translateX(-${state.ms * 100}%)`;
+  hero.querySelectorAll('.mslide').forEach((el, k) => { el.toggleAttribute('aria-hidden', k !== state.ms); el.querySelectorAll('.mimgs img').forEach((im, q) => im.classList.toggle('on', q === 0)); });
+  hero.querySelectorAll('.mdots button').forEach((el, k) => el.setAttribute('aria-current', k === state.ms));
+  mLoad(state.ms, 0); setTimeout(mPreload, 1500);
+}
+// Phones: hero picture 7 s, then each slide shows its pictures 5 s apart, then the next slide
+setInterval(() => {
+  if (!woMobile() || document.hidden || !document.querySelector('.hero .mtrack')) return;
+  state.mt = (state.mt || 0) + 1; const si = state.ms || 0;
+  if (si === 0){ if (state.mt >= 7) mGo(1); return; }
+  if (state.mt < 5) return; state.mt = 0;
+  const sl = SLIDES[si - 1]; if ((state.mp || 0) + 1 < sl.imgs.length) mShowPic((state.mp || 0) + 1); else mGo(si + 1);
+}, 1000);
 function slideshowHtml(){
   const n = SLIDES.length; const i = (state.slide || 0) % n;
   return `<section class="slideshow" aria-roledescription="carousel" aria-label="About the club">
     <div class="slides" style="transform:translateX(-${i * 100}%)">${SLIDES.map((sl, k) => `<div class="slide" aria-roledescription="slide" aria-label="${k + 1} of ${n}" ${k === i ? '' : 'aria-hidden="true"'}>
       <div class="slide-card"><div class="slide-txt">${sl.html()}</div>
-      <div class="slide-img">${sl.imgs.map(([name, alt], j) => { const set = `img/${name}-800.webp 800w, img/${name}-1400.webp 1400w`; const now = k === i && j === (state.pic || 0);
+      <div class="slide-img">${sl.imgs.map(([name, alt], j) => { const set = `img/${name}-800.webp 800w, img/${name}-1400.webp 1400w`; const now = !woMobile() && k === i && j === (state.pic || 0);
         return `<img ${now ? `src="img/${name}-800.webp" srcset="${set}"` : `data-srcset="${set}" data-src="img/${name}-800.webp"`} sizes="(max-width:760px) 100vw, 55vw" alt="${esc(alt)}" class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}" decoding="async">`; }).join('')}
         ${sl.imgs.length > 1 ? `<div class="pic-dots">${sl.imgs.map((_, j) => `<span class="${j === (k === i ? (state.pic || 0) : 0) ? 'on' : ''}"></span>`).join('')}</div>` : ''}</div></div></div>`).join('')}</div>
     ${n > 1 ? `<button class="sl-nav prev" data-action="slide" data-step="-1" aria-label="Previous slide">‹</button><button class="sl-nav next" data-action="slide" data-step="1" aria-label="Next slide">›</button>
@@ -1703,10 +1784,10 @@ function showPic(j){
   box.querySelectorAll('.pic-dots span').forEach((el, k) => el.classList.toggle('on', k === j));
   setTimeout(preloadNext, 1500);
 }
-(() => { let x0 = null;
-  document.addEventListener('touchstart', e => { x0 = e.target.closest('.slideshow') ? e.touches[0].clientX : null; }, { passive: true });
+(() => { let x0 = null, tgt = 's';
+  document.addEventListener('touchstart', e => { x0 = e.target.closest('.slideshow, .hero') ? e.touches[0].clientX : null; tgt = e.target.closest('.hero') ? 'm' : 's'; }, { passive: true });
   document.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
-    if (Math.abs(dx) > 50 && SLIDES.length > 1) goSlide((state.slide || 0) + (dx < 0 ? 1 : -1)); }, { passive: true });
+    if (Math.abs(dx) > 50){ if (tgt === 'm') mGo((state.ms || 0) + (dx < 0 ? 1 : -1)); else if (SLIDES.length > 1) goSlide((state.slide || 0) + (dx < 0 ? 1 : -1)); } }, { passive: true });
 })();
 function goSlide(i){
   const n = SLIDES.length; state.slide = ((i % n) + n) % n; state.pic = 0; loadPic(state.slide, 0); setTimeout(preloadNext, 1500);
@@ -1718,7 +1799,7 @@ function goSlide(i){
 }
 // Every 5 seconds: next picture on this slide; after the last picture, next slide (or back to the first picture)
 setInterval(() => {
-  const box = document.querySelector('.slideshow'); if (!box || document.hidden) return;
+  const box = document.querySelector('.slideshow'); if (!box || document.hidden || woMobile()) return;
   const sl = SLIDES[state.slide || 0]; const next = (state.pic || 0) + 1;
   if (next < sl.imgs.length) showPic(next); else if (SLIDES.length > 1) goSlide((state.slide || 0) + 1); else showPic(0);
 }, 5000);
@@ -2463,6 +2544,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
+  mgo: t => mGo(Number(t.dataset.to)),
   slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
   authtab: t => { state.authTab = t.dataset.val; if ($('#sheetRoot .authsheet')) openAuth(t.dataset.val); else render(); },
   openauth: t => openAuth(t.dataset.val),
