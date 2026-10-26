@@ -718,6 +718,10 @@ main.authmain{padding:0 !important}
 .hire-box.wide{grid-column:1 / -1;grid-template-columns:auto 1fr;align-items:center;gap:14px}
 .hire-note{font-size:.85em;color:#ffb3bd;font-weight:700}
 @media (max-width:520px){ .hire{grid-template-columns:1fr 1fr} .hire-box.wide{grid-template-columns:1fr} }
+.hire.mem{grid-template-columns:repeat(3,minmax(0,1fr))}
+.amen.one{grid-template-columns:1fr}
+.slide-txt a.btn{display:inline-flex;align-items:center;text-decoration:none}
+@media (max-width:520px){ .hire.mem{grid-template-columns:1fr 1fr 1fr} .hire.mem .hire-box{padding:8px} }
 </style>
 
 </head>
@@ -1585,7 +1589,20 @@ const SLIDES = [
         <div class="hire-box wide"><b>£250</b><span>Friday and Saturday evenings, minimum hire, fully licensed bar included, plus a <b>£100 refundable deposit</b></span></div>
       </div>
       <p class="hire-note">Please note: 16th and 18th to 21st birthday parties are not permitted.</p>
-      <div><button class="btn" data-action="openauth" data-val="login">Sign in to book</button></div>` }
+      <div><button class="btn" data-action="openauth" data-val="login">Sign in to book</button></div>` },
+  { imgs: [['img/slide-family.jpg', 'Members and families at the club'], ['img/slide-bar.jpg', 'Members in the club bar'], ['img/slide-sport.jpg', 'Members watching the football']], html: () => `
+      <h2 class="welcome-h">Membership</h2>
+      <p>Membership runs from <b>January to December</b>. Our fees for 2026 are:</p>
+      <div class="hire mem">
+        <div class="hire-box"><b>£25</b><span>Single</span></div>
+        <div class="hire-box"><b>£40</b><span>Joint, a couple at the same address</span></div>
+        <div class="hire-box"><b>£15</b><span>Junior or student</span></div>
+      </div>
+      <ul class="amen one">
+        <li><b>Renewing</b><span>Renew between December and 31 January. After 31 January there’s an extra £5 per membership card.</span></li>
+        <li><b>New members</b><span>Applications open from 1 February. Write a short letter to the club secretary saying why you’d like to join, and we’ll post you an application form. It must be seconded by two current members, as licensing law requires for members’ clubs.</span></li>
+      </ul>
+      <div><a class="btn" href="mailto:${esc(CONFIG.EMAIL)}?subject=${encodeURIComponent('Membership application form request')}">Email for an application form</a></div>` }
 ];
 function slideshowHtml(){
   const n = SLIDES.length; const i = (state.slide || 0) % n;
