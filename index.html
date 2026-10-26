@@ -657,6 +657,33 @@ main.authmain{padding:0 !important}
 .fline small{display:block;color:var(--teal);font-weight:700;font-size:12px}
 .fi{width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;background:var(--grad-teal);color:#06131a;box-shadow:0 6px 14px -6px rgba(46,230,200,.7)}
 .fi svg{width:19px;height:19px}
+/* Sign-in page: full-width welcome slideshow */
+.slideshow{position:relative;overflow:hidden;margin:0 0 28px;padding-inline:clamp(12px,4vw,80px)}
+.slides{display:flex;transition:transform .6s ease}
+.slide{flex:0 0 100%;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(16px,2.5vw,44px);align-items:stretch;min-height:clamp(380px,32vw,600px)}
+.slide-txt{display:flex;flex-direction:column;justify-content:center;gap:14px;padding:clamp(20px,3vw,48px);border-radius:24px;background:linear-gradient(150deg,rgba(32,46,92,.82),rgba(10,18,44,.88));border:1px solid var(--edge);box-shadow:var(--lift);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#dfe6ff;font-size:clamp(15px,1.1vw,19px);line-height:1.65}
+.slide-txt b{color:#fff}
+.slide-txt .welcome-h{font-size:clamp(26px,2.8vw,48px);max-width:none}
+.slide-txt #openNow .opennow{margin-top:0}
+.slide-img{position:relative;border-radius:24px;overflow:hidden;border:1.5px solid rgba(242,195,91,.55);box-shadow:0 20px 50px -20px rgba(0,0,0,.9),0 0 0 6px rgba(242,195,91,.08)}
+.slide-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sl-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1px solid var(--edge);background:rgba(6,12,32,.7);color:#fff;font-size:24px;cursor:pointer;z-index:2}
+.sl-nav.prev{left:clamp(4px,1.5vw,30px)} .sl-nav.next{right:clamp(4px,1.5vw,30px)}
+.sl-dots{display:flex;justify-content:center;gap:8px;margin-top:14px}
+.sl-dots button{width:10px;height:10px;border-radius:50%;border:0;background:rgba(255,255,255,.3);cursor:pointer;padding:0}
+.sl-dots button[aria-current="true"]{background:#f2c35b;width:26px;border-radius:99px}
+@media (max-width:760px){
+  .slide{grid-template-columns:1fr;min-height:0}
+  .slide-img{order:-1;aspect-ratio:4/3}
+  .slide-txt{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){ .slides{transition:none} }
+.info3{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px) minmax(0,1fr);gap:20px;align-items:start}
+.info3 .hours{margin:0;width:100%}
+.info3 .wo-list{grid-template-columns:1fr}
+@media (max-width:1000px){ .info3{grid-template-columns:1fr 1fr} .info3 .wo-slot{grid-column:1 / -1} }
+@media (max-width:760px){ .info3{grid-template-columns:1fr} }
+@media (min-width:1000px){ .authmain .wrap{max-width:none;padding-inline:clamp(12px,4vw,80px)} }
 </style>
 
 </head>
@@ -1443,7 +1470,7 @@ function render(){
   const app = $('#app');
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" srcset="img/hero-tall.jpg"><img src="img/hero-wide.jpg" alt="The Railway Club, Ashford"></picture>
     <div class="hero-cta"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div></header>
-    <section class="mainbody"><div class="wrap">${loginView()}</div></section></main>`; return; }
+    <section class="mainbody">${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`; return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
@@ -1494,18 +1521,36 @@ function openAuth(tab = state.authTab){
   if (keep) $('#sheetRoot .sheet').style.animation = 'none';
   setTimeout(() => $('#sheetRoot input[name=' + (signup ? 'first_name' : 'email') + ']')?.focus(), 50);
 }
-function loginView(){
-  return `<div class="auth2">
-    <section class="intro"><h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
+/* Sign-in page slideshow. Add more slides here: { img, alt, html } */
+const SLIDES = [
+  { img: 'img/slide-bar.jpg', alt: 'Members and guests in the club bar', html: () => `
       <h2 class="welcome-h">Welcome to Ashford Railway Club</h2>
-      <div id="openNow">${openNowHtml()}</div></section>
-    <div class="about">
-      <section class="panel about-txt" aria-label="About the club">
-        <p>Ashford Railway Club (Kent) is a <b>members’ club</b>, sometimes known as the <b>British Rail Sports &amp; Social Club</b>. We’re based just opposite Ashford International station.</p>
-        <p>We have a <b>members’ bar</b> and a separate <b>function room</b> that can host most types of function, from birthdays and weddings to wakes and meetings.</p>
-        <p>We’re <b>family-friendly</b>, and members can sign guests in for <b>£2</b>.</p>
-        <div class="chips"><span>Members’ club</span><span>Guests £2</span><span>Family-friendly</span><span>Function room</span><span>Free parking</span></div>
-      </section>
+      <div id="openNow">${openNowHtml()}</div>
+      <p>Ashford Railway Club (Kent) is a <b>members’ club</b>, sometimes known as the <b>British Rail Sports &amp; Social Club</b>. We’re based just opposite Ashford International station.</p>
+      <p>We’re <b>family-friendly</b>, and members can sign guests in for <b>£2</b>.</p>
+      <div class="chips"><span>Members’ club</span><span>Guests £2</span><span>Family-friendly</span><span>Function room</span></div>` }
+];
+function slideshowHtml(){
+  const n = SLIDES.length; const i = (state.slide || 0) % n;
+  return `<section class="slideshow" aria-roledescription="carousel" aria-label="About the club">
+    <div class="slides" style="transform:translateX(-${i * 100}%)">${SLIDES.map((sl, k) => `<div class="slide" aria-roledescription="slide" aria-label="${k + 1} of ${n}" ${k === i ? '' : 'aria-hidden="true"'}>
+      <div class="slide-txt">${sl.html()}</div>
+      <div class="slide-img"><img src="${sl.img}" alt="${esc(sl.alt)}" loading="${k ? 'lazy' : 'eager'}"></div></div>`).join('')}</div>
+    ${n > 1 ? `<button class="sl-nav prev" data-action="slide" data-step="-1" aria-label="Previous slide">‹</button><button class="sl-nav next" data-action="slide" data-step="1" aria-label="Next slide">›</button>
+      <div class="sl-dots">${SLIDES.map((_, k) => `<button data-action="slide" data-to="${k}" aria-label="Slide ${k + 1}" aria-current="${k === i}"></button>`).join('')}</div>` : ''}
+  </section>`;
+}
+function goSlide(i){
+  const n = SLIDES.length; state.slide = ((i % n) + n) % n;
+  const box = document.querySelector('.slideshow'); if (!box) return;
+  box.querySelector('.slides').style.transform = `translateX(-${state.slide * 100}%)`;
+  box.querySelectorAll('.slide').forEach((el, k) => el.toggleAttribute('aria-hidden', k !== state.slide));
+  box.querySelectorAll('.sl-dots button').forEach((el, k) => el.setAttribute('aria-current', k === state.slide));
+}
+setInterval(() => { const box = document.querySelector('.slideshow'); if (SLIDES.length > 1 && box && !box.matches(':hover')) goSlide((state.slide || 0) + 1); }, 8000);
+function loginView(){
+  return `<div class="auth2"><h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
+    <div class="info3">
       <section class="panel findus" aria-label="Find us">
         <b class="findus-h">Find us</b>
         <a class="fline" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Ashford Railway Club, ' + CONFIG.ADDRESS)}" target="_blank" rel="noopener"><span class="fi">${ICONS.pin}</span><span>${esc(CONFIG.ADDRESS)}<small>Get directions</small></span></a>
@@ -1513,9 +1558,9 @@ function loginView(){
         <a class="fline" href="mailto:${esc(CONFIG.EMAIL)}"><span class="fi">${ICONS.mail}</span><span>${esc(CONFIG.EMAIL)}<small>Email us</small></span></a>
         <p class="muted" style="font-size:13px">Just off Beaver Road, with our own access road round to the car park. There’s plenty of parking.</p>
       </section>
-    </div>
-    <div class="info">${hoursHtml()}<div id="woSlot" class="wo-slot">${woHtml()}</div></div>
-    </div>`;
+      ${hoursHtml()}
+      <div id="woSlot" class="wo-slot">${woHtml()}</div>
+    </div></div>`;
 }
 
 /* ---------- Home ---------- */
@@ -2245,6 +2290,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
+  slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
   authtab: t => { state.authTab = t.dataset.val; if ($('#sheetRoot .authsheet')) openAuth(t.dataset.val); else render(); },
   openauth: t => openAuth(t.dataset.val),
   demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
