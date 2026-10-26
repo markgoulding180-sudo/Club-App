@@ -623,9 +623,6 @@ main.authmain{padding:0 !important}
 .hero img{display:block;width:100%;height:auto}
 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:10%;background:linear-gradient(180deg,rgba(6,18,47,0),#06122f)}
 .mainbody{position:relative;isolation:isolate;padding:28px 0 calc(48px + env(safe-area-inset-bottom,0px));background:#06122f;min-height:60vh}
-.mainbody::before{content:"";position:absolute;inset:0;z-index:-2;background:url('img/main-bg-1600.webp') center 45%/cover no-repeat;opacity:.32;filter:grayscale(.35) brightness(1.15)}
-.mainbody::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#06122f 0%,rgba(28,78,190,.55) 18%,rgba(24,70,175,.5) 70%,rgba(6,18,47,.9) 100%)}
-@media (max-width:760px){ .mainbody::before{background-image:url('img/page-tracks-800.webp');background-position:center top;background-size:cover;opacity:.3} }
 .authmain .auth{padding-top:0;align-items:start}
 .auth section .lead{margin-top:0}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -880,6 +877,22 @@ html,body{overflow-x:clip;max-width:100%}
   .lhours .hrow{padding:2px 8px;font-size:13px}
   .lhours{padding:10px 12px}
 }
+/* Page background: deep navy gradient with soft blue glows, a faint diagonal weave and fine grain */
+.mainbody{background:#071434}
+.mainbody::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(1100px 700px at 12% 8%,rgba(64,120,255,.38),transparent 60%),
+    radial-gradient(900px 800px at 92% 38%,rgba(46,230,200,.12),transparent 60%),
+    radial-gradient(1000px 700px at 20% 78%,rgba(120,90,255,.16),transparent 60%),
+    radial-gradient(800px 600px at 85% 96%,rgba(242,195,91,.10),transparent 60%),
+    linear-gradient(180deg,#050d27 0%,#071538 40%,#061232 70%,#030a1e 100%)}
+.mainbody::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0/220px 220px,
+    repeating-linear-gradient(135deg,rgba(150,185,255,.055) 0 1px,transparent 1px 11px),
+    repeating-linear-gradient(45deg,rgba(150,185,255,.035) 0 1px,transparent 1px 11px)}
+.lcard{background:linear-gradient(150deg,rgba(40,60,120,.94),rgba(14,24,58,.96))}
+.mainbody{gap:22px}
 </style>
 
 </head>
