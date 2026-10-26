@@ -796,6 +796,15 @@ main.authmain{padding:0 !important}
 .pubnav button::after{content:"";position:absolute;left:20%;right:20%;bottom:6px;height:2px;border-radius:2px;background:#f2c35b;transform:scaleX(0);transition:transform .2s}
 .pubnav button:hover::after{transform:scaleX(1)}
 @media (max-width:760px){ .pubnav{justify-content:space-between;gap:0;padding:0 4px} .pubnav button{flex:1;padding:12px 2px;font-size:12px;letter-spacing:.01em} }
+/* All slides the same size; text trimmed to fit */
+.slide-card{height:clamp(500px,32vw,600px);min-height:0}
+.slide-card .slide-txt{overflow:hidden}
+@media (max-width:760px){
+  .slide-card{height:auto}
+  .slide-card .slide-txt{height:var(--slide-txt-h,auto);justify-content:flex-start;padding:22px 18px}
+  .slide-card .slide-img{aspect-ratio:16/10}
+  .slide-txt > div:last-child:has(> button.btn){display:none}
+}
 </style>
 
 </head>
@@ -1513,6 +1522,16 @@ function initWo(){
   list.addEventListener('scroll', () => { woCenter(); clearTimeout(t); t = setTimeout(woWrap, 140); }, { passive: true });
   woCenter();
 }
+/* Phones: make every slide's text area the height of the tallest, so all slides are the same size */
+function evenSlides(){
+  const box = document.querySelector('.slideshow'); if (!box) return;
+  box.style.removeProperty('--slide-txt-h');
+  if (!woMobile()) return;
+  const h = Math.max(...[...box.querySelectorAll('.slide-txt')].map(t => t.scrollHeight));
+  box.style.setProperty('--slide-txt-h', h + 'px');
+}
+window.addEventListener('resize', () => evenSlides());
+document.fonts?.ready.then(() => evenSlides());
 window.addEventListener('resize', () => { const list = document.querySelector('.wo-top .wo-list'); const first = list?.querySelector('.wo-item:not(.clone)'); if (list && first && woMobile()) woScrollTo(list, first); woCenter(); });
 async function loadPublicEvents(){
   try { state.publicEvents = await api.publicWhatsOn(5); } catch(e){ state.publicEvents = []; }
@@ -1620,7 +1639,7 @@ function render(){
     <section class="mainbody"><div class="wo-top"><div id="woSlot" class="wo-slot">${woHtml()}</div></div>${slideshowHtml()}<div class="wrap">${loginView()}</div></section></main>`;
     if (woMobile()){ const box = app.querySelector('.hero-cta'), wo = app.querySelector('.wo-top'); const nav = app.querySelector('.pubnav'); if (box && nav) nav.after(box);
       if (box && wo){ box.appendChild(wo); wo.insertAdjacentHTML('beforeend', `<div id="openNow" class="wo-open">${openNowHtml()}</div>`); } }
-    initWo(); return; }
+    initWo(); evenSlides(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
     bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
@@ -1681,7 +1700,7 @@ const SLIDES = [
       <div class="chips"><span>Members’ club</span><span>Guests £2</span><span>Family-friendly</span><span>Function room</span></div>` },
   { imgs: [['slide-sport', 'Watching the football on the big screen'], ['slide-pool', 'The pool table and members’ bar'], ['slide-family', 'Families and friends at the bar']], html: () => `
       <h2 class="welcome-h">Club amenities</h2>
-      <p>Everything you need for a good night out, a big match or a family get-together.</p>
+      <p>Everything for a night out, a big match or a family get-together.</p>
       <ul class="amen">
         <li><b>Large private members’ bar</b><span>Well-stocked bar with plenty of seating</span></li>
         <li><b>Large function room</b><span>For parties, weddings, wakes and club events</span></li>
@@ -1692,27 +1711,27 @@ const SLIDES = [
       </ul>` },
   { imgs: [['slide-hall1', 'Dancing in the function room'], ['slide-hall2', 'A Halloween party in the function room'], ['slide-hall3', 'A soul night in the function room']], html: () => `
       <h2 class="welcome-h">Function room hire</h2>
-      <p>Our function room can be hired by <b>members</b> for their events. It’s perfect for <b>birthday celebrations, engagements, weddings</b> and <b>presentation or awards nights</b>.</p>
+      <p><b>Members</b> can hire our function room for <b>birthdays, engagements, weddings</b> and <b>awards nights</b>.</p>
       <div class="hire">
         <div class="hire-box"><b>130</b><span>seated</span></div>
         <div class="hire-box"><b>180</b><span>maximum</span></div>
         <div class="hire-box"><b>£20<small>/hr</small></b><span>midweek, no bar</span></div>
-        <div class="hire-box"><b>£30<small>/hr</small></b><span>midweek, with fully licensed bar</span></div>
-        <div class="hire-box wide"><b>£250</b><span>Friday and Saturday evenings, minimum hire, fully licensed bar included, plus a <b>£100 refundable deposit</b></span></div>
+        <div class="hire-box"><b>£30<small>/hr</small></b><span>midweek, with bar</span></div>
+        <div class="hire-box wide"><b>£250</b><span>Fri &amp; Sat evenings minimum, bar included, plus <b>£100 refundable deposit</b></span></div>
       </div>
-      <p class="hire-note">Please note: 16th and 18th to 21st birthday parties are not permitted.</p>
+      <p class="hire-note">16th and 18th–21st birthday parties are not permitted.</p>
       <div><button class="btn" data-action="openauth" data-val="login">Sign in to book</button></div>` },
   { imgs: [['slide-family', 'Members and families at the club'], ['slide-bar', 'Members in the club bar'], ['slide-sport', 'Members watching the football']], html: () => `
       <h2 class="welcome-h">Membership</h2>
-      <p>Membership runs from <b>January to December</b>. Our fees for 2026 are:</p>
+      <p>Runs <b>January to December</b>. 2026 fees:</p>
       <div class="hire mem">
         <div class="hire-box"><b>£25</b><span>Single</span></div>
         <div class="hire-box"><b>£40</b><span>Joint, a couple at the same address</span></div>
         <div class="hire-box"><b>£15</b><span>Junior or student</span></div>
       </div>
       <ul class="amen one">
-        <li><b>Renewing</b><span>Renew between December and 31 January. After 31 January there’s an extra £5 per membership card.</span></li>
-        <li><b>New members</b><span>Applications open from 1 February. Write a short letter to the club secretary saying why you’d like to join, and we’ll post you an application form. It must be seconded by two current members, as licensing law requires for members’ clubs.</span></li>
+        <li><b>Renewing</b><span>Renew December to 31 January. Late renewals cost £5 extra per card.</span></li>
+        <li><b>New members</b><span>Applications open 1 February. Write to the club secretary for a form; it must be seconded by two current members (licensing law).</span></li>
       </ul>
       <div><a class="btn" href="mailto:${esc(CONFIG.EMAIL)}?subject=${encodeURIComponent('Membership application form request')}">Email for an application form</a></div>` }
 ];
