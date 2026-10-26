@@ -978,6 +978,124 @@ html,body{overflow-x:clip;max-width:100%}
 .mainbody > section.lsec:nth-of-type(odd) .hrow.hnow{background:#e8f6f3;color:#0e7c6b}
 .mainbody > section.lsec:nth-of-type(odd) .hrow.hnow span:last-child{color:#0e7c6b}
 .mainbody > section.lsec:nth-of-type(odd) .lcard .limg{border-left:0}
+/* ===================== Landing page v2: varied, editorial layout ===================== */
+.authmain .mainbody{display:block !important;padding:0 !important;gap:0 !important;grid-template-columns:none !important}
+.lp-wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+.lsec{scroll-margin-top:calc(var(--nav-h,48px) + 4px)}
+.eyebrow{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#f2c35b}
+.eyebrow.dark{color:#a8730f}
+.lp-h{font-family:var(--display);font-weight:800;font-size:clamp(26px,3vw,44px);line-height:1.1;margin:0 0 14px;color:#fff}
+/* intro */
+.lp-intro{text-align:center;padding:clamp(40px,7vw,96px) clamp(16px,4vw,40px) clamp(32px,5vw,64px);max-width:980px;margin:0 auto}
+.lp-big{font-family:var(--display);font-weight:800;font-size:clamp(38px,6.5vw,84px);line-height:1.02;margin:0 0 18px;color:#fff;letter-spacing:-.02em}
+.lp-big span{background:linear-gradient(100deg,#ffe7a6,#f2c35b 55%,#d9a23a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-lead{font-size:clamp(16px,1.35vw,20px);line-height:1.65;color:#c9d4f5;max-width:62ch;margin:0 auto 18px}
+.lp-lead b{color:#fff}
+.lp-intro .lopen{display:flex;justify-content:center;margin-bottom:26px}
+.lp-intro .opennow{margin:0}
+.lp-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid rgba(242,195,91,.3);border-bottom:1px solid rgba(242,195,91,.3)}
+.lp-facts div{padding:18px 10px;display:grid;gap:2px}
+.lp-facts div + div{border-left:1px solid rgba(242,195,91,.3)}
+.lp-facts b{font-family:var(--display);font-weight:800;font-size:clamp(24px,2.6vw,36px);color:#f2c35b}
+.lp-facts span{font-size:13px;color:#a9b6e0}
+/* what's on */
+.lp-wo{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0));border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);padding:28px 0}
+.lp-wo .lp-h{font-size:clamp(22px,2vw,30px)}
+.lp-wo .lwo-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.lp-wo .wo-item{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.05);border:1px solid rgba(242,195,91,.3);border-radius:14px;padding:10px 12px;opacity:1;transform:none}
+.lp-wo .wo-item .t{min-width:0;display:grid}
+.lp-wo .wo-item .t b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-wo .wo-item .t span{font-size:12.5px;color:var(--amber);font-weight:700;white-space:nowrap}
+.lp-wo .wo-item .t small{color:var(--muted)}
+.lp-wo .wo-item .when{min-width:46px;padding:4px 6px;border-radius:10px}
+.lp-wo .wo-item .when .d{font-size:18px}
+.lp-more{margin-top:12px;color:#f2c35b}
+@media (max-width:1100px){ .lp-wo .lwo-list{grid-template-columns:repeat(3,minmax(0,1fr))} .lp-wo .wo-item:nth-child(n+4){display:none} }
+/* rotating pictures */
+.rot{position:relative;overflow:hidden;background:#0a1430}
+.rot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 35%;opacity:0;transition:opacity 1.2s ease,transform 7s ease;transform:scale(1.05)}
+.rot img.on{opacity:1;transform:scale(1)}
+/* split sections */
+.lp-split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);min-height:clamp(420px,42vw,600px)}
+.lp-split.rev .lp-pic{order:2}
+.lp-copy{padding:clamp(28px,5vw,80px);display:flex;flex-direction:column;justify-content:center;color:#d6def5;font-size:clamp(15px,1.1vw,18px);line-height:1.65}
+.lp-copy p{margin:0 0 12px}
+.lp-copy b{color:#fff}
+.lp-split.light{background:#f7f3ea}
+.lp-split.light .lp-copy{color:#3a4766}
+.lp-split.light .lp-h{color:#0d1d45}
+.lp-split.green{background:linear-gradient(135deg,#0d3b2b,#0a2a22)}
+.lp-split.green .eyebrow{color:#9fe6b8}
+.lp-ticks{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+.lp-ticks li{display:grid;gap:1px;padding-left:16px;border-left:3px solid #d9a23a}
+.lp-ticks b{color:#0d1d45;font-size:1em}
+.lp-ticks span{color:#6a7590;font-size:.85em}
+.lp-contact{margin-top:6px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(159,230,184,.3)}
+.lp-contact a{color:#9fe6b8;font-weight:800;text-decoration:none}
+/* hall band */
+.lp-band{position:relative;min-height:clamp(520px,48vw,680px);display:flex;align-items:center;padding:clamp(24px,5vw,80px)}
+.lp-band .lp-bg{position:absolute;inset:0}
+.lp-band::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,10,28,.92) 0%,rgba(5,10,28,.7) 45%,rgba(5,10,28,.15) 100%);pointer-events:none}
+.lp-glass{position:relative;z-index:1;max-width:520px;color:#d6def5;font-size:clamp(15px,1.1vw,18px);line-height:1.6}
+.lp-glass p{margin:0 0 14px}
+.lp-prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 14px}
+.lp-prices div{padding:12px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(242,195,91,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;gap:2px}
+.lp-prices b{font-family:var(--display);font-size:clamp(20px,1.8vw,28px);color:#f2c35b}
+.lp-prices small{font-size:.55em}
+.lp-prices span{font-size:12px;color:#c9d4f5;line-height:1.3}
+.lp-note{font-size:13px;color:#ffb3bd;font-weight:700}
+/* membership tiers */
+.lp-members{padding:clamp(48px,7vw,96px) 0;text-align:center;background:radial-gradient(800px 400px at 50% 0%,rgba(242,195,91,.12),transparent 70%)}
+.lp-sub{max-width:62ch;margin:0 auto 22px;color:#b9c5ea;font-size:15px}
+.lp-tiers{display:grid;grid-template-columns:repeat(3,minmax(0,220px));justify-content:center;gap:18px;margin:8px 0 24px}
+.tier{display:grid;gap:4px;padding:26px 16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
+.tier span{font-weight:800;color:#dfe6ff}
+.tier b{font-family:var(--display);font-size:clamp(36px,3.6vw,52px);color:#fff;line-height:1}
+.tier small{color:#93a1cc}
+.tier.hi{background:linear-gradient(160deg,#f6d27a,#d9a23a);border-color:transparent;transform:translateY(-8px);box-shadow:0 20px 40px -20px rgba(242,195,91,.7)}
+.tier.hi span,.tier.hi b,.tier.hi small{color:#1d1404}
+.lp-members .btn.gold{display:inline-flex;text-decoration:none}
+/* gallery */
+.lp-gallery{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:4px 0}
+.lp-gallery figure{margin:0;aspect-ratio:1;overflow:hidden;background:#0a1430}
+.lp-gallery img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.lp-gallery figure:hover img{transform:scale(1.06)}
+/* call to action */
+.lp-cta{text-align:center;padding:clamp(44px,6vw,80px) 20px;background:linear-gradient(135deg,#f6d27a,#d9a23a);color:#1d1404}
+.lp-cta h2{font-family:var(--display);font-weight:800;font-size:clamp(26px,3vw,42px);margin:0 0 8px}
+.lp-cta p{margin:0 0 20px;font-size:17px}
+.lp-cta .hero-btns{display:flex;gap:12px;justify-content:center;transform:none}
+.lp-cta .btn{background:#0d1d45;color:#fff;box-shadow:none}
+.lp-cta .btn.ghost{background:transparent;color:#1d1404;border:2px solid #1d1404}
+/* footer */
+.lp-foot{background:#040a1e;padding:clamp(40px,5vw,64px) 0 20px;border-top:1px solid rgba(242,195,91,.3)}
+.lp-foot .lp-wrap{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+.lp-fcol img{display:block;margin-bottom:10px}
+.lp-foot .lp-h{font-size:26px}
+.lp-foot .lhours{margin:0;width:100%}
+.lp-copy-r{text-align:center;color:#6c789c;font-size:12px;margin:32px 0 0}
+/* phones */
+@media (max-width:760px){
+  .lp-facts span{font-size:11.5px}
+  .lp-wo{padding:22px 0}
+  .lp-wo .lwo-list{grid-template-columns:1fr;gap:8px}
+  .lp-wo .wo-item:nth-child(n+4){display:none}
+  .lp-split{grid-template-columns:1fr;min-height:0}
+  .lp-split .lp-pic,.lp-split.rev .lp-pic{order:0;aspect-ratio:4/3}
+  .lp-copy{padding:26px 18px 30px}
+  .lp-ticks{gap:12px 14px}
+  .lp-band{min-height:0;padding:0;flex-direction:column;align-items:stretch}
+  .lp-band .lp-bg{position:relative;inset:auto;aspect-ratio:16/10}
+  .lp-band::after{inset:0 0 auto 0;height:0}
+  .lp-glass{max-width:none;padding:22px 18px 30px;background:#071233}
+  .lp-tiers{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 12px}
+  .tier{padding:16px 6px;border-radius:14px}
+  .tier span{font-size:12.5px}
+  .tier small{font-size:11px}
+  .tier.hi{transform:translateY(-4px)}
+  .lp-gallery{grid-template-columns:repeat(3,1fr)}
+  .lp-foot .lp-wrap{grid-template-columns:1fr}
+}
 </style>
 
 </head>
@@ -1982,27 +2100,105 @@ function loginView(){
 }
 
 /* ---------- Landing page: one section per topic, all the same size ---------- */
-const LSECS = [['about', 'About Us', 0], ['whatson', 'What’s On'], ['amenities', 'Amenities', 1], ['hall', 'Hall Hire', 2], ['membership', 'Membership', 3], ['bowls', 'Bowls', 4], ['findus', 'Find Us']];
+const LSECS = [['about', 'About'], ['whatson', 'What’s On'], ['amenities', 'The Club'], ['hall', 'Hall Hire'], ['membership', 'Membership'], ['bowls', 'Bowls'], ['findus', 'Find Us']];
 function landingHtml(){
-  const photo = (id, k) => { const sl = SLIDES[k];
-    return `<section class="lsec${['amenities', 'hall', 'membership', 'bowls'].includes(id) ? ' half' : ''}" id="sec-${id}"><div class="lcard photo">
-      <div class="ltxt">${sl.html()}</div>
-      <div class="limg">${sl.imgs.map(([name, alt], j) => `<img data-src="img/${name}-800.webp" data-srcset="img/${name}-800.webp 800w, img/${name}-1400.webp 1400w" sizes="(max-width:760px) 100vw, 50vw" alt="${esc(alt)}" class="${j ? '' : 'on'}" decoding="async">`).join('')}</div>
-    </div></section>`; };
-  const whatson = `<section class="lsec" id="sec-whatson"><div class="lcard plain"><div class="ltxt">
-      <h2 class="welcome-h">What’s On</h2>
-      <div class="lopen">${openNowHtml()}</div>
-      <div id="woSlot" class="lwo">${woListHtml()}</div>
-      <p class="muted lnote">Sign in to see everything on and reserve tickets.</p></div></div></section>`;
-  const findus = `<section class="lsec" id="sec-findus"><div class="lcard plain"><div class="ltxt">
-      <h2 class="welcome-h">Find Us</h2>
-      <div class="findus">
-        <a class="fline" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Ashford Railway Club, ' + CONFIG.ADDRESS)}" target="_blank" rel="noopener"><span class="fi">${ICONS.pin}</span><span>${esc(CONFIG.ADDRESS)}<small>Get directions · plenty of parking</small></span></a>
-        <a class="fline" href="tel:${CONFIG.PHONE.replace(/\s/g, '')}"><span class="fi">${ICONS.phone}</span><span>${esc(CONFIG.PHONE)}<small>Call the club</small></span></a>
-        <a class="fline" href="mailto:${esc(CONFIG.EMAIL)}"><span class="fi">${ICONS.mail}</span><span>${esc(CONFIG.EMAIL)}<small>Email us</small></span></a>
+  // pictures: [file base, alt]
+  const rot = (imgs, cls = '') => `<div class="rot ${cls}">${imgs.map(([n, alt], j) => `<img data-src="img/${n}-800.webp" data-srcset="img/${n}-800.webp 800w, img/${n}-1400.webp 1400w" sizes="(max-width:760px) 100vw, 60vw" alt="${esc(alt)}" class="${j ? '' : 'on'}" decoding="async">`).join('')}</div>`;
+  const tel = n => `<a href="tel:${n.replace(/\s/g, '')}">${n}</a>`;
+  const tick = (t, sub) => `<li><b>${t}</b>${sub ? `<span>${sub}</span>` : ''}</li>`;
+  return `<h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>
+
+  <section class="lsec lp-intro" id="sec-about">
+    <p class="eyebrow">Welcome to Ashford Railway Club</p>
+    <h2 class="lp-big">Good friends.<br><span>Great times.</span></h2>
+    <p class="lp-lead">A friendly <b>members’ club</b> just opposite Ashford International station, also known as the <b>British Rail Sports &amp; Social Club</b>. Family-friendly, with a big bar, a function room, live sport and a busy diary of club nights.</p>
+    <div class="lopen">${openNowHtml()}</div>
+    <div class="lp-facts">
+      <div><b>£2</b><span>to sign in a guest</span></div>
+      <div><b>130</b><span>seated in the function room</span></div>
+      <div><b>Family</b><span>friendly club</span></div>
+    </div>
+  </section>
+
+  <section class="lsec lp-wo" id="sec-whatson"><div class="lp-wrap">
+    <h2 class="lp-h">What’s On</h2>
+    <div id="woSlot" class="lwo">${woListHtml()}</div>
+    <button class="linkbtn lp-more" data-action="openauth" data-val="login">See the full diary →</button></div>
+  </section>
+
+  <section class="lsec lp-split light" id="sec-amenities">
+    ${rot([['slide-sport', 'Football on the big screen'], ['slide-pool', 'The pool table and members’ bar'], ['slide-family', 'Families at the bar']], 'lp-pic')}
+    <div class="lp-copy">
+      <p class="eyebrow dark">The club</p>
+      <h2 class="lp-h">Everything for a good night out</h2>
+      <ul class="lp-ticks">
+        ${tick('Large members’ bar', 'Plenty of seating')}${tick('Live sport', 'Big screen and TVs')}
+        ${tick('Pool and darts', 'Table and boards')}${tick('Function room', 'For parties and events')}
+        ${tick('Club nights', 'Bingo, quiz, karaoke, live music')}${tick('Family atmosphere', 'Children welcome')}
+      </ul>
+    </div>
+  </section>
+
+  <section class="lsec lp-band" id="sec-hall">
+    ${rot([['slide-hall1', 'Dancing in the function room'], ['slide-hall2', 'A Halloween party'], ['slide-hall3', 'A soul night']], 'lp-bg')}
+    <div class="lp-glass">
+      <p class="eyebrow">For members</p>
+      <h2 class="lp-h">Hire the function room</h2>
+      <p>Birthdays, engagements, weddings and awards nights. Seats 130, up to 180 guests.</p>
+      <div class="lp-prices">
+        <div><b>£20<small>/hr</small></b><span>Midweek, no bar</span></div>
+        <div><b>£30<small>/hr</small></b><span>Midweek, with bar</span></div>
+        <div><b>£250</b><span>Fri &amp; Sat evening + £100 deposit</span></div>
       </div>
-      ${hoursHtml('lhours')}</div></div></section>`;
-  return `<h1 class="sr-only">The ${esc(CONFIG.CLUB_NAME)}, ${esc(CONFIG.TOWN)}</h1>` + LSECS.map(([id, , k]) => id === 'whatson' ? whatson : id === 'findus' ? findus : photo(id, k)).join('');
+      <p class="lp-note">16th and 18th–21st birthday parties are not permitted.</p>
+      <button class="btn" data-action="openauth" data-val="login">Sign in to book</button>
+    </div>
+  </section>
+
+  <section class="lsec lp-members" id="sec-membership"><div class="lp-wrap">
+    <p class="eyebrow">Membership 2026</p>
+    <h2 class="lp-h">Join the club</h2>
+    <p class="lp-sub">Runs January to December. Renew from December to 31 January (£5 extra per card after that).</p>
+    <div class="lp-tiers">
+      <div class="tier"><span>Single</span><b>£25</b><small>per year</small></div>
+      <div class="tier hi"><span>Joint</span><b>£40</b><small>couple at one address</small></div>
+      <div class="tier"><span>Junior / Student</span><b>£15</b><small>per year</small></div>
+    </div>
+    <p class="lp-sub">New applications open 1 February. Write to the club secretary for a form; it must be seconded by two members (licensing law).</p>
+    <a class="btn gold" href="mailto:${esc(CONFIG.EMAIL)}?subject=${encodeURIComponent('Membership application form request')}">Request an application form</a></div>
+  </section>
+
+  <section class="lsec lp-split green rev" id="sec-bowls">
+    ${rot([['slide-bowls3', 'A young bowler'], ['slide-bowls1', 'Bowls Section members'], ['slide-bowls2', 'A match on the green']], 'lp-pic')}
+    <div class="lp-copy">
+      <p class="eyebrow">Ashford (Kent) Rail Bowls Club</p>
+      <h2 class="lp-h">Bowls Section</h2>
+      <p>Our own bowls club with its own committee and rules, open to club members and free to use all the club’s facilities. Affiliated with <b>Bowls England</b> and the <b>K.C.B.A.</b></p>
+      <p class="lp-contact"><b>Graham Williams</b>, Section Secretary<br>${tel('01233 627140')} · ${tel('07900 215254')}</p>
+    </div>
+  </section>
+
+  <section class="lsec lp-gallery" aria-label="Photos">
+    ${[['slide-bar', 'The club bar'], ['slide-band', 'Band night'], ['slide-party', 'A party'], ['slide-hall2', 'Halloween'], ['slide-bowls2', 'Bowls'], ['slide-sport', 'Match day']]
+      .map(([n, alt]) => `<figure><img data-src="img/${n}-800.webp" alt="${esc(alt)}" decoding="async"></figure>`).join('')}
+  </section>
+
+  <section class="lsec lp-cta">
+    <h2>Not a member yet?</h2>
+    <p>Register to book the hall, reserve event tickets and see the full diary.</p>
+    <div class="hero-btns"><button class="btn" data-action="openauth" data-val="signup">Register</button><button class="btn ghost" data-action="openauth" data-val="login">Sign in</button></div>
+  </section>
+
+  <footer class="lsec lp-foot" id="sec-findus"><div class="lp-wrap">
+    <div class="lp-fcol">
+      <img src="${LOGO}" alt="" width="72" height="72">
+      <h2 class="lp-h">Find us</h2>
+      <a class="fline" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Ashford Railway Club, ' + CONFIG.ADDRESS)}" target="_blank" rel="noopener"><span class="fi">${ICONS.pin}</span><span>${esc(CONFIG.ADDRESS)}<small>Directions · plenty of parking</small></span></a>
+      <a class="fline" href="tel:${CONFIG.PHONE.replace(/\s/g, '')}"><span class="fi">${ICONS.phone}</span><span>${esc(CONFIG.PHONE)}<small>Call the club</small></span></a>
+      <a class="fline" href="mailto:${esc(CONFIG.EMAIL)}"><span class="fi">${ICONS.mail}</span><span>${esc(CONFIG.EMAIL)}<small>Email us</small></span></a>
+    </div>
+    <div class="lp-fcol">${hoursHtml('lhours')}</div>
+  </div><p class="lp-copy-r">© ${new Date().getFullYear()} Ashford Railway Club · Members’ club</p></footer>`;
 }
 function woListHtml(){
   if (!state.publicEvents.length) return '<p class="muted">Nothing listed yet. Check back soon.</p>';
@@ -2010,7 +2206,7 @@ function woListHtml(){
     return `<div class="wo-item"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
       <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}${e.info ? `<small> · ${esc(e.info)}</small>` : ''}</span></div></div>`; }).join('')}</div>`;
 }
-const lLoad = img => { if (img?.dataset.src){ img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; delete img.dataset.srcset; } };
+const lLoad = img => { if (img?.dataset.src){ if (img.dataset.srcset) img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; delete img.dataset.srcset; } };
 let lObs = null, lSpy = null;
 function initLanding(){
   evenSections();
@@ -2018,12 +2214,12 @@ function initLanding(){
   // load each section's first picture as it comes near the screen
   lObs?.disconnect(); lSpy?.disconnect();
   if ('IntersectionObserver' in window){
-    lObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ const imgs = e.target.querySelectorAll('.limg img'); lLoad(imgs[0]); lObs.unobserve(e.target); } }), { rootMargin: '400px 0px' });
-    document.querySelectorAll('.lcard.photo').forEach(c => lObs.observe(c));
+    lObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ const img = e.target.matches('img') ? e.target : e.target.querySelector('img'); lLoad(img); lObs.unobserve(e.target); } }), { rootMargin: '400px 0px' });
+    document.querySelectorAll('.mainbody .rot, .lp-gallery img').forEach(c => lObs.observe(c));
     // nav: underline the section on screen
     lSpy = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && Date.now() - (state.navClick || 0) > 1200) navOn(e.target.id.replace('sec-', '')); }), { rootMargin: '-45% 0px -50% 0px' });
-    document.querySelectorAll('.lsec').forEach(sec => lSpy.observe(sec));
-  } else document.querySelectorAll('.limg img').forEach(lLoad);
+    document.querySelectorAll('.lsec[id]').forEach(sec => lSpy.observe(sec));
+  } else document.querySelectorAll('.mainbody img[data-src]').forEach(lLoad);
 }
 function navOn(id){
   document.querySelectorAll('.pubnav button').forEach(b => { const on = b.dataset.to === id; b.classList.toggle('on', on);
@@ -2031,23 +2227,15 @@ function navOn(id){
 }
 /* Every section the same height: the screen height (less the nav bar), or taller if a section needs more room */
 function evenSections(){
-  const main = document.querySelector('.mainbody'); if (!main || !document.querySelector('.lsec')) return;
-  const navH = document.querySelector('.pubnav')?.offsetHeight || 48; const mob = woMobile();
-  main.style.setProperty('--nav-h', navH + 'px');
-  const base = mob ? Math.min(720, Math.max(520, window.innerHeight - navH - 24)) : Math.min(560, Math.max(440, Math.round(window.innerWidth * 0.3)));
-  main.style.setProperty('--lsec-h', base + 'px');
-  const minImg = mob ? 130 : 0; const twoCol = window.innerWidth >= 1100;
-  const need = Math.max(...[...document.querySelectorAll('.lsec:not(#sec-whatson) .lcard')].map(c => { const t = c.querySelector('.ltxt'); t.style.height = 'auto';
-    const half = twoCol && c.closest('.lsec.half');
-    const h = t.scrollHeight + (half ? 240 : c.classList.contains('photo') ? minImg : 0); t.style.height = ''; return h; }));
-  main.style.setProperty('--lsec-h', Math.max(base, need) + 'px');
+  const main = document.querySelector('.mainbody'); if (!main) return;
+  main.style.setProperty('--nav-h', (document.querySelector('.pubnav')?.offsetHeight || 48) + 'px');
 }
 window.addEventListener('resize', () => evenSections());
 // Every 5 seconds, sections on screen show their next picture
 setInterval(() => {
   if (document.hidden) return;
-  document.querySelectorAll('.lcard.photo').forEach(c => { const r = c.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
-    const imgs = [...c.querySelectorAll('.limg img')]; if (imgs.length < 2) return; const cur = imgs.findIndex(i => i.classList.contains('on')); const nx = (cur + 1) % imgs.length;
+  document.querySelectorAll('.mainbody .rot').forEach(c => { const r = c.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
+    const imgs = [...c.querySelectorAll('img')]; if (imgs.length < 2) return; const cur = imgs.findIndex(i => i.classList.contains('on')); const nx = (cur + 1) % imgs.length;
     lLoad(imgs[nx]); const show = () => imgs.forEach((im, k) => im.classList.toggle('on', k === nx));
     if (imgs[nx].complete) show(); else imgs[nx].addEventListener('load', show, { once: true }); });
 }, 5000);
