@@ -931,6 +931,23 @@ html,body{overflow-x:clip;max-width:100%}
 }
 /* Alternate sections: every second one plain dark navy */
 .mainbody > section.lsec:nth-of-type(even) .lcard{background:linear-gradient(160deg,#0b1a3f 0%,#071230 55%,#050c24 100%)}
+/* Desktop: rounded cards in a tidy grid; About, What's On and Find Us full width, the rest two by two */
+@media (min-width:761px){
+  .authmain .mainbody{padding:24px max(24px,calc((100vw - 1400px) / 2)) 48px;gap:24px}
+  .lcard{border-radius:24px;border:1.5px solid rgba(242,195,91,.4);box-shadow:0 22px 50px -26px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.06)}
+  .lsec:last-child .lcard{border-bottom:1.5px solid rgba(242,195,91,.4)}
+  .lcard .ltxt,.lcard.plain .ltxt{padding:clamp(22px,2.4vw,40px)}
+}
+@media (min-width:1100px){
+  .authmain .mainbody{grid-template-columns:1fr 1fr}
+  #sec-about,#sec-whatson,#sec-findus{grid-column:1 / -1}
+  .lsec.half .lcard{grid-template-columns:1fr;grid-template-rows:240px minmax(0,1fr)}
+  .lsec.half .limg{order:-1}
+  .lsec.half .ltxt{justify-content:flex-start;padding:24px 30px}
+  .lsec.half .welcome-h{font-size:clamp(24px,1.9vw,32px)}
+  .lsec.half .amen{grid-template-columns:1fr 1fr}
+  #sec-about .lcard{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
 </style>
 
 </head>
@@ -1938,7 +1955,7 @@ function loginView(){
 const LSECS = [['about', 'About Us', 0], ['whatson', 'What’s On'], ['amenities', 'Amenities', 1], ['hall', 'Hall Hire', 2], ['membership', 'Membership', 3], ['bowls', 'Bowls', 4], ['findus', 'Find Us']];
 function landingHtml(){
   const photo = (id, k) => { const sl = SLIDES[k];
-    return `<section class="lsec" id="sec-${id}"><div class="lcard photo">
+    return `<section class="lsec${['amenities', 'hall', 'membership', 'bowls'].includes(id) ? ' half' : ''}" id="sec-${id}"><div class="lcard photo">
       <div class="ltxt">${sl.html()}</div>
       <div class="limg">${sl.imgs.map(([name, alt], j) => `<img data-src="img/${name}-800.webp" data-srcset="img/${name}-800.webp 800w, img/${name}-1400.webp 1400w" sizes="(max-width:760px) 100vw, 50vw" alt="${esc(alt)}" class="${j ? '' : 'on'}" decoding="async">`).join('')}</div>
     </div></section>`; };
@@ -1989,9 +2006,10 @@ function evenSections(){
   main.style.setProperty('--nav-h', navH + 'px');
   const base = mob ? Math.min(720, Math.max(520, window.innerHeight - navH - 24)) : Math.min(560, Math.max(440, Math.round(window.innerWidth * 0.3)));
   main.style.setProperty('--lsec-h', base + 'px');
-  const minImg = mob ? 130 : 0;
+  const minImg = mob ? 130 : 0; const twoCol = window.innerWidth >= 1100;
   const need = Math.max(...[...document.querySelectorAll('.lsec:not(#sec-whatson) .lcard')].map(c => { const t = c.querySelector('.ltxt'); t.style.height = 'auto';
-    const h = t.scrollHeight + (c.classList.contains('photo') ? minImg : 0); t.style.height = ''; return h; }));
+    const half = twoCol && c.closest('.lsec.half');
+    const h = t.scrollHeight + (half ? 240 : c.classList.contains('photo') ? minImg : 0); t.style.height = ''; return h; }));
   main.style.setProperty('--lsec-h', Math.max(base, need) + 'px');
 }
 window.addEventListener('resize', () => evenSections());
