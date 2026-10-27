@@ -1315,7 +1315,7 @@ const money2 = n => '£' + Number(n || 0).toFixed(2);
 const evTheme = t => EVENT_THEME[t] || ['#43f5d6', '#7f6bff'];
 const evVars = t => { const [a, b] = evTheme(t); return `--b1:${a};--b2:${b}`; };
 const CLUB_TIMES = (() => { const t = []; for (let m = 9 * 60; m <= 24 * 60; m += 30) t.push(`${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`); return t; })();
-const EVENT_CATS = ['Bingo', 'Live music', 'Cabaret', 'Quiz', 'Sport', 'Darts & pool', 'Club group', 'Food', 'Other'];
+const EVENT_CATS = ['Bingo', 'Live music', 'Cabaret', 'Quiz', 'Sport', 'Darts', 'Pool', 'Darts & pool', 'Club group', 'Food', 'Other'];
 const EVENT_TYPES = ['Birthday', '18th Birthday', 'Wedding reception', 'Engagement', 'Anniversary', 'Christening', 'Wake', 'Meeting', 'Club function', 'Other'];
 
 const SESS = { day: 'Daytime', eve: 'Evening' };
@@ -1583,7 +1583,7 @@ function makeSupabaseApi(){
     async reopenDay(id){ ok(await sb.from('closed_days').delete().eq('id', id)); },
     // rota
     async daySummaries(from, to){ return ok(await sb.rpc('get_day_summaries', { from_date: from, to_date: to })); },
-    async clubEvents(from, to){ return ok(await sb.from('bookings').select('id,booking_date,room,start_time,end_time,event_type,ticketed,price_member,price_guest,notes,tickets_total,banner_url,status').eq('booking_kind', 'club').neq('status', 'cancelled').gte('booking_date', from).lte('booking_date', to).order('booking_date')); },
+    async clubEvents(from, to){ return ok(await sb.from('bookings').select('id,booking_date,room,start_time,end_time,event_type,ticketed,price_member,price_guest,notes,tickets_total,banner_url,event_details,status').eq('booking_kind', 'club').neq('status', 'cancelled').gte('booking_date', from).lte('booking_date', to).order('booking_date')); },
     async listStaff(){ return ok(await sb.rpc('get_staff')); },
     async shiftsBetween(from, to){ return ok(await sb.from('shifts').select('*').gte('shift_date', from).lte('shift_date', to)); },
     async assignShift(x){ return ok(await sb.from('shifts').insert({ shift_date: x.shift_date, session: x.session, job: x.job, staff_id: x.staff_id }).select().single()); },
@@ -2647,6 +2647,7 @@ function clubForm({ b = null, date = todayStr(), idp = 'cb' } = {}){
       <label class="f">Non-member price (£)<input id="${idp}-pg" name="price_guest" type="number" min="0" step="0.5" value="${v.price_guest ?? 5}"></label></div>
       <label class="f">Tickets available<input id="${idp}-tt" name="tickets_total" type="number" min="1" step="1" placeholder="Leave blank for no limit" value="${v.tickets_total ?? ''}">
         <span class="muted" style="font-weight:500;font-size:12px">Members can reserve tickets from What’s On until these run out.</span></label></div>
+    ${catSelect(`${idp}-cat`, v.event_details?.cat || guessCat(v.event_type) || 'none')}
     <label class="f">Notes (optional)<textarea id="${idp}-notes" name="notes" placeholder="Shown on What’s On">${esc(v.notes)}</textarea></label>
     <div class="err" id="${idp}-err"></div>
     <button class="btn" type="submit">${b ? 'Save changes' : 'Save club event'}</button></form>`;
@@ -2675,6 +2676,7 @@ function sportsForm(ds){
       <div class="grid2"><label class="f">From<input id="sp-from" name="from" type="date" value="${ds}"></label>
         <label class="f">Until<input id="sp-to" name="to" type="date" value="${ymd(addDays(parseYmd(ds), 182))}"></label></div>
       <p class="muted" style="font-size:13px">Nights the room is already booked, or set to no bookings, are skipped and listed afterwards.</p></div>
+    ${catSelect('sp-cat', guessCat(state.sportName) || 'none')}
     <label class="f">Notes (optional)<textarea id="sp-notes" name="notes" placeholder="Shown on What’s On"></textarea></label>
     <div class="err"></div>
     <button class="btn" type="submit">Add sports booking</button></form>`;
@@ -2901,7 +2903,7 @@ function whatsOnView(){
   const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
   const card = e => { const d = new Date(e.starts_at);
     if (e.b && !admin) return clubEventCard(e, d);
-    return `<div class="event${e.b ? ' club' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e.title)}">${cardBanner(e.title)}<div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+    return `<div class="event${e.b ? ' club' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}">${cardBanner(e)}<div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
       <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
@@ -2927,13 +2929,21 @@ function whatsOnView(){
 function ticketsLeft(b){ if (!b.tickets_total) return null; return Math.max(0, b.tickets_total - (state.sold[b.id] || 0)); }
 function myTicketFor(id){ return state.myTk.filter(t => t.booking_id === id && t.status !== 'cancelled').sort((a, b) => b.id - a.id)[0] || null; }
 /* Banner pictures shown across the top of What's On cards, matched on the event name */
-const CARD_BANNERS = [[/darts/i, 'img/banner-darts.webp', 'Darts League'], [/pool/i, 'img/banner-pool.webp', 'Pool League']];
-const bannerSrc = title => (CARD_BANNERS.find(([re]) => re.test(title || '')) || [])[1] || '';
-const bannerBg = title => { const src = bannerSrc(title); return src ? `;--ebg:url('${src}')` : ''; };
-const cardBanner = title => { const m = CARD_BANNERS.find(([re]) => re.test(title || '')); return m ? `<img class="ebar" src="${m[1]}" alt="${m[2]}" loading="lazy" decoding="async" width="1200" height="125">` : ''; };
+/* Banner categories. The admin picks one when setting up an event; old events fall back to the name. */
+const BANNER_CATS = { darts: ['img/banner-darts.webp', 'Darts League', 'Darts'], pool: ['img/banner-pool.webp', 'Pool League', 'Pool'], sport: ['img/banner-sport.webp', 'Live Sport Showing', 'Live sport shown'] };
+const guessCat = name => /darts/i.test(name || '') ? 'darts' : /pool/i.test(name || '') ? 'pool' : '';
+function catOf(e){
+  if (e?.b){ const c = e.b.event_details?.cat; return c === 'none' ? '' : (c || guessCat(e.b.event_type)); }
+  const c = (e?.category || '').toLowerCase();
+  return c === 'darts' ? 'darts' : c === 'pool' ? 'pool' : c === 'sport' ? 'sport' : guessCat(e?.title);
+}
+const bannerBg = e => { const c = BANNER_CATS[catOf(e)]; return c ? `;--ebg:url('${c[0]}')` : ''; };
+const cardBanner = e => { const c = BANNER_CATS[catOf(e)]; return c ? `<img class="ebar" src="${c[0]}" alt="${c[1]}" loading="lazy" decoding="async" width="1200" height="125">` : ''; };
+const catSelect = (id, cur) => `<label class="f">Category (sets the banner on What’s On)<select id="${id}" name="cat">
+    <option value="none" ${cur === 'none' || cur === '' ? 'selected' : ''}>No banner</option>${Object.entries(BANNER_CATS).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v[2]}</option>`).join('')}</select></label>`;
 function clubEventCard(e, d){
   const b = e.b; const left = b.ticketed ? ticketsLeft(b) : null; const mine = b.ticketed ? myTicketFor(b.id) : null;
-  return `<div class="event club" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e.title)}">${cardBanner(e.title)}<div class="ehead">
+  return `<div class="event club" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}">${cardBanner(e)}<div class="ehead">
       <div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
       <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div><span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
     ${b.notes ? `<p class="edesc">${esc(b.notes)}</p>` : ''}
@@ -3369,6 +3379,7 @@ document.addEventListener('change', async e => {
   const el = e.target;
   try {
     if (el.matches('[data-reprice]')){ const f = el.form; if (f.booking_date.value && f.price.hasAttribute('data-autoprice')) f.price.value = priceFor(f.room.value, f.slot.value, f.booking_date.value); }
+    if (el.matches('#sp-name, [name=event_name]') && el.form?.cat){ const g = guessCat(el.value); if (g) el.form.cat.value = g; }
     if (el.matches('[data-oftenpick]')){ const f = el.form; state.sportOften = el.value; f.querySelector('.sp-single').hidden = el.value !== 'single'; f.querySelector('.sp-weekly').hidden = el.value !== 'weekly'; return; }
     if (el.matches('[data-kindtoggle]')){ const d = el.closest('main')?.querySelector('[name=booking_date]')?.value; state.newKind = el.checked ? 'club' : 'member'; if (d) state.newDate = d; render(); return; }
     if (el.matches('[data-ticketpick]')){ const f = el.form; f.querySelector('.prices').hidden = !el.checked;
@@ -3432,7 +3443,7 @@ const forms = {
     const slot = slotFromTimes(start, end); const series = often === 'weekly' ? 'sp-' + Date.now().toString(36) : null;
     const base = { booking_kind: 'club', event_type: name, first_name: 'Club', last_name: 'sports', room: f.room.value, slot, start_time: start, end_time: end, ticketed: false,
       price_member: null, price_guest: null, bar_staff: clampBar(f.bar_staff.value), tickets_total: null, notes: f.notes.value.trim(), status: 'confirmed', price: null, deposit_required: 0, guests: null,
-      event_details: series ? { sport: true, series } : { sport: true } };
+      event_details: { sport: true, cat: f.cat.value, ...(series ? { series } : {}) } };
     const btn = f.querySelector('[type=submit]'); let added = 0, last = null; const skipped = [];
     for (const [k, d] of dates.entries()){
       if (btn) btn.textContent = `Adding ${k + 1} of ${dates.length}…`;
@@ -3446,8 +3457,8 @@ const forms = {
     await go('bookings', { bkKind: 'sports', bkTab: 'upcoming' });
     if (skipped.length) document.querySelector('main .wrap')?.insertAdjacentHTML('afterbegin', `<div class="note" style="display:block">Skipped ${plural(skipped.length, 'night')}: ${skipped.map(esc).join(', ')}</div>`);
   },
-  async addclub(f){ const x = await api.addBooking(clubFromForm(f)); toast('Club event saved'); go('booking', { bookingId: x.id, editBooking: false }); },
-  async editclub(f){ const { status, ...patch } = clubFromForm(f); await api.updateBooking(Number(f.dataset.id), patch); state.editBooking = false; toast('Saved'); refresh(); },
+  async addclub(f){ const x = await api.addBooking({ ...clubFromForm(f), event_details: { cat: f.cat.value } }); toast('Club event saved'); go('booking', { bookingId: x.id, editBooking: false }); },
+  async editclub(f){ const { status, ...patch } = clubFromForm(f); patch.event_details = { ...(state.cur?.b?.event_details || {}), cat: f.cat.value }; await api.updateBooking(Number(f.dataset.id), patch); state.editBooking = false; toast('Saved'); refresh(); },
   async login(f){ state.user = await api.signIn(f.email.value.trim(), f.password.value); go('hub'); },
   async signup(f){
     const r = await api.signUp({ email: f.email.value.trim(), password: f.password.value, first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), phone: f.phone.value.trim(), membership_no: f.membership_no.value.trim() });
