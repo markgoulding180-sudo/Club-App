@@ -1241,6 +1241,8 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .sday li .linkbtn{grid-row:1;grid-column:3}
 .event .ebar{display:block;width:calc(100% + 32px);max-width:none;height:auto;margin:-14px -14px 2px -18px;border-bottom:1px solid rgba(120,170,255,.35)}
 .event[style*="--ebg"]{background:linear-gradient(160deg,rgba(10,22,60,.86),rgba(6,14,40,.93)),var(--ebg) center 60%/cover no-repeat,#0a1840}
+.sday[style*="--ebg"]{background:linear-gradient(160deg,rgba(10,22,60,.86),rgba(6,14,40,.93)),var(--ebg) center 60%/cover no-repeat,#0a1840}
+.wobanner{display:block;width:100%;height:auto;border-radius:14px;margin:0 0 14px;border:1px solid rgba(120,170,255,.35)}
 </style>
 
 </head>
@@ -2909,10 +2911,10 @@ function whatsOnView(){
   else {
     const days = {}; state.sportList.forEach(e => (days[dayOf(e.starts_at)] ||= []).push(e));
     list = Object.entries(days).map(([ds, evs]) => { const d = parseYmd(ds);
-      return `<div class="sday"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      return `<div class="sday" style="--ebg:url('img/banner-sport.webp')"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
         <ul>${evs.map(e => `<li><span class="st">${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span><b>${esc(e.title)}</b><small>${esc((e.description || '').replace(/ · kick-off TBC/, ''))}</small>${admin ? `<button class="linkbtn" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</li>`).join('')}</ul></div>`; }).join('');
   }
-  const tabs = `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`;
+  const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`;
   return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
@@ -2925,7 +2927,7 @@ function whatsOnView(){
 function ticketsLeft(b){ if (!b.tickets_total) return null; return Math.max(0, b.tickets_total - (state.sold[b.id] || 0)); }
 function myTicketFor(id){ return state.myTk.filter(t => t.booking_id === id && t.status !== 'cancelled').sort((a, b) => b.id - a.id)[0] || null; }
 /* Banner pictures shown across the top of What's On cards, matched on the event name */
-const CARD_BANNERS = [[/darts/i, 'img/banner-darts.webp', 'Darts League']];
+const CARD_BANNERS = [[/darts/i, 'img/banner-darts.webp', 'Darts League'], [/pool/i, 'img/banner-pool.webp', 'Pool League']];
 const bannerSrc = title => (CARD_BANNERS.find(([re]) => re.test(title || '')) || [])[1] || '';
 const bannerBg = title => { const src = bannerSrc(title); return src ? `;--ebg:url('${src}')` : ''; };
 const cardBanner = title => { const m = CARD_BANNERS.find(([re]) => re.test(title || '')); return m ? `<img class="ebar" src="${m[1]}" alt="${m[2]}" loading="lazy" decoding="async" width="1200" height="125">` : ''; };
