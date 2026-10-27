@@ -1126,6 +1126,75 @@ html,body{overflow-x:clip;max-width:100%}
 @media (min-width:1000px) and (max-width:1280px){ .lperks-h{display:none} .lbox{gap:20px} .lperks ul{gap:16px} }
 .lp-wo{background:linear-gradient(180deg,#060f2b,#040b22);border-top:1px solid rgba(242,195,91,.3);border-bottom:1px solid rgba(242,195,91,.3)}
 .lp-wo .wo-item{background:rgba(255,255,255,.04)}
+/* ===== Phones: one-screen home (banner + fixed panel) ===== */
+main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b22)}
+.mp{position:relative;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#0a1840,#050c26);border-top:1px solid rgba(242,195,91,.45)}
+.mp-tabs{flex:none;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.mp-tabs::-webkit-scrollbar{display:none}
+.mp-tabs button{flex:none;background:none;border:0;padding:7px 11px;border-radius:99px;font-weight:800;font-size:12.5px;color:#a9b6e0;cursor:pointer;white-space:nowrap}
+.mp-tabs button[aria-current="true"]{background:rgba(242,195,91,.16);color:#f6d27a}
+.mp-view{flex:1;min-height:0;overflow:hidden}
+.mp-track{display:flex;height:100%;transition:transform .45s ease}
+.mp-slide{flex:0 0 100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+.mp-pic{flex:0 0 32%;min-height:90px;overflow:hidden;position:relative}
+.mp-pic img{width:100%;height:100%;object-fit:cover;object-position:center 35%}
+.mp-pic::after{content:"";position:absolute;inset:auto 0 0 0;height:40%;background:linear-gradient(0deg,#0a1840,transparent)}
+.mp-body{flex:1;min-height:0;overflow:auto;padding:14px 18px 8px;display:flex;flex-direction:column;justify-content:center;gap:8px;color:#d6def5;font-size:14.5px;line-height:1.5}
+.mp-body.center{text-align:center;align-items:center}
+.mp-body p{margin:0}
+.mp-body b{color:#fff}
+.mp-body .eyebrow{margin:0;font-size:11px}
+.mp-big{font-family:var(--display);font-weight:800;font-size:clamp(32px,10vw,44px);line-height:1.02;margin:0;color:#fff}
+.mp-big span{color:#f2c35b}
+.mp-h{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.15;margin:0;color:#fff}
+.mp-open .opennow{margin:0;padding:5px 12px;font-size:12.5px}
+.mp-perks{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.mp-perks li{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid rgba(242,195,91,.4);color:#f6d27a}
+.mp-wo .lwo-list{display:grid;gap:7px}
+.mp-wo .wo-item{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(242,195,91,.3);opacity:1;transform:none}
+.mp-wo .wo-item:nth-child(n+4){display:none}
+.mp-wo .wo-item .when{min-width:42px;padding:3px 6px;border-radius:10px}
+.mp-wo .wo-item .when .d{font-size:16px}
+.mp-wo .wo-item .when .m:last-child{display:none}
+.mp-wo .wo-item .t{display:grid;min-width:0}
+.mp-wo .wo-item .t b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-wo .wo-item .t span{font-size:12px;color:var(--amber);font-weight:700}
+.mp-ticks{list-style:none;margin:2px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.mp-ticks li{padding-left:10px;border-left:3px solid #d9a23a;font-weight:700;color:#fff;font-size:13.5px}
+.mp-prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mp-prices div{padding:8px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(242,195,91,.35);display:grid}
+.mp-prices b{font-family:var(--display);font-size:18px;color:#f2c35b}
+.mp-prices small{font-size:.6em}
+.mp-prices span{font-size:10.5px;color:#c9d4f5;line-height:1.3}
+.mp-note{font-size:12px;color:#ffb3bd;font-weight:700}
+.mp-tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.mp-tiers div{padding:12px 4px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);display:grid;gap:2px}
+.mp-tiers span{font-size:11.5px;font-weight:800;color:#dfe6ff}
+.mp-tiers b{font-family:var(--display);font-size:28px}
+.mp-tiers .hi{background:linear-gradient(160deg,#f6d27a,#d9a23a);border-color:transparent}
+.mp-tiers .hi span,.mp-tiers .hi b{color:#1d1404}
+.mp-small{font-size:12.5px;color:#a9b6e0}
+.mp-small a,.mp-body .linkbtn{color:#f2c35b;font-weight:800;text-decoration:none}
+.mp-body .fline{padding:4px 2px}
+.mp-btns{flex:none;display:flex;gap:10px;justify-content:center;padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid rgba(255,255,255,.08)}
+.mp-btns .btn{flex:1;max-width:170px;min-height:44px}
+/* the panel turns into the sign-in / register form */
+.mp-auth{position:absolute;inset:0;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,#0c1c48,#060f2b);opacity:0;visibility:hidden;transform:translateY(12px);transition:opacity .25s,transform .25s,visibility .25s;z-index:5}
+.mp.authing .mp-auth{opacity:1;visibility:visible;transform:none}
+.mp-auth .tabs{width:100%} .mp-auth .tabs button{flex:1}
+@media (prefers-reduced-motion:reduce){ .mp-track,.mp-auth{transition:none} }
+@media (max-width:760px) and (max-height:700px){
+  .mp-body{gap:6px;padding:10px 16px 6px;font-size:13.5px;line-height:1.4}
+  .mp-big{font-size:30px} .mp-h{font-size:19px}
+  .mp-perks{display:none}
+  .mp-pic{flex-basis:21%}
+  .mp-wo .wo-item{padding:5px 9px}
+  .mp-btns{padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))} .mp-btns .btn{min-height:40px}
+  .mp-tabs{padding:4px 8px} .mp-tabs button{padding:6px 10px}
+  .mp-tiers div{padding:8px 4px} .mp-tiers b{font-size:24px}
+  .mp-body .fline{padding:2px}
+  .mp-body .fi{width:32px;height:32px}
+}
 </style>
 
 </head>
@@ -1953,6 +2022,7 @@ function render(){
   $('#demoBar').hidden = LIVE;
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
+  if (!state.user && woMobile()){ app.innerHTML = mobileHomeHtml(); initMobileHome(); return; }
   if (!state.user){ app.innerHTML = `<main class="authmain"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-m2-800.webp 800w, img/hero-m2-1200.webp 1200w" sizes="100vw" width="2048" height="768"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture></header>
     <div class="lbox"><div class="hero-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>
       <div class="lperks"><b class="lperks-h">Your own members’ area</b>
@@ -2008,6 +2078,15 @@ function authFormHtml(){
 }
 function openAuth(tab = state.authTab){
   state.authTab = tab; const signup = tab === 'signup';
+  const panel = document.querySelector('.mp');
+  if (panel){   // phones: the home panel turns into the form
+    state.mpAuth = true;
+    panel.querySelector('.mp-auth').innerHTML = `<div class="authsheet stack"><div class="sheet-h"><div><h2>${signup ? 'Join the club' : 'Welcome back'}</h2><p class="muted">${signup ? 'Create your account to book rooms and reserve tickets.' : 'Sign in to your Railway Club account.'}</p></div>
+      <button class="x" data-action="mpclose" aria-label="Close">✕</button></div>${authFormHtml()}</div>`;
+    panel.classList.add('authing');
+    setTimeout(() => panel.querySelector('input[name=' + (signup ? 'first_name' : 'email') + ']')?.focus({ preventScroll: true }), 300);
+    return;
+  }
   const keep = !!$('#sheetRoot .authsheet');
   state.sheet = { type: 'auth' };
   openSheet(`<div class="authsheet stack"><div class="sheet-h"><div><h2>${signup ? 'Join the club' : 'Welcome back'}</h2><p class="muted">${signup ? 'Create your account to book rooms and reserve tickets.' : 'Sign in to your Railway Club account.'}</p></div>
@@ -2137,6 +2216,75 @@ function loginView(){
 
 /* ---------- Landing page: one section per topic, all the same size ---------- */
 const LSECS = [['about', 'About'], ['whatson', 'What’s On'], ['amenities', 'The Club'], ['hall', 'Hall Hire'], ['membership', 'Membership'], ['bowls', 'Bowls'], ['findus', 'Find Us']];
+/* ---------- Phones: home screen = banner + one panel that never changes size ---------- */
+function mobileSlidesHtml(){
+  const btns = `<div class="mp-btns"><button class="btn" data-action="openauth" data-val="login">Sign in</button><button class="btn gold" data-action="openauth" data-val="signup">Register</button></div>`;
+  const pic = (n, alt) => `<div class="mp-pic"><img src="img/${n}-800.webp" alt="${esc(alt)}" loading="lazy" decoding="async"></div>`;
+  const tel = n => `<a href="tel:${n.replace(/\s/g, '')}">${n}</a>`;
+  const today = OPENING[new Date().getDay()] || {}; const todayTxt = openText(todayStr());
+  const slides = [
+    `<div class="mp-body center"><p class="eyebrow">Welcome to Ashford Railway Club</p>
+       <h2 class="mp-big">Good friends.<br><span>Great times.</span></h2>
+       <p>A friendly <b>members’ club</b> opposite Ashford International station. Family-friendly, guests £2.</p>
+       <div class="mp-open">${openNowHtml()}</div>
+       <ul class="mp-perks"><li>★ Your events first</li><li>🎟 Your tickets &amp; bookings</li><li>✓ Book in a few taps</li></ul></div>`,
+    `<div class="mp-body"><p class="eyebrow">Coming up</p><h2 class="mp-h">What’s On</h2>
+       <div id="woSlot" class="lwo mp-wo">${woListHtml()}</div><div class="mp-open">${openNowHtml()}</div></div>`,
+    `${pic('slide-sport', 'Live sport on the big screen')}<div class="mp-body"><p class="eyebrow">The club</p><h2 class="mp-h">A good night out</h2>
+       <ul class="mp-ticks"><li>Large members’ bar</li><li>Live sport</li><li>Pool &amp; darts</li><li>Function room</li><li>Bingo, quiz &amp; karaoke</li><li>Children welcome</li></ul></div>`,
+    `${pic('slide-hall1', 'Dancing in the function room')}<div class="mp-body"><p class="eyebrow">For members</p><h2 class="mp-h">Hire the function room</h2>
+       <p>Birthdays, engagements, weddings, awards nights. Seats 130, up to 180.</p>
+       <div class="mp-prices"><div><b>£20<small>/hr</small></b><span>Midweek, no bar</span></div><div><b>£30<small>/hr</small></b><span>Midweek, bar</span></div><div><b>£250</b><span>Fri/Sat eve + £100 dep.</span></div></div>
+       <p class="mp-note">No 16th or 18th–21st birthday parties.</p></div>`,
+    `<div class="mp-body center"><p class="eyebrow">Membership 2026</p><h2 class="mp-h">Join the club</h2>
+       <div class="mp-tiers"><div><span>Single</span><b>£25</b></div><div class="hi"><span>Joint</span><b>£40</b></div><div><span>Junior / Student</span><b>£15</b></div></div>
+       <p class="mp-small">Runs Jan–Dec. Renew Dec–31 Jan (£5 extra after). New applications from 1 Feb, seconded by two members.</p>
+       <a class="linkbtn" href="mailto:${esc(CONFIG.EMAIL)}?subject=${encodeURIComponent('Membership application form request')}">Email for an application form →</a></div>`,
+    `${pic('slide-bowls3', 'A young bowler')}<div class="mp-body"><p class="eyebrow">Ashford (Kent) Rail Bowls Club</p><h2 class="mp-h">Bowls Section</h2>
+       <p>Our own bowls club for club members, affiliated with Bowls England and the K.C.B.A.</p>
+       <p class="mp-small"><b>Graham Williams</b>, Secretary: ${tel('01233 627140')} · ${tel('07900 215254')}</p></div>`,
+    `<div class="mp-body"><p class="eyebrow">Find us</p><h2 class="mp-h">Bath Meadow, Beaver Road</h2>
+       <a class="fline" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Ashford Railway Club, ' + CONFIG.ADDRESS)}" target="_blank" rel="noopener"><span class="fi">${ICONS.pin}</span><span>${esc(CONFIG.ADDRESS)}<small>Directions · plenty of parking</small></span></a>
+       <a class="fline" href="tel:${CONFIG.PHONE.replace(/\s/g, '')}"><span class="fi">${ICONS.phone}</span><span>${esc(CONFIG.PHONE)}<small>Call the club</small></span></a>
+       <a class="fline" href="mailto:${esc(CONFIG.EMAIL)}"><span class="fi">${ICONS.mail}</span><span>${esc(CONFIG.EMAIL)}<small>Email us</small></span></a>
+       <div class="mp-open">${openNowHtml()}</div><p class="mp-small">Today: ${todayTxt}</p></div>`
+  ];
+  return { slides, btns };
+}
+const MP_LABELS = ['Welcome', 'What’s On', 'The Club', 'Hall Hire', 'Membership', 'Bowls', 'Find Us'];
+function mobileHomeHtml(){
+  const { slides, btns } = mobileSlidesHtml(); const i = state.mpI || 0;
+  return `<main class="authmain mhome"><header class="hero"><picture><source media="(max-width:760px)" type="image/webp" srcset="img/hero-m2-800.webp 800w, img/hero-m2-1200.webp 1200w" sizes="100vw" width="2048" height="768"><img src="img/hero-wide-1280.webp" srcset="img/hero-wide-1280.webp 1280w, img/hero-wide-2000.webp 2000w" sizes="100vw" width="2000" height="750" alt="The Railway Club, Ashford" fetchpriority="high" decoding="async"></picture></header>
+    <section class="mp${state.mpAuth ? ' authing' : ''}" aria-label="Club information">
+      <div class="mp-tabs">${MP_LABELS.map((l, k) => `<button data-action="mpgo" data-to="${k}" aria-current="${k === i}">${l}</button>`).join('')}</div>
+      <div class="mp-view"><div class="mp-track" style="transform:translateX(-${i * 100}%)">${slides.map((h, k) => `<div class="mp-slide" ${k === i ? '' : 'aria-hidden="true"'}>${h}</div>`).join('')}</div></div>
+      ${btns}
+      <div class="mp-auth"></div>
+    </section></main>`;
+}
+function mpGo(i, byUser = false){
+  const n = MP_LABELS.length; state.mpI = ((i % n) + n) % n; if (byUser) state.mpTouch = Date.now();
+  const p = document.querySelector('.mp'); if (!p) return;
+  p.querySelector('.mp-track').style.transform = `translateX(-${state.mpI * 100}%)`;
+  p.querySelectorAll('.mp-slide').forEach((el, k) => el.toggleAttribute('aria-hidden', k !== state.mpI));
+  p.querySelectorAll('.mp-tabs button').forEach((b, k) => { b.setAttribute('aria-current', k === state.mpI); if (k === state.mpI){ const t = b.parentElement; t.scrollTo({ left: b.offsetLeft - (t.clientWidth - b.offsetWidth) / 2, behavior: 'smooth' }); } });
+}
+function mpSize(){
+  const p = document.querySelector('.mp'); const hero = document.querySelector('.mhome .hero'); if (!p || !hero) return;
+  const h = Math.max(380, window.innerHeight - hero.getBoundingClientRect().bottom - window.scrollY);
+  p.style.height = h + 'px';
+}
+function initMobileHome(){
+  mpSize(); const img = document.querySelector('.mhome .hero img'); if (img && !img.complete) img.addEventListener('load', mpSize, { once: true });
+  if (state.mpAuth) openAuth(state.authTab);
+  const view = document.querySelector('.mp-view'); let x0 = null;
+  view?.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  view?.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 45) mpGo((state.mpI || 0) + (dx < 0 ? 1 : -1), true); }, { passive: true });
+}
+window.addEventListener('resize', () => { if (!state.user){ const mob = woMobile(), shown = !!document.querySelector('.mhome'); if (mob !== shown) render(); else mpSize(); } });
+// Phones: move to the next panel every 7 s, unless someone is using it
+setInterval(() => { if (document.hidden || !document.querySelector('.mp') || state.mpAuth || Date.now() - (state.mpTouch || 0) < 20000) return; mpGo((state.mpI || 0) + 1); }, 7000);
+
 function landingHtml(){
   // pictures: [file base, alt]
   const rot = (imgs, cls = '') => `<div class="rot ${cls}">${imgs.map(([n, alt], j) => `<img data-src="img/${n}-800.webp" data-srcset="img/${n}-800.webp 800w, img/${n}-1400.webp 1400w" sizes="(max-width:760px) 100vw, 60vw" alt="${esc(alt)}" class="${j ? '' : 'on'}" decoding="async">`).join('')}</div>`;
@@ -2996,7 +3144,9 @@ const actions = {
   pubnav: t => { const sec = document.getElementById('sec-' + t.dataset.to); if (!sec) return;
     window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 10, behavior: 'smooth' }); state.navClick = Date.now(); navOn(t.dataset.to); },
   slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
-  authtab: t => { state.authTab = t.dataset.val; if ($('#sheetRoot .authsheet')) openAuth(t.dataset.val); else render(); },
+  authtab: t => { state.authTab = t.dataset.val; if ($('.authsheet')) openAuth(t.dataset.val); else render(); },
+  mpclose: () => { const p = document.querySelector('.mp'); if (p){ p.classList.remove('authing'); state.mpAuth = false; state.mpTouch = Date.now(); } },
+  mpgo: t => mpGo(Number(t.dataset.to), true),
   openauth: t => openAuth(t.dataset.val),
   demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
   signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); loadPublicEvents(); },
