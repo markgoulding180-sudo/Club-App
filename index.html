@@ -1203,6 +1203,15 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .mp-slide:has(.mp-pic)::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(0deg,#0a1840 0%,rgba(10,24,64,.94) 30%,rgba(10,24,64,.7) 48%,rgba(10,24,64,.2) 66%,rgba(10,24,64,0) 80%)}
 .mp-slide:has(.mp-pic) .mp-body{position:relative;z-index:1;justify-content:flex-end;padding-bottom:12px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 @media (max-width:760px) and (max-height:700px){ .mp-slide .mp-pic{flex-basis:auto} }
+.mp{background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0/220px 220px,
+    repeating-linear-gradient(135deg,rgba(150,185,255,.055) 0 1px,transparent 1px 11px),
+    repeating-linear-gradient(45deg,rgba(150,185,255,.035) 0 1px,transparent 1px 11px),
+    radial-gradient(500px 360px at 10% 10%,rgba(64,120,255,.38),transparent 60%),
+    radial-gradient(420px 380px at 95% 55%,rgba(46,230,200,.12),transparent 60%),
+    radial-gradient(460px 340px at 20% 95%,rgba(120,90,255,.16),transparent 60%),
+    linear-gradient(180deg,#071538 0%,#061232 60%,#030a1e 100%)}
+.mp-slide:has(.mp-pic){background:#0a1840}
 </style>
 
 </head>
