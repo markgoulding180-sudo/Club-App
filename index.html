@@ -1218,6 +1218,17 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .dow span{display:inline-grid;place-items:center;min-width:46px;padding:8px 10px;border-radius:12px;border:1px solid var(--edge);background:rgba(5,9,22,.75);font-weight:800;font-size:14px;color:var(--muted)}
 .dow input:checked + span{background:var(--grad-teal);color:var(--teal-ink);border-color:transparent}
 .dow input:focus-visible + span{outline:2px solid var(--teal);outline-offset:2px}
+/* Football: a side note on each day, not a full event */
+.fbnote{margin:-2px 0 4px 10px;padding:8px 12px;border-left:3px solid #3ddc84;border-radius:0 12px 12px 0;background:rgba(61,220,132,.07);font-size:13px;color:#bfe9cf}
+.fbnote b{display:block;font-size:12px;letter-spacing:.04em;color:#7ee2a6;margin-bottom:3px}
+.fbnote ul{list-style:none;margin:0;padding:0;display:grid;gap:1px}
+.fbnote span{color:#8fb7a0;font-weight:700;margin-left:4px}
+.fbnote.mini{margin:4px 0 0;padding:2px 0 0;border:0;background:none;font-size:11.5px;color:#9fd8b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbnote.mini em{font-style:normal;color:#7e8db8}
+.fbday{display:flex;gap:12px;align-items:flex-start;opacity:.9}
+.fbday .when.sm{min-width:48px;padding:4px 6px;border-radius:12px;background:rgba(61,220,132,.15);color:#bfe9cf;box-shadow:none}
+.fbday .when.sm .d{font-size:18px}
+.fbday .fbnote{flex:1;margin:0}
 </style>
 
 </head>
@@ -1388,6 +1399,16 @@ function hoursOf(ds, sess){
 }
 const eventBarFor = b => Math.max(1, Math.ceil((Number(b.guests) || 1) / STAFF_RULES.guestsPerEventBar));
 const isClub = b => b.booking_kind === 'club';
+/* Premier League matches are kept in the diary but shown only as a note on each day */
+const isFootball = e => e && e.category === 'Sport' && /^Premier League/.test(e.description || '');
+const dayOf = iso => ymd(new Date(iso));
+function footballByDay(list){ const m = {}; list.filter(isFootball).forEach(e => (m[dayOf(e.starts_at)] ||= []).push(e)); Object.values(m).forEach(a => a.sort((x, y) => x.starts_at.localeCompare(y.starts_at))); return m; }
+function fbNoteHtml(ds, compact = false){
+  const list = (state.fbDays || {})[ds]; if (!list?.length) return '';
+  const item = e => `${esc(e.title.replace('Brighton & Hove Albion', 'Brighton').replace('AFC Bournemouth', 'Bournemouth').replace('Nottingham Forest', 'Nott’m Forest'))} <span>${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span>`;
+  if (compact) return `<div class="fbnote mini">⚽ ${item(list[0])}${list.length > 1 ? ` <em>+${list.length - 1} more</em>` : ''}</div>`;
+  return `<div class="fbnote"><b>⚽ Premier League on the screens</b><ul>${list.map(e => `<li>${item(e)}</li>`).join('')}</ul></div>`;
+}
 const isSport = b => isClub(b) && !!(b.event_details && b.event_details.sport);
 const SPORTS = ['Darts Ashford League', 'Darts Ladies League', 'Darts', 'Pool League', 'Bowls', 'Snooker'];
 const DOW = [['1', 'Mon'], ['2', 'Tue'], ['3', 'Wed'], ['4', 'Thu'], ['5', 'Fri'], ['6', 'Sat'], ['0', 'Sun']];
@@ -1513,12 +1534,13 @@ function makeSupabaseApi(){
     },
     async signOut(){ await sb.auth.signOut(); },
     async publicWhatsOn(n){
-      const r = await sb.rpc('get_public_whats_on', { max_rows: n });
+      const r = await sb.rpc('get_public_whats_on', { max_rows: 10 });
       if (!r.error) return r.data || [];
       // before the SQL is run: What's On items only
       const from = new Date(); from.setHours(0,0,0,0);
-      return (ok(await sb.from('events').select('title,starts_at,category').gte('starts_at', from.toISOString()).order('starts_at').limit(n))).map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
+      return (ok(await sb.from('events').select('title,starts_at,category,description').gte('starts_at', from.toISOString()).order('starts_at').limit(60))).filter(e => !isFootball(e)).map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
     },
+    async footballFrom(from, to){ return ok(await sb.from('events').select('title,starts_at,description,category').eq('category', 'Sport').like('description', 'Premier League%').gte('starts_at', new Date(parseYmd(from)).toISOString()).lt('starts_at', new Date(addDays(parseYmd(to), 1)).toISOString()).order('starts_at')); },
     async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
       return ok(await sb.from('events').select('*').gte('starts_at', from.toISOString()).order('starts_at')); },
     async eventsBetween(from, to){ return ok(await sb.from('events').select('*').gte('starts_at', dayStart(from)).lt('starts_at', dayEnd(to)).order('starts_at')); },
@@ -1718,10 +1740,11 @@ function makeDemoApi(){
     },
     async signOut(){ s.session = null; save(); },
     async publicWhatsOn(n){ const from = new Date(); from.setHours(0,0,0,0);
-      const ev = s.events.map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
+      const ev = s.events.filter(e => !isFootball(e)).map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
       const club = s.bookings.filter(b => isClub(b) && live(b)).map(b => ({ title: b.event_type, starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString(),
         info: `${ROOMS[b.room].name} · ${b.ticketed ? 'Tickets' : 'Free entry'}`, kind: 'club' }));
       return [...ev, ...club].filter(e => new Date(e.starts_at) >= from).sort((a, b) => a.starts_at.localeCompare(b.starts_at)).slice(0, n); },
+    async footballFrom(from, to){ return s.events.filter(e => isFootball(e) && dayOf(e.starts_at) >= from && dayOf(e.starts_at) <= to); },
     async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
       return s.events.filter(e => new Date(e.starts_at) >= from).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
     async eventsBetween(from, to){ return s.events.filter(e => { const d = ymd(new Date(e.starts_at)); return d >= from && d <= to; }).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
@@ -1952,7 +1975,12 @@ window.addEventListener('resize', () => evenSlides());
 document.fonts?.ready.then(() => evenSlides());
 window.addEventListener('resize', () => { const list = document.querySelector('.wo-top .wo-list'); const first = list?.querySelector('.wo-item:not(.clone)'); if (list && first && woMobile()) woScrollTo(list, first); woCenter(); });
 async function loadPublicEvents(){
-  try { state.publicEvents = await api.publicWhatsOn(5); } catch(e){ state.publicEvents = []; }
+  try {
+    const [list, fb] = await Promise.all([api.publicWhatsOn(10), api.footballFrom(todayStr(), ahead(120)).catch(() => [])]);
+    state.fbDays = footballByDay(fb);
+    const fbKeys = new Set(fb.map(e => e.title + '|' + dayOf(e.starts_at)));
+    state.publicEvents = list.filter(e => !fbKeys.has(e.title + '|' + dayOf(e.starts_at))).slice(0, 5);
+  } catch(e){ state.publicEvents = []; }
   const slot = document.getElementById('woSlot'); if (slot){ slot.innerHTML = woListHtml(); evenSections(); }
 }
 async function loadTickets(){
@@ -1970,7 +1998,9 @@ async function loadWhatsOn(){
   state.sold = Object.fromEntries(counts.map(c => [c.booking_id, c.sold]));
   state.myTk = mine;
   const now = new Date(); now.setHours(0, 0, 0, 0);
-  state.events = [...ev, ...fromClub].filter(e => new Date(e.starts_at) >= now).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const all = [...ev, ...fromClub].filter(e => new Date(e.starts_at) >= now);
+  state.fbDays = footballByDay(all);
+  state.events = all.filter(e => !isFootball(e)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
 }
 async function load(view){
   if (view === 'hub'){
@@ -2404,9 +2434,10 @@ function landingHtml(){
 }
 function woListHtml(){
   if (!state.publicEvents.length) return '<p class="muted">Nothing listed yet. Check back soon.</p>';
-  return `<div class="lwo-list">${state.publicEvents.map(e => { const d = new Date(e.starts_at);
-    return `<div class="wo-item"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}${e.info ? `<small> · ${esc(e.info)}</small>` : ''}</span></div></div>`; }).join('')}</div>`;
+  const seen = new Set();
+  return `<div class="lwo-list">${state.publicEvents.map(e => { const d = new Date(e.starts_at); const ds = dayOf(e.starts_at); const note = seen.has(ds) ? '' : fbNoteHtml(ds, true); seen.add(ds);
+    return `<div class="wo-item${note ? ' hasfb' : ''}"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="t"><b>${esc(e.title)}</b><span>${timeOf(e.starts_at)}${e.info ? `<small> · ${esc(e.info)}</small>` : ''}</span>${note}</div></div>`; }).join('')}</div>`;
 }
 const lLoad = img => { if (img?.dataset.src){ if (img.dataset.srcset) img.srcset = img.dataset.srcset; img.src = img.dataset.src; delete img.dataset.src; delete img.dataset.srcset; } };
 let lObs = null, lSpy = null;
@@ -2850,13 +2881,19 @@ function openAddStaff(){
    ===================================================================== */
 function whatsOnView(){
   const admin = isAdmin();
-  const list = state.events.map(e => { const d = new Date(e.starts_at);
+  const days = [...new Set([...state.events.map(e => dayOf(e.starts_at)), ...Object.keys(state.fbDays || {})])].sort();
+  const byDay = {}; state.events.forEach(e => (byDay[dayOf(e.starts_at)] ||= []).push(e));
+  const card = e => { const d = new Date(e.starts_at);
     if (e.b && !admin) return clubEventCard(e, d);
     return `<div class="event${e.b ? ' club' : ''}" ${e.b ? `style="${evVars(e.b.event_type)}"` : ''}><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
       <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
-      ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; }).join('');
+      ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
+  const list = days.map(ds => { const evs = byDay[ds] || []; const note = fbNoteHtml(ds);
+    if (!evs.length){ const d = parseYmd(ds);
+      return `<div class="fbday"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>${note}</div>`; }
+    return evs.map((e, k) => card(e) + (k === 0 ? note : '')).join(''); }).join('');
   return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
