@@ -2933,8 +2933,8 @@ function ticketsLeft(b){ if (!b.tickets_total) return null; return Math.max(0, b
 function myTicketFor(id){ return state.myTk.filter(t => t.booking_id === id && t.status !== 'cancelled').sort((a, b) => b.id - a.id)[0] || null; }
 /* Banner pictures shown across the top of What's On cards, matched on the event name */
 /* Banner categories. The admin picks one when setting up an event; old events fall back to the name. */
-const BANNER_CATS = { darts: ['img/banner-darts.webp', 'Darts League', 'Darts'], pool: ['img/banner-pool.webp', 'Pool League', 'Pool'], quiz: ['img/banner-quiz2.webp', 'Quiz Night', 'Quiz'], bingo: ['img/banner-bingo.webp', 'Bingo Night', 'Bingo'], dond: ['img/banner-dond.webp', 'Deal or No Deal', 'Deal or No Deal'], music: ['img/banner-music.webp', 'Live Music', 'Live music'], sport: ['img/banner-sport.webp', 'Live Sport Showing', 'Live sport shown'] };
-const guessCat = name => { const n = name || ''; return /darts/i.test(n) ? 'darts' : /pool/i.test(n) ? 'pool' : /quiz/i.test(n) ? 'quiz' : /deal or no deal/i.test(n) ? 'dond' : /bingo/i.test(n) ? 'bingo' : /live music|band|tribute/i.test(n) ? 'music' : ''; };
+const BANNER_CATS = { darts: ['img/banner-darts.webp', 'Darts League', 'Darts'], pool: ['img/banner-pool.webp', 'Pool League', 'Pool'], quiz: ['img/banner-quiz2.webp', 'Quiz Night', 'Quiz'], bingo: ['img/banner-bingo.webp', 'Bingo Night', 'Bingo'], dond: ['img/banner-dond.webp', 'Deal or No Deal', 'Deal or No Deal'], music: ['img/banner-music.webp', 'Live Music', 'Live music'], karaoke: ['img/banner-karaoke.webp', 'Karaoke Night', 'Karaoke'], sport: ['img/banner-sport.webp', 'Live Sport Showing', 'Live sport shown'] };
+const guessCat = name => { const n = name || ''; return /darts/i.test(n) ? 'darts' : /pool/i.test(n) ? 'pool' : /quiz/i.test(n) ? 'quiz' : /deal or no deal/i.test(n) ? 'dond' : /bingo/i.test(n) ? 'bingo' : /karaoke/i.test(n) ? 'karaoke' : /live music|band|tribute/i.test(n) ? 'music' : ''; };
 function catOf(e){
   if (e?.b){ const c = e.b.event_details?.cat; return c === 'none' ? '' : (c || guessCat(e.b.event_type)); }
   const c = (e?.category || '').toLowerCase();
