@@ -1229,6 +1229,16 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .fbday .when.sm{min-width:48px;padding:4px 6px;border-radius:12px;background:rgba(61,220,132,.15);color:#bfe9cf;box-shadow:none}
 .fbday .when.sm .d{font-size:18px}
 .fbday .fbnote{flex:1;margin:0}
+/* What's On: Live Sport Shown tab */
+.sday{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:var(--card);border:1px solid var(--edge);box-shadow:var(--lift)}
+.sday .when.sm{min-width:52px;padding:5px 6px;border-radius:12px;background:linear-gradient(135deg,#3ddc84,#0e7c6b);color:#04241a;box-shadow:none}
+.sday .when.sm .d{font-size:19px}
+.sday ul{list-style:none;margin:0;padding:0;flex:1;display:grid;gap:6px;min-width:0}
+.sday li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;column-gap:8px;align-items:baseline}
+.sday .st{font-weight:800;color:#7ee2a6;font-size:13px}
+.sday li b{font-size:14.5px}
+.sday li small{grid-column:2;color:var(--muted);font-size:12px}
+.sday li .linkbtn{grid-row:1;grid-column:3}
 </style>
 
 </head>
@@ -2000,7 +2010,9 @@ async function loadWhatsOn(){
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const all = [...ev, ...fromClub].filter(e => new Date(e.starts_at) >= now);
   state.fbDays = footballByDay(all);
-  state.events = all.filter(e => !isFootball(e)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const byTime = (a, b) => a.starts_at.localeCompare(b.starts_at);
+  state.sportList = all.filter(e => !e.b && e.category === 'Sport').sort(byTime);
+  state.events = all.filter(e => !isFootball(e)).sort(byTime);
 }
 async function load(view){
   if (view === 'hub'){
@@ -2881,8 +2893,8 @@ function openAddStaff(){
    ===================================================================== */
 function whatsOnView(){
   const admin = isAdmin();
-  const days = [...new Set([...state.events.map(e => dayOf(e.starts_at)), ...Object.keys(state.fbDays || {})])].sort();
-  const byDay = {}; state.events.forEach(e => (byDay[dayOf(e.starts_at)] ||= []).push(e));
+  const tab = state.woTab === 'sport' ? 'sport' : 'events';
+  const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
   const card = e => { const d = new Date(e.starts_at);
     if (e.b && !admin) return clubEventCard(e, d);
     return `<div class="event${e.b ? ' club' : ''}" ${e.b ? `style="${evVars(e.b.event_type)}"` : ''}><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
@@ -2890,16 +2902,21 @@ function whatsOnView(){
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
       ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
-  const list = days.map(ds => { const evs = byDay[ds] || []; const note = fbNoteHtml(ds);
-    if (!evs.length){ const d = parseYmd(ds);
-      return `<div class="fbday"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>${note}</div>`; }
-    return evs.map((e, k) => card(e) + (k === 0 ? note : '')).join(''); }).join('');
+  let list;
+  if (tab === 'events') list = clubList.map(card).join('');
+  else {
+    const days = {}; state.sportList.forEach(e => (days[dayOf(e.starts_at)] ||= []).push(e));
+    list = Object.entries(days).map(([ds, evs]) => { const d = parseYmd(ds);
+      return `<div class="sday"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+        <ul>${evs.map(e => `<li><span class="st">${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span><b>${esc(e.title)}</b><small>${esc((e.description || '').replace(/ · kick-off TBC/, ''))}</small>${admin ? `<button class="linkbtn" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</li>`).join('')}</ul></div>`; }).join('');
+  }
+  const tabs = `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`;
   return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
       <input class="in" id="ev-desc" name="description" placeholder="Details (optional)" aria-label="Details"><button class="btn" type="submit">Add to What’s On</button></form>` : '')
-    + `<div class="list">${list || '<div class="empty">Nothing on yet.</div>'}</div>`;
+    + tabs + `<div class="list">${list || `<div class="empty">${tab === 'sport' ? 'No live sport listed yet.' : 'Nothing on yet.'}</div>`}</div>`;
 }
 
 /* ---------- Club events: card, banner, ticket sheet ---------- */
@@ -3231,6 +3248,7 @@ const actions = {
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : {}),
   pubnav: t => { const sec = document.getElementById('sec-' + t.dataset.to); if (!sec) return;
     window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 10, behavior: 'smooth' }); state.navClick = Date.now(); navOn(t.dataset.to); },
+  wotab: t => { state.woTab = t.dataset.val; render(); },
   slide: t => goSlide(t.dataset.to != null ? Number(t.dataset.to) : (state.slide || 0) + Number(t.dataset.step)),
   authtab: t => { state.authTab = t.dataset.val; if ($('.authsheet')) openAuth(t.dataset.val); else render(); },
   mpclose: () => { const p = document.querySelector('.mp'); if (p){ p.classList.remove('authing'); state.mpAuth = false; state.mpTouch = Date.now(); } },
