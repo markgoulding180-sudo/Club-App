@@ -1316,6 +1316,7 @@ table.hrs th:first-child,table.hrs td:first-child{text-align:left;position:stick
 table.hrs th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:normal;vertical-align:bottom}
 table.hrs tfoot td{font-weight:800;border-bottom:0}
 table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var(--red);font-weight:700}
+.rotafoot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
 </style>
 
 </head>
@@ -3003,6 +3004,7 @@ function rotaView(){
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
       ${(() => { const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday')); const nm = l => l.map(u => esc(pfirst(map[u.staff_id]))).join(', ');
         return (un.length ? `<p class="muted" style="font-size:13px">Unavailable: ${nm(un)}</p>` : '') + (hol.length ? `<p class="muted" style="font-size:13px">On holiday: ${nm(hol)}</p>` : ''); })()}</div>`).join('')}</div>`;
+  h += `<div class="rotafoot"><button class="btn ghost" data-action="rotaweek" data-step="-1">‹ Previous week</button><button class="btn ghost" data-action="rotaweek" data-step="1">Next week ›</button></div>`;
   return h;
 }
 
