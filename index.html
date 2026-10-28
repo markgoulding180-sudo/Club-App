@@ -1246,6 +1246,11 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .event:has(.ebar) > *{order:2}
 .event:has(.ebar) > .ehead{order:0}
 .event .ebar{order:1;margin:2px -14px 0 -18px !important;border-top:1px solid rgba(120,170,255,.35)}
+/* Banner sits in the same row as the date and title, on the right */
+.ehead .ebar{order:0 !important;flex:0 0 46%;width:46%;max-width:420px;height:68px;margin:0 !important;border:1px solid rgba(120,170,255,.35) !important;border-radius:12px;object-fit:cover;object-position:right center;margin-left:auto !important}
+.ehead:has(.ebar) .etitle{flex:1 1 auto}
+@media (max-width:480px){ .ehead .ebar{flex-basis:40%;width:40%;height:60px;object-position:58% center} .ehead:has(.ebar) .etitle b{font-size:15px} .ehead:has(.ebar) .go{display:none} }
+@media (min-width:900px){ .ehead .ebar{height:auto;max-width:520px;flex-basis:48%;object-fit:contain} }
 </style>
 
 </head>
@@ -2906,8 +2911,8 @@ function whatsOnView(){
   const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
   const card = e => { const d = new Date(e.starts_at);
     if (e.b && !admin) return clubEventCard(e, d);
-    return `<div class="event${e.b ? ' club' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}">${cardBanner(e)}<div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>
+    return `<div class="event${e.b ? ' club' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
       ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
@@ -2946,9 +2951,9 @@ const catSelect = (id, cur) => `<label class="f">Category (sets the banner on Wh
     <option value="none" ${cur === 'none' || cur === '' ? 'selected' : ''}>No banner</option>${Object.entries(BANNER_CATS).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v[2]}</option>`).join('')}</select></label>`;
 function clubEventCard(e, d){
   const b = e.b; const left = b.ticketed ? ticketsLeft(b) : null; const mine = b.ticketed ? myTicketFor(b.id) : null;
-  return `<div class="event club" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}">${cardBanner(e)}<div class="ehead">
+  return `<div class="event club" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}"><div class="ehead">
       <div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div><span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div>${cardBanner(e)}<span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
     ${b.notes ? `<p class="edesc">${esc(b.notes)}</p>` : ''}
     <div class="tline">${b.ticketed ? `<span class="tk">${ICONS.ticket}Members ${money2(b.price_member)} · Non-members ${money2(b.price_guest)}</span>${left != null ? `<span class="left">${left ? `${left} left` : 'Sold out'}</span>` : ''}`
       : '<span class="tk">Open · free entry</span>'}<span class="grow"></span>
