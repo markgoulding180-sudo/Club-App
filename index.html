@@ -1344,6 +1344,10 @@ table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var
 .nextrota.pub{border-color:rgba(61,220,132,.45);background:rgba(61,220,132,.07)}.nextrota.pub b{color:var(--green)}
 .updbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:14px;border-radius:14px;border:1px solid rgba(46,230,200,.4);background:rgba(46,230,200,.08);font-size:14px}
 .updbar.none{border-color:var(--edge);background:none}
+.offers{grid-column:1 / -1;display:grid;gap:6px;margin-top:4px}
+.offer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:rgba(46,230,200,.08);border:1px solid rgba(46,230,200,.35);font-size:13.5px}
+.offer span{flex:1 1 180px}
+.slot .side .offered{font-size:12.5px;font-weight:700;color:var(--teal);margin-right:6px}
 </style>
 
 </head>
@@ -1699,6 +1703,10 @@ function makeSupabaseApi(){
     async removeShift(id){ ok(await sb.from('shifts').delete().eq('id', id)); },
     async staffSetShift(id, status, reason){ ok(await sb.rpc('staff_update_shift', { shift_id: id, new_status: status, why: reason || null })); },
     async withdrawCantWork(id){ ok(await sb.rpc('staff_withdraw_cantwork', { shift_id: id })); },
+    async listOffers(from){ const r = await sb.from('shift_offers').select('*').gte('shift_date', from).order('created_at'); return r.error ? [] : r.data; },
+    async offerShift(d, sess, job){ const r = await sb.rpc('staff_offer_shift', { d, sess, j: job }); if (r.error && /staff_offer_shift/.test(r.error.message)) throw new Error('This needs the shift-offers SQL running in Supabase first.'); ok(r); },
+    async withdrawOffer(id){ ok(await sb.rpc('staff_withdraw_offer', { offer_id: id })); },
+    async decideOffer(id, yes){ ok(await sb.rpc('admin_decide_offer', { offer_id: id, yes })); },
     async listPeriods(){ const r = await sb.from('rota_periods').select('*'); return r.error ? [] : r.data; },
     async publishRota(start, on){ const r = await sb.rpc('admin_publish_rota', { period_start: start, publish: on }); if (r.error && /admin_publish_rota/.test(r.error.message)) throw new Error('Run the 4-weekly rota SQL in Supabase first.'); ok(r); },
     async listSwaps(){ const r = await sb.from('shift_swaps').select('*, a:shifts!shift_swaps_from_shift_fkey(shift_date,session,job), b:shifts!shift_swaps_to_shift_fkey(shift_date,session,job)').order('created_at', { ascending: false }).limit(100); return r.error ? [] : r.data; },
@@ -1938,6 +1946,21 @@ function makeDemoApi(){
       x.status = status; x.reason = reason.trim(); x.decision = null; save(); },
     async withdrawCantWork(id){ const x = s.shifts.find(x => x.id === id && x.staff_id === s.session && x.status === 'cannot_work' && !x.covered && !x.decision); if (!x) throw new Error('The manager has already dealt with this one.'); x.status = 'assigned'; x.reason = null; save(); },
     async listPeriods(){ return s.periods.map(p => ({ ...p })); },
+    async listOffers(from){ const me = meU(); return (s.offers ||= []).filter(o => o.shift_date >= from && (me?.role === 'admin' || o.staff_id === s.session)).map(o => ({ ...o })); },
+    async offerShift(d, sess, job){ const me = meU(); s.offers ||= [];
+      if (!isPublished(d, s.periods)) throw new Error('That rota isn’t published yet.');
+      if (busy({ shift_date: d, staff_id: me.id })) throw new Error('You’re already working that day.');
+      if (s.unavail.some(u => u.staff_id === me.id && u.off_date === d)) throw new Error('You’ve marked yourself unavailable that day.');
+      if (s.offers.some(o => o.status === 'offered' && o.staff_id === me.id && o.shift_date === d && o.session === sess && o.job === job)) throw new Error('You’ve already offered for that shift.');
+      s.offers.push({ id: nextId(), shift_date: d, session: sess, job, staff_id: me.id, status: 'offered', created_at: new Date().toISOString(), decided_at: null }); save(); },
+    async withdrawOffer(id){ const o = (s.offers ||= []).find(o => o.id === id && o.staff_id === s.session && o.status === 'offered'); if (!o) throw new Error('The manager has already answered that offer.'); o.status = 'withdrawn'; o.decided_at = new Date().toISOString(); save(); },
+    async decideOffer(id, yes){ const o = (s.offers ||= []).find(o => o.id === id && o.status === 'offered'); if (!o) throw new Error('That offer has already been dealt with.');
+      o.decided_at = new Date().toISOString(); if (!yes){ o.status = 'declined'; save(); return; }
+      if (busy({ shift_date: o.shift_date, staff_id: o.staff_id })) throw new Error('They are already working that day.');
+      s.shifts.push({ id: nextId(), shift_date: o.shift_date, session: o.session, job: o.job, staff_id: o.staff_id, status: 'assigned', reason: null, covered: false });
+      const cw = s.shifts.find(x => x.shift_date === o.shift_date && x.session === o.session && x.job === o.job && PROBLEM.includes(x.status) && !x.covered);
+      if (cw){ cw.covered = true; if (cw.status === 'cannot_work') cw.decision = 'approved'; }
+      o.status = 'accepted'; save(); },
     async publishRota(start, on){ const p = s.periods.find(p => p.start_date === start); const v = on ? new Date().toISOString() : null; if (p) p.published_at = v; else s.periods.push({ start_date: start, published_at: v }); save(); },
     async listSwaps(){ const me = meU(); const sh = id => { const x = s.shifts.find(y => y.id === id); return x ? { shift_date: x.shift_date, session: x.session, job: x.job } : null; };
       return s.swaps.filter(w => me?.role === 'admin' || w.from_staff === s.session || w.to_staff === s.session).map(w => ({ ...w, a: sh(w.from_shift), b: sh(w.to_shift) })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
@@ -2198,7 +2221,7 @@ async function load(view){
     return;
   }
   if (view === 'rota'){
-    state.periods = await api.listPeriods();
+    state.periods = await api.listPeriods(); state.offers = await api.listOffers(todayStr());
     if (isAdmin()){ state.holidays = await api.listHolidays(); state.profiles = await api.listProfiles(); state.swaps = await api.listSwaps(); }
     const ws = ymd(state.rotaWeek), we = ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
     const ps = periodStart(ws), pe = periodEnd(ps); const lo = [ws, t, ps].sort()[0], hi = [we, f, pe].sort()[2];
@@ -2212,7 +2235,7 @@ async function load(view){
   }
   if (view === 'holiday'){ const r = monthRange(state.holMonth); const from = ymd(r.start) > todayStr() ? ymd(r.start) : todayStr();
     await loadOps(from, ymd(r.end) > from ? ymd(r.end) : from, true); state.holidays = await api.listHolidays(); }
-  if (view === 'myshifts'){ state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], end, true); }
+  if (view === 'myshifts'){ state.periods = await api.listPeriods(); state.offers = await api.listOffers(ahead(-14)); state.swaps = await api.listSwaps(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], end, true); }
 }
 async function refresh(){
   const sh = state.sheet; const y = window.scrollY;
@@ -2970,12 +2993,20 @@ function staffSelect(ds, x, job, shift, cover, k){
   state.ops.shifts.filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const t = tally[s.staff_id] ||= { n: 0, h: 0 }; t.n++; t.h += hoursOf(s.shift_date, s.session); });
   const load = id => { const t = tally[id] || { n: 0, h: 0 }; return ` · ${t.n} shift${t.n === 1 ? '' : 's'}, ${Math.round(t.h * 10) / 10}h`; };
   return `<select id="sel-${ds}-${x.sess}-${job}-${k}" data-slotsel data-date="${ds}" data-sess="${x.sess}" data-job="${job}" data-shift="${shift?.id || ''}" data-cover="${cover?.id || ''}" aria-label="${JOBS[job]}, ${SESS[x.sess]}, ${fmtDate(ds)}">
-    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : load(p.id)}</option>`).join('')}</select>`;
+    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : p.id === shift?.staff_id ? '' : load(p.id)}</option>`).join('')}</select>`;
 }
 const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
   <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
+function offerBtn(ds, sess, job){
+  const me = state.user.id; const mine = (state.offers || []).find(o => o.staff_id === me && o.status === 'offered' && o.shift_date === ds && o.session === sess && o.job === job);
+  if (mine) return `<span class="offered">You offered</span><button class="linkbtn" data-action="offerwithdraw" data-id="${mine.id}">Withdraw</button>`;
+  const meP = (state.ops.staff || []).find(p => p.id === me);
+  if (!meP || !canDo(meP, job) || ds < todayStr() || !isPublished(ds)) return '';
+  if (state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s)) || state.ops.unavail.some(u => u.staff_id === me && u.off_date === ds)) return '';
+  return `<button class="btn sm" data-action="offershift" data-date="${ds}" data-sess="${sess}" data-job="${job}">I can work this</button>`;
+}
 function slotsHtml(ds, x){
-  const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = '';
+  const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = ''; const offered = {};
   for (const job of JOB_ORDER){
     const on = x.on.filter(s => jobOf(s) === job); const probs = x.problems.filter(s => jobOf(s) === job);
     const n = Math.max(x.need[job], on.length); let c = 0;
@@ -2989,7 +3020,9 @@ function slotsHtml(ds, x){
         if (p) h += `<div class="slot cwrow"><span class="job">${label}</span><span class="who cw">${esc(pname(map[p.staff_id]))} · ${SHIFT_STATUS[p.status]}</span>
           <span class="side">${admin ? (p.status === 'cannot_work' ? `<button class="btn ghost sm" data-action="cwdecline" data-id="${p.id}">Decline</button>` : `<button class="btn ghost sm" data-action="undoproblem" data-id="${p.id}">Undo</button>`) : ''}</span>
           <span class="why">${p.reason ? `“${esc(p.reason)}”` : 'No reason given'}${admin && p.status === 'cannot_work' ? ' · Pick cover below to approve' : ''}</span></div>`;
-        h += `<div class="slot gap${p ? ' cover' : ''}"><span class="job">${p ? 'Cover' : label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side"></span></div>`;
+        const offs = offered[job] ? [] : (state.offers || []).filter(o => o.status === 'offered' && o.shift_date === ds && o.session === x.sess && o.job === job); offered[job] = true;
+        h += `<div class="slot gap${p ? ' cover' : ''}"><span class="job">${p ? 'Cover' : label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side">${admin ? '' : offerBtn(ds, x.sess, job)}</span>
+          ${admin && offs.length ? `<div class="offers">${offs.map(o => `<div class="offer"><span>✋ <b>${esc(pname(map[o.staff_id]))}</b> offered to work this</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></div>`).join('')}</div>` : ''}</div>`;
       }
     }
   }
@@ -3015,6 +3048,8 @@ function rotaView(){
     const dbl = {}; state.ops.shifts.filter(s => ACTIVE(s) && s.shift_date >= today).forEach(s => (dbl[s.shift_date + '|' + s.staff_id] ||= []).push(s));
     const twice = Object.values(dbl).filter(v => v.length > 1).sort((a, b) => a[0].shift_date.localeCompare(b[0].shift_date));
     if (twice.length) h += `<div class="alert"><b class="t">On two shifts in one day</b>${twice.map(v => `<div>${esc(pname(map[v[0].staff_id]))} on ${fmtDate(v[0].shift_date)}: ${v.map(s => `${SESS[s.session].toLowerCase()} ${JOBS[s.job]}`).join(' and ')}. Take them off one.</div>`).join('')}</div>`;
+    const offs = (state.offers || []).filter(o => o.status === 'offered');
+    if (offs.length) h += `<div class="alert swapok"><b class="t">Offers to work</b>${offs.map(o => `<div class="swaprow"><span><b>${esc(pname(map[o.staff_id]))}</b> can work ${shiftLine(o)} <button class="linkbtn" data-action="rotajump" data-date="${o.shift_date}">See day</button></span><span class="swapbtns"><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></span></div>`).join('')}</div>`;
     if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
   }
   if (inPeriods){
@@ -3454,6 +3489,10 @@ function myUpdatesHtml(mine){
   (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('ok', `Swap with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))} approved`, 'swaps'));
   (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
   (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'waiting for the manager'}`, 'swaps'));
+  (state.offers || []).filter(o => o.staff_id === me).forEach(o => { const fresh = (o.decided_at || o.created_at || '').slice(0, 10) >= recent;
+    if (o.status === 'offered') add('wait', `You offered to work ${shiftLine(o)}: waiting for the manager`, 'next');
+    else if (o.status === 'accepted' && fresh) add('ok', `Offer accepted: you’re on ${shiftLine(o)}`, 'next');
+    else if (o.status === 'declined' && fresh) add('no', `Offer for ${shiftLine(o)}: the manager said no thanks`, 'next'); });
   mine.filter(s => s.status === 'cannot_work').forEach(s => add(s.decision === 'approved' || s.covered ? 'ok' : 'wait', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: ${s.decision === 'approved' || s.covered ? 'approved by management' : 'waiting for the manager'}`, 'next'));
   mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: declined, you’re still on`, 'next'));
   (state.holidays || []).filter(h => h.staff_id === me).forEach(h => {
@@ -3776,6 +3815,9 @@ const actions = {
   hoursperiod: t => go('rota', { hoursStart: ymd(addDays(parseYmd(state.hoursStart), 28 * Number(t.dataset.step))) }),
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
+  offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
+  offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
+  offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
   secjump: t => { if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
