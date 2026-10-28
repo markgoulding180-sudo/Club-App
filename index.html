@@ -2868,7 +2868,7 @@ function staffSelect(ds, x, job, shift, cover, k){
   const off = new Map(state.ops.unavail.filter(u => u.off_date === ds).map(u => [u.staff_id, u.reason]));
   const probs = new Set(x.problems.map(s => s.staff_id));
   const opts = state.ops.staff.filter(p => canDo(p, job) || p.id === shift?.staff_id).map(p => {
-    const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? busy.get(p.id) : off.has(p.id) ? 'day off' : probs.has(p.id) ? 'can’t work' : '';
+    const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? busy.get(p.id) : off.has(p.id) ? (off.get(p.id) === 'Holiday' ? 'on holiday' : 'unavailable') : probs.has(p.id) ? 'can’t work' : '';
     return { p, why };
   }).sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || byName(a.p, b.p));
   const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
@@ -2924,7 +2924,8 @@ function rotaView(){
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
         ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
-      ${i.off.length ? `<p class="muted" style="font-size:13px">Day off: ${i.off.map(u => esc(pfirst(map[u.staff_id]))).join(', ')}</p>` : ''}</div>`).join('')}</div>`;
+      ${(() => { const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday')); const nm = l => l.map(u => esc(pfirst(map[u.staff_id]))).join(', ');
+        return (un.length ? `<p class="muted" style="font-size:13px">Unavailable: ${nm(un)}</p>` : '') + (hol.length ? `<p class="muted" style="font-size:13px">On holiday: ${nm(hol)}</p>` : ''); })()}</div>`).join('')}</div>`;
   return h;
 }
 
@@ -2985,7 +2986,7 @@ function openStaffProfile(pid){
     ...r.shifts.filter(s => s.staff_id === pid && ['late', 'sick', 'no_show', 'cannot_work'].includes(s.status))
       .map(s => ({ date: s.shift_date, kind: s.status, label: SHIFT_STATUS[s.status], text: `${SESS[s.session]} ${JOBS[s.job]}${s.reason ? ` · “${s.reason}”` : ''}` })),
     ...r.notes.filter(n => n.staff_id === pid).map(n => ({ date: n.note_date, kind: n.kind, label: NOTE_KINDS[n.kind], text: n.note || '', id: n.id })),
-    ...r.unavail.filter(u => u.staff_id === pid).map(u => ({ date: u.off_date, kind: 'assigned', label: 'Day off', text: u.reason || '' }))
+    ...r.unavail.filter(u => u.staff_id === pid).map(u => ({ date: u.off_date, kind: 'assigned', label: u.holiday_id || u.reason === 'Holiday' ? 'Holiday' : 'Unavailable', text: u.holiday_id || u.reason === 'Holiday' ? '' : u.reason || '' }))
   ].sort((a, b) => b.date.localeCompare(a.date));
   const num = (v, k, bad) => `<div class="num ${bad ? 'bad' : ''}"><b>${v}</b><span>${k}</span></div>`;
   openSheet(`<div class="sheet-h"><div><h2>${esc(pname(p))}</h2><p class="muted">${esc(p.phone || '')} ${esc(p.email || '')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
@@ -3040,7 +3041,7 @@ async function fillRota(btn){
       const tag = `${pfirst(p)} ${fmtDate(ds, { weekday:'short', day:'numeric', month:'short' })} ${want.s === 'day' ? 'day' : 'eve'}`;
       const x = info.sessions.find(z => z.sess === want.s);
       if (!x) continue;                                                  // club closed then: nothing to do
-      if (unavail.some(u => u.staff_id === p.id && u.off_date === ds)){ skipped.push(tag + ' (day off)'); continue; }
+      const un = unavail.find(u => u.staff_id === p.id && u.off_date === ds); if (un){ skipped.push(tag + (un.holiday_id || un.reason === 'Holiday' ? ' (on holiday)' : ' (unavailable)')); continue; }
       if (ops.shifts.some(s => s.staff_id === p.id && s.shift_date === ds && s.session === want.s)) continue;   // already sorted
       if (ops.shifts.some(s => s.staff_id === p.id && s.shift_date === ds && ACTIVE(s))){ skipped.push(tag + ' (already working that day)'); continue; }
       if (!canDo(p, want.j)) continue;
@@ -3278,16 +3279,16 @@ function myShiftsView(){
     if (sh || cw){ const x = sh || cw;
       return `<button class="day ${sh ? 'onshift' : 'full'}${c.today ? ' today' : ''}" data-action="shiftsheet" data-id="${x.id}" aria-label="${fmtDate(ds)}, ${sh ? 'you’re on the rota' : 'can’t work'}">
         <span class="n">${c.day}</span><span class="l ${sh ? 'hall' : ''}">${sh ? JOBS[sh.job] : x.decision === 'approved' ? 'Approved' : 'Can’t work'}</span></button>`; }
-    return `<button class="day${off ? ' full' : ''}${c.today ? ' today' : ''}" data-action="toggleoff" data-date="${ds}" aria-pressed="${!!off}" aria-label="${fmtDate(ds)}${off ? ', can’t work' : ''}">
-      <span class="n">${c.day}</span>${off ? '<span class="l">Can’t work</span>' : ''}</button>`;
+    return `<button class="day${off ? ' full' : ''}${c.today ? ' today' : ''}" data-action="toggleoff" data-date="${ds}" aria-pressed="${!!off}" aria-label="${fmtDate(ds)}${off ? ', unavailable' : ''}">
+      <span class="n">${c.day}</span>${off ? '<span class="l">Unavailable</span>' : ''}</button>`;
   });
   return page('My shifts', `<button class="btn" data-action="holnew">Request holiday</button>`) + myHolidayCard(me, false) + `
     <div class="label" style="margin-top:28px">My diary</div>
     <div class="panel stack">
-      <p class="muted" style="font-size:14px"><b style="color:var(--teal)">Tap a shift</b> to see it, or to tell the manager you can’t work it. <b style="color:var(--ink)">Tap any other day</b> to mark it as a day you can’t work, and tap again to undo.</p>
+      <p class="muted" style="font-size:14px"><b style="color:var(--teal)">Tap a shift</b> to see it, or to tell the manager you can’t work it. <b style="color:var(--ink)">Tap any other day</b> to mark yourself unavailable that day, and tap again to undo.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="legend" style="margin:0"><span style="color:var(--teal)">Your shift</span><span style="color:var(--red)">Can’t work</span></div>
+      <div class="legend" style="margin:0"><span style="color:var(--teal)">Your shift</span><span style="color:var(--red)">Unavailable / can’t work</span></div>
     </div>
     <div class="label" style="margin-top:28px">My next shifts</div>
     <div class="list">${mine.map(s => `<div class="dgroup">${dbox(s.shift_date)}<div class="panel stack" style="padding:12px 14px;gap:8px">
@@ -3558,11 +3559,11 @@ const actions = {
   toggleoff: async t => {
     const ds = t.dataset.date; const me = state.user.id;
     const off = state.ops.unavail.find(u => u.staff_id === me && u.off_date === ds);
-    if (off){ await api.removeUnavailable(off.id); toast('Done. You’re free that day again.'); }
+    if (off){ await api.removeUnavailable(off.id); toast('Done. You’re available that day again.'); }
     else {
       const onShift = state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s));
       await api.markUnavailable(ds, $('#off-reason')?.value.trim() || '');
-      toast(onShift ? 'Marked. The manager has been told to find cover.' : 'Marked as can’t work');
+      toast(onShift ? 'Marked. The manager has been told to find cover.' : 'Marked as unavailable');
     }
     const reason = $('#off-reason')?.value; await refresh(); if (reason && $('#off-reason')) $('#off-reason').value = reason;
   },
