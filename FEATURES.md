@@ -110,6 +110,14 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Offer to work
+
+- When a shift on the published rota still needs someone, staff who could do it see an **I can work this** button.
+- The manager sees **Offers to work** at the top of the rota, and on the shift itself, with **Accept** and **No thanks**. Accepting puts them on the rota, and if they're covering someone who can't work, that request is approved too.
+- Staff can withdraw an offer until it's answered, and they see the answer in their updates.
+
+---
+
 ## Hours and wages
 
 - An **Hours** report for each 4-week rota. Every shift counts as its set opening hours.
