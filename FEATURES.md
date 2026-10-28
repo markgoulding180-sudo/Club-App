@@ -1,0 +1,142 @@
+# Club & Pub App: Features
+
+**A members' app for social clubs and pubs, covering events, room hire, tickets, the staff rota and holidays in one place.**
+
+Live example: **Ashford Railway Club** at https://club-app-zeta.vercel.app
+
+It works in any phone, tablet or computer browser, and members can add it to their phone's home screen like an app. Nothing has to be installed from an app store.
+
+---
+
+## Three types of account
+
+| Account | Who it's for | What they see |
+|---|---|---|
+| **Member** | Customers and club members | What's On, booking requests for the rooms, event tickets, and their own bookings and payments |
+| **Staff** | Bar and door staff | Their shifts, the rota, holiday requests, and the days they're unavailable |
+| **Admin** | Managers and committee | Everything: the bookings diary, rota, staff records, tickets and What's On |
+
+Each person signs in with an email and password, and sees only what their account allows. Security is enforced by the database, not just by hiding buttons.
+
+---
+
+## Public front page (before sign-in)
+
+- A full-width photo banner and the club's details: address, opening times, and a live **Open now / Closed** indicator.
+- The next few events from What's On, so visitors can see what's coming up before they join.
+- Sections for **About**, **What's On**, **The Club** (bar, sport, amenities), **Hall Hire**, **Membership** (tiers and prices), **Bowls** and **Find Us**, linked from a top menu.
+- **Sign in** and **Register** sit on the page itself, with a short note on what members get.
+- **Phone version:** a compact home screen with the banner and a swipeable info panel. Sign-in and registration open inside that panel.
+- Fast to load on mobile data: optimised images and a single lightweight page.
+
+---
+
+## What's On
+
+- Two tabs: **Club Events** (darts, pool, quiz, bingo, live music, karaoke, Deal or No Deal and so on) and **Live Sport Shown**.
+- **Live Sport Shown** lists the full Premier League fixture list, grouped by day, with kick-off times.
+- Each event card has a banner image chosen by its **category**, so a darts night shows the darts banner and a quiz shows the quiz banner.
+- Ticketed events show member and non-member prices, and how many tickets are left.
+
+---
+
+## Room hire bookings (members)
+
+- A booking calendar for each room (for example the **Function Room**, up to 120 guests, and the **Lounge Bar**, up to 60).
+- Afternoon, Evening and Full day sessions, with weekday and weekend prices shown up front.
+- The calendar shows at a glance which days are free, part booked or full.
+- Members choose the event type (birthday, wedding reception, christening, wake, meeting and others), the guest numbers and any notes.
+- **18th birthdays** collect extra details: the name of the person turning 18, agreement to ID checks, and notes for the door team.
+- Requests go to the admin to confirm. Members can follow their booking, deposit and balance under **My bookings**.
+
+---
+
+## Bookings diary (admin)
+
+- One diary for everything: member hire, club events and sports nights. It can be filtered by **All / Members / Club / Sports** and viewed as a list or a calendar.
+- **Club events and sports leagues** are added from a dropdown of event names. **"+ Add a new event"** adds a new name, and it stays in the list for next time.
+- **Block bookings for any event**, in three ways:
+  - **One date**
+  - **Weekly block**: for example every Friday from September to April
+  - **Pick dates**: tap any dates on a calendar and they're added to a list you can edit
+- Clashes and closed days are skipped automatically and listed afterwards. A whole block can be cancelled or deleted in one go.
+- **Payments:** record deposits, balances and refunds (cash, card or bank transfer), with a running total of what's been paid and what's still owed.
+- **No-bookings days:** close a room for the afternoon, the evening or the whole day. Members can't book those times.
+- Ticketed club events can have member and guest prices and a ticket limit.
+
+---
+
+## Tickets
+
+- Members reserve tickets for ticketed events, choosing how many member tickets and how many guest tickets.
+- The number left updates live, and the event can't be oversold.
+- Members can change or cancel their reservation before the event.
+- The admin sees everyone who has reserved for each event and marks reservations as **paid** or **cancelled**.
+
+---
+
+## Staff rota
+
+- **The rota works out what's needed by itself.** It knows when the club is open and what's booked, so it knows how many staff each shift needs. For example:
+  - Lounge Bar: 1 whenever open
+  - Function Room Bar: when the room is in use, and 2 for big parties
+  - Door: every evening
+- Week-by-week view. Gaps are highlighted in yellow, and each day shows a staff counter such as **"2/3 staff · 1 more needed"**.
+- **Pick a name and it saves.** The list only offers people who can do that job, such as bar or door.
+- **Regular shifts:** set the days each person normally works, for example Fri and Sat evenings on the Lounge Bar. **Fill from regular shifts** then puts everyone on for the whole month in one tap. It skips anyone unavailable or on holiday, days the club is closed, and jobs that are already full, and lists what it skipped.
+- **One shift a day per person.** Nobody can be put on two shifts on the same day. The database enforces this too, not just the screen.
+- **Unavailable** and **On holiday** staff are greyed out in the lists, and each day shows who's unavailable.
+- After each shift, the admin records how it went: **Worked, Late, Sick or Didn't turn up**.
+
+---
+
+## Can't work and cover
+
+1. A staff member taps a shift they're on and gives a reason. **A reason is required.**
+2. They get a confirmation that the manager has been told.
+3. On the rota, that person stays on the shift **in red, marked "Can't work"**, with their reason. A **Cover** dropdown sits underneath, and the shift also appears in a **Cover needed** list at the top of the rota.
+4. The manager picks someone to cover. **That approves the request.** The manager can **decline** it instead.
+5. The staff member sees **"✓ Approved by management"** or **"Declined"** in their account.
+
+---
+
+## Holidays
+
+- Each staff member gets **28 days a year** (Jan–Dec). They ask for holiday by tapping the days on a calendar, which also shows the days they're working and the days with events on.
+- The admin sees each request with useful context: how many shifts it affects, who else is off, and how many days that person has left.
+- **Approve** takes them off any shifts on those days, and those shifts go to **Cover needed**. **Decline** shows as declined in their account.
+- An approved holiday can be cancelled later, and they go back on any shifts that haven't been covered yet.
+
+---
+
+## Staff records (admin)
+
+- A card for each staff member over the last 12 weeks: shifts worked, hours, late, sick, didn't turn up, can't work, and a **reliability %** badge.
+- Their holiday totals: taken, booked, waiting and left.
+- Add notes to their record, such as sick, late or a general note.
+- Change their account type (Member, Staff or Admin) and what they can work (Bar, Door or both).
+- Set their **regular shifts**.
+
+---
+
+## Staff view
+
+- **My diary:** a monthly calendar of their shifts. Tap a shift to see it, or to say they can't work it.
+- Tap any other day to mark themselves **unavailable**, and tap again to undo.
+- **My next shifts**, with what's on that night (for example "Function Room: 18th Birthday, 70 guests").
+- Holiday allowance and requests, with their status.
+- The full rota, read-only, so they can see who they're working with.
+
+---
+
+## Built to be easy to run
+
+- **Your branding:** logo, photos, colours, rooms, prices and opening times.
+- Hosted online, with updates going live in minutes and nothing for staff to install.
+- A secure database with sign-in for every user. Members can never see staff records, and staff can't change the rota.
+- Phone-first design, with large tap targets and in-page dropdowns that work the same on every phone.
+- A demo mode, so you can try every screen before going live.
+
+---
+
+*Ask for a walkthrough of the Admin, Staff and Member views.*
