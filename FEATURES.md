@@ -77,13 +77,14 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ## Staff rota
 
+- **4-weekly rotas** that run Monday to Sunday and line up with the wage period. The admin builds the next rota in the last week of the current one, while it's still a **draft** that staff can't see. **Publish rota** then shows it to staff in one tap.
 - **The rota works out what's needed by itself.** It knows when the club is open and what's booked, so it knows how many staff each shift needs. For example:
   - Lounge Bar: 1 whenever open
   - Function Room Bar: when the room is in use, and 2 for big parties
   - Door: every evening
 - Week-by-week view. Gaps are highlighted in yellow, and each day shows a staff counter such as **"2/3 staff · 1 more needed"**.
 - **Pick a name and it saves.** The list only offers people who can do that job, such as bar or door.
-- **Regular shifts:** set the days each person normally works, for example Fri and Sat evenings on the Lounge Bar. **Fill from regular shifts** then puts everyone on for the whole month in one tap. It skips anyone unavailable or on holiday, days the club is closed, and jobs that are already full, and lists what it skipped.
+- **Regular shifts:** set the days each person normally works, for example Fri and Sat evenings on the Lounge Bar. **Fill from regular shifts** then puts everyone on for the whole 4-week rota in one tap. It skips anyone unavailable or on holiday, days the club is closed, and jobs that are already full, and lists what it skipped.
 - **One shift a day per person.** Nobody can be put on two shifts on the same day. The database enforces this too, not just the screen.
 - **Unavailable** and **On holiday** staff are greyed out in the lists, and each day shows who's unavailable.
 - After each shift, the admin records how it went: **Worked, Late, Sick or Didn't turn up**.
@@ -92,11 +93,30 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ## Can't work and cover
 
-1. A staff member taps a shift they're on and gives a reason. **A reason is required.**
-2. They get a confirmation that the manager has been told.
+1. A staff member taps a shift they're on and gives a reason. **A reason is required.** Requests need at least **2 days' notice**, and each person can ask off up to **2 shifts per rota**. For anything later, they phone the manager.
+2. They get a confirmation that the manager has been told. If plans change, they can **withdraw** the request until the manager has dealt with it.
 3. On the rota, that person stays on the shift **in red, marked "Can't work"**, with their reason. A **Cover** dropdown sits underneath, and the shift also appears in a **Cover needed** list at the top of the rota.
 4. The manager picks someone to cover. **That approves the request.** The manager can **decline** it instead.
 5. The staff member sees **"✓ Approved by management"** or **"Declined"** in their account.
+
+---
+
+## Shift swaps
+
+1. A staff member taps their shift and chooses **Find a swap**. They only see colleagues' shifts they could swap: jobs they can both do, on days they're both free.
+2. They pick one and add a message if they like. The colleague gets **"Ben wants to swap with you"** with **Yes, swap** and **No thanks** buttons.
+3. If the colleague says yes, it goes to the manager under **Swaps to approve**.
+4. The manager taps **Approve** and the rota updates, or taps **Decline**. Both staff see the result.
+
+---
+
+## Hours and wages
+
+- An **Hours** report for each 4-week rota. Every shift counts as its set opening hours.
+- One row per staff member: shifts, hours, late, sick, didn't turn up, can't work, holiday days, unavailable days, and holiday left for the year, with totals.
+- While a rota is still running, it shows hours worked so far alongside the planned total.
+- **Download for wages (CSV)** opens in Excel or Google Sheets.
+- Staff see their own shifts and hours for the current rota.
 
 ---
 
@@ -114,17 +134,18 @@ Each person signs in with an email and password, and sees only what their accoun
 - A card for each staff member over the last 12 weeks: shifts worked, hours, late, sick, didn't turn up, can't work, and a **reliability %** badge.
 - Their holiday totals: taken, booked, waiting and left.
 - Add notes to their record, such as sick, late or a general note.
-- Change their account type (Member, Staff or Admin) and what they can work (Bar, Door or both).
+- Change their account type (Member, Staff or Admin) and what they can work (Bar, Door or both). If someone leaves, changing them back to Member takes them off all their future shifts, and those shifts show as needing someone.
 - Set their **regular shifts**.
 
 ---
 
 ## Staff view
 
-- **My diary:** a monthly calendar of their shifts. Tap a shift to see it, or to say they can't work it.
+- **My diary:** a monthly calendar of their shifts. Tap a shift to see it, ask for a swap, or say they can't work it.
 - Tap any other day to mark themselves **unavailable**, and tap again to undo.
 - **My next shifts**, with what's on that night (for example "Function Room: 18th Birthday, 70 guests").
 - Holiday allowance and requests, with their status.
+- A reminder of when the next rota starts and the date to mark unavailable days by.
 - The full rota, read-only, so they can see who they're working with.
 
 ---
