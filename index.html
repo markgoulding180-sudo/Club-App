@@ -1898,9 +1898,9 @@ function makeDemoApi(){
     async signOut(){ s.session = null; save(); },
     async publicWhatsOn(n){ const from = new Date(); from.setHours(0,0,0,0);
       const ev = s.events.filter(e => !isFootball(e)).map(e => ({ title: e.title, starts_at: e.starts_at, info: e.category || '', kind: 'event' }));
-      const club = s.bookings.filter(b => isClub(b) && live(b)).map(b => ({ title: b.event_type, starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString(),
+      const club = s.bookings.filter(b => isClub(b) && live(b) && !isLeagueNight(b.event_type, b)).map(b => ({ title: b.event_type, starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString(),
         info: `${ROOMS[b.room].name} · ${b.ticketed ? 'Tickets' : 'Free entry'}`, kind: 'club' }));
-      return [...ev, ...club].filter(e => new Date(e.starts_at) >= from).sort((a, b) => a.starts_at.localeCompare(b.starts_at)).slice(0, n); },
+      return [...ev, ...club].filter(e => new Date(e.starts_at) >= from && !isLeagueNight(e.title)).sort((a, b) => a.starts_at.localeCompare(b.starts_at)).slice(0, n); },
     async footballFrom(from, to){ return s.events.filter(e => isFootball(e) && dayOf(e.starts_at) >= from && dayOf(e.starts_at) <= to); },
     async listEvents(){ const from = new Date(); from.setHours(0,0,0,0);
       return s.events.filter(e => new Date(e.starts_at) >= from).sort((a,b) => a.starts_at.localeCompare(b.starts_at)); },
@@ -2176,7 +2176,8 @@ document.fonts?.ready.then(() => evenSlides());
 window.addEventListener('resize', () => { const list = document.querySelector('.wo-top .wo-list'); const first = list?.querySelector('.wo-item:not(.clone)'); if (list && first && woMobile()) woScrollTo(list, first); woCenter(); });
 async function loadPublicEvents(){
   try {
-    const [list, fb] = await Promise.all([api.publicWhatsOn(10), api.footballFrom(todayStr(), ahead(120)).catch(() => [])]);
+    let [list, fb] = await Promise.all([api.publicWhatsOn(10), api.footballFrom(todayStr(), ahead(120)).catch(() => [])]);
+    list = (list || []).filter(e => !isLeagueNight(e.title));
     state.fbDays = footballByDay(fb);
     const fbKeys = new Set(fb.map(e => e.title + '|' + dayOf(e.starts_at)));
     state.publicEvents = list.filter(e => !fbKeys.has(e.title + '|' + dayOf(e.starts_at))).slice(0, 5);
@@ -2187,8 +2188,12 @@ async function loadTickets(){
   const [club, res] = await Promise.all([api.clubEvents(ahead(-400), ahead(400)), api.ticketsAll()]);
   state.tk = { events: club.filter(b => b.ticketed), res };
 }
+/* League nights (darts, pool…) stay in the diary but not on What's On. Tournaments, competitions and cups still show. */
+const COMP_RE = /tournament|competition|\bcomp\b|cup|final|knock-?out|open\b|championship/i;
+const isLeagueNight = (name, b) => (/league/i.test(name || '') || !!b?.event_details?.sport) && !COMP_RE.test(name || '');
 async function loadWhatsOn(){
-  const [ev, club] = await Promise.all([api.listEvents(), api.clubEvents(todayStr(), ahead(365))]);
+  let [ev, club] = await Promise.all([api.listEvents(), api.clubEvents(todayStr(), ahead(365))]);
+  club = club.filter(b => !isLeagueNight(b.event_type, b)); ev = ev.filter(e => !isLeagueNight(e.title));
   const fromClub = club.map(b => ({ id: 'b' + b.id, bookingId: b.id, title: b.event_type, category: 'Club event',
     starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString(),
     description: `${ROOMS[b.room].name} · ${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${clubEntry(b)}${b.notes ? ' · ' + b.notes : ''}` }));
