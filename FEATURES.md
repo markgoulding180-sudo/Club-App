@@ -40,6 +40,16 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Tailored to each member
+
+- On their first sign-in, members get a short **"Make the app yours"** screen. They pick the nights they enjoy (darts, quiz, bingo, live music, karaoke and so on), their football team and what they like to drink. They can also skip it.
+- Their favourite kinds of night get a **★** on What's On, and a **★ For you** filter shows only those. Tapping ☆ on any event adds that kind of night to their favourites.
+- Their team's matches are highlighted on Live Sport Shown.
+- Home shows **Picked for you**, their next few favourite events, and a **My preferences** tile so they can change these any time.
+- Drinks and likes are stored for tailored offers in future. Members can opt out with one tick box.
+
+---
+
 ## Room hire bookings (members)
 
 - A booking calendar for each room (for example the **Function Room**, up to 120 guests, and the **Lounge Bar**, up to 60).

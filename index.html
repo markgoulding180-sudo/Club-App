@@ -1348,6 +1348,20 @@ table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var
 .offer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:rgba(46,230,200,.08);border:1px solid rgba(46,230,200,.35);font-size:13.5px}
 .offer span{flex:1 1 180px}
 .slot .side .offered{font-size:12.5px;font-weight:700;color:var(--teal);margin-right:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{position:relative;cursor:pointer}.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{display:inline-block;padding:8px 14px;border-radius:99px;border:1px solid var(--edge);background:rgba(255,255,255,.04);font-size:14px;font-weight:600;color:var(--ink)}
+.chip input:checked + span{border-color:var(--gold,#f6d27a);background:rgba(246,210,122,.16);color:#f6d27a}
+.chip input:checked + span::before{content:"★ "}
+.chip input:focus-visible + span{outline:2px solid var(--teal);outline-offset:2px}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px}
+.foryou{display:inline-block;margin-left:8px;font-size:12px;font-weight:800;color:#f6d27a;letter-spacing:.02em}
+.spot .txt .foryou{margin:0}
+.event .star{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--edge);background:rgba(5,9,22,.55);color:#f6d27a;font-size:20px;cursor:pointer;display:grid;place-items:center;position:relative;z-index:2}
+.event .star.on{background:rgba(246,210,122,.18);border-color:rgba(246,210,122,.6)}
+.event .star:hover,.event .star:focus-visible{border-color:#f6d27a;outline:none}
+.event.liked{box-shadow:inset 3px 0 0 #f6d27a}
+.sday li.myteam b{color:#f6d27a}
 </style>
 
 </head>
@@ -1652,6 +1666,7 @@ function makeSupabaseApi(){
   const dayEnd = d => new Date(addDays(parseYmd(d), 1)).toISOString();
   return {
     async currentUser(){ const { data } = await sb.auth.getSession(); return data.session ? profileFor(data.session.user) : null; },
+    async savePrefs(prefs){ const { data } = await sb.auth.getSession(); const r = await sb.from('profiles').update({ prefs }).eq('id', data.session.user.id); if (r.error && /prefs/.test(r.error.message)) throw new Error('This needs the member-preferences SQL running in Supabase first.'); ok(r); },
     async signIn(email, password){ const d = ok(await sb.auth.signInWithPassword({ email, password })); return profileFor(d.user); },
     async signUp({ email, password, ...meta }){
       const d = ok(await sb.auth.signUp({ email, password, options: { data: meta } }));
@@ -1868,11 +1883,12 @@ function makeDemoApi(){
   const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.staff_id === x.staff_id);   // one shift a day each
   const byDate = (a, b) => a.booking_date.localeCompare(b.booking_date) || bySlot(a, b);
   const api = {
-    async currentUser(){ return pub(s.users.find(u => u.id === s.session)); },
+    async currentUser(){ const u = s.users.find(u => u.id === s.session); return u ? pub({ prefs: null, ...u }) : null; },
+    async savePrefs(prefs){ const u = s.users.find(u => u.id === s.session); if (u){ u.prefs = prefs; save(); } },
     async signIn(email, password){
       const u = s.users.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (!u || u.pw !== password) throw new Error('Email or password is wrong. Demo logins use the password "demo".');
-      s.session = u.id; save(); return pub(u);
+      s.session = u.id; save(); return pub({ prefs: null, ...u });
     },
     async signUp({ email, password, ...meta }){
       if (s.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error('An account with that email already exists.');
@@ -2101,6 +2117,7 @@ async function go(view, params = {}){
   closeSheet();
   try { await load(view); } catch(e){ toast(e.message); }
   render(); window.scrollTo(0, 0);
+  if (view === 'hub' && state.user?.role === 'user' && state.user.prefs === null && !state.prefsShown){ state.prefsShown = true; openPrefs(true); }
 }
 async function loadOps(from, to, summaries = false){
   const [bookings, shifts, unavail, staff, events, closed] = await Promise.all([
@@ -2254,6 +2271,7 @@ async function refresh(){
    ===================================================================== */
 const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const ICONS = {
+  star: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'),
   home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'),
   cal: svg('<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
   rota: svg('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
@@ -2713,7 +2731,12 @@ function homeView(){
   h += `<div class="tiles">${tile('music', 'What’s On', nextTxt, 'whatson')}
     ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
     ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
-    ${tile('check', 'My bookings & tickets', 'Room hire, deposits and event tickets', 'mine')}</div>`;
+    ${tile('check', 'My bookings & tickets', 'Room hire, deposits and event tickets', 'mine')}
+    ${tile('star', 'My preferences', (myPrefs().cats || []).length ? `${(myPrefs().cats || []).map(c => BANNER_CATS[c]?.[2]).filter(Boolean).slice(0, 3).join(', ')}${(myPrefs().cats || []).length > 3 ? '…' : ''}` : 'Pick your favourite nights and drinks', 'prefs').replace('data-action="go" data-view="prefs"', 'data-action="openprefs"')}</div>`;
+  const picks = (state.events || []).filter(likesEvent).slice(0, 3);
+  if (picks.length) h += `<div class="label" style="margin-top:24px">Picked for you</div><div class="list">${picks.map(e => { const d = new Date(e.starts_at);
+    return `<div class="spot" role="button" tabindex="0" ${e.b ? `data-action="openevent" data-id="${e.b.id}"` : `data-action="go" data-view="whatson"`}><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${timeOf(e.starts_at)}</div></div>
+      <div class="txt"><span class="foryou">★ For you</span><b>${esc(e.title)}</b></div></div>`; }).join('')}</div>`;
   return h;
 }
 
@@ -3256,26 +3279,28 @@ function whatsOnView(){
   const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
   const card = e => { const d = new Date(e.starts_at);
     if (e.b && !admin) return clubEventCard(e, d);
-    return `<div class="event${e.b ? ' club' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}
+    return `<div class="event${e.b ? ' club' : ''}${!admin && likesEvent(e) ? ' liked' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}${admin ? '' : starBtn(e)}
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
       ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
   let list;
-  if (tab === 'events') list = clubList.map(card).join('');
+  const fy = state.woFilter === 'mine' && !admin; if (tab === 'events') list = clubList.filter(e => !fy || likesEvent(e)).map(card).join('');
   else {
     const days = {}; state.sportList.forEach(e => (days[dayOf(e.starts_at)] ||= []).push(e));
     list = Object.entries(days).map(([ds, evs]) => { const d = parseYmd(ds);
       return `<div class="sday" style="--ebg:url('img/banner-sport.webp')"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-        <ul>${evs.map(e => `<li><span class="st">${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span><b>${esc(e.title)}</b><small>${esc((e.description || '').replace(/ · kick-off TBC/, ''))}</small>${admin ? `<button class="linkbtn" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</li>`).join('')}</ul></div>`; }).join('');
+        <ul>${evs.map(e => `<li class="${likesEvent(e) ? 'myteam' : ''}"><span class="st">${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span><b>${likesEvent(e) ? '★ ' : ''}${esc(e.title)}</b><small>${esc((e.description || '').replace(/ · kick-off TBC/, ''))}</small>${admin ? `<button class="linkbtn" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</li>`).join('')}</ul></div>`; }).join('');
   }
-  const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`;
+  const member = state.user?.role === 'user'; const hasPrefs = (myPrefs().cats || []).length;
+  const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`
+    + (member && tab === 'events' ? `<div class="bar">${hasPrefs ? seg('wofilter', fy ? 'mine' : 'all', [['all', 'Everything'], ['mine', '★ For you']], 'Filter') : ''}<button class="linkbtn" data-action="openprefs">${hasPrefs ? 'Edit my favourites' : '★ Pick your favourite nights'}</button></div>` : '');
   return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
       <input class="in" id="ev-desc" name="description" placeholder="Details (optional)" aria-label="Details"><button class="btn" type="submit">Add to What’s On</button></form>` : '')
-    + tabs + `<div class="list">${list || `<div class="empty">${tab === 'sport' ? 'No live sport listed yet.' : 'Nothing on yet.'}</div>`}</div>`;
+    + tabs + `<div class="list">${list || `<div class="empty">${tab === 'sport' ? 'No live sport listed yet.' : fy ? 'None of your favourite nights are on yet. Tap ☆ on any event to add that kind of night.' : 'Nothing on yet.'}</div>`}</div>`;
 }
 
 /* ---------- Club events: card, banner, ticket sheet ---------- */
@@ -3294,11 +3319,31 @@ const bannerBg = e => { const c = BANNER_CATS[catOf(e)]; return c ? `;--ebg:url(
 const cardBanner = e => { const c = BANNER_CATS[catOf(e)]; return c ? `<img class="ebar" src="${c[0]}" alt="${c[1]}" loading="lazy" decoding="async" width="1200" height="125">` : ''; };
 const catSelect = (id, cur) => `<label class="f">Category (sets the banner on What’s On)<select id="${id}" name="cat">
     <option value="none" ${cur === 'none' || cur === '' ? 'selected' : ''}>No banner</option>${Object.entries(BANNER_CATS).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v[2]}</option>`).join('')}</select></label>`;
+/* ---------- Member preferences: what they enjoy and drink ---------- */
+const PREF_CATS = Object.entries(BANNER_CATS).map(([k, v]) => [k, k === 'sport' ? 'Live sport on TV' : v[2]]);
+const DRINKS = ['Lager', 'Bitter / real ale', 'Cider', 'Stout', 'Wine', 'Prosecco', 'Spirits', 'Cocktails', 'Soft drinks', 'Alcohol-free'];
+const myPrefs = () => state.user?.prefs || {};
+const likesCat = c => !!c && (myPrefs().cats || []).includes(c);
+const likesEvent = e => e.category === 'Sport' && !e.b ? (myPrefs().team ? (e.title || '').toLowerCase().includes(myPrefs().team.toLowerCase()) : false) : likesCat(catOf(e));
+const starBtn = e => { const c = e.category === 'Sport' && !e.b ? '' : catOf(e); if (!state.user || state.user.role !== 'user' || !c) return '';
+  const on = likesCat(c); return `<button class="star${on ? ' on' : ''}" data-action="starcat" data-cat="${c}" aria-pressed="${on}" aria-label="${on ? 'Remove from' : 'Add to'} your favourites: ${esc(BANNER_CATS[c]?.[2] || c)}">${on ? '★' : '☆'}</button>`; };
+function teamsList(){ const t = new Set(); (state.sportList || []).forEach(e => (e.title || '').split(/\s+v(?:s)?\.?\s+/i).forEach(x => x.trim() && t.add(x.trim()))); return [...t].sort(); }
+function openPrefs(first = false){
+  const pr = myPrefs(); const cats = new Set(pr.cats || []); const drinks = new Set(pr.drinks || []); const teams = teamsList();
+  state.sheet = { type: 'prefs' };
+  openSheet(`<div class="sheet-h"><div><h2>${first ? 'Make the app yours' : 'My preferences'}</h2><p class="muted">${first ? 'Tell us what you enjoy. We’ll put your kind of nights first and, in future, send offers that suit you.' : 'Change these any time.'}</p></div><button class="x" data-action="${first ? 'prefskip' : 'closesheet'}" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="saveprefs">
+      <div class="f">Which nights do you enjoy?<div class="chips">${PREF_CATS.map(([k, l]) => `<label class="chip"><input type="checkbox" name="cat" value="${k}" ${cats.has(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+      <label class="f">Your football team (optional)${teams.length ? `<select name="team"><option value="">No team</option>${teams.map(t => `<option ${t === pr.team ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : `<input class="in" name="team" value="${esc(pr.team || '')}" placeholder="For example: Arsenal">`}</label>
+      <div class="f">What do you like to drink?<div class="chips">${DRINKS.map(d => `<label class="chip"><input type="checkbox" name="drink" value="${esc(d)}" ${drinks.has(d) ? 'checked' : ''}><span>${esc(d)}</span></label>`).join('')}</div></div>
+      <label class="chk"><input type="checkbox" name="offers" ${pr.offers === false ? '' : 'checked'}> Show me offers based on what I like</label>
+      <div class="err"></div><button class="btn" type="submit">Save</button>${first ? '<button class="btn ghost" type="button" data-action="prefskip">Skip for now</button>' : ''}</form>`);
+}
 function clubEventCard(e, d){
   const b = e.b; const left = b.ticketed ? ticketsLeft(b) : null; const mine = b.ticketed ? myTicketFor(b.id) : null;
-  return `<div class="event club" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}"><div class="ehead">
+  return `<div class="event club${likesCat(catOf(e)) ? ' liked' : ''}" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}"><div class="ehead">
       <div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div>${cardBanner(e)}<span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div>${cardBanner(e)}${starBtn(e)}<span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
     ${b.notes ? `<p class="edesc">${esc(b.notes)}</p>` : ''}
     <div class="tline">${b.ticketed ? `<span class="tk">${ICONS.ticket}Members ${money2(b.price_member)} · Non-members ${money2(b.price_guest)}</span>${left != null ? `<span class="left">${left ? `${left} left` : 'Sold out'}</span>` : ''}`
       : '<span class="tk">Open · free entry</span>'}<span class="grow"></span>
@@ -3815,6 +3860,11 @@ const actions = {
   hoursperiod: t => go('rota', { hoursStart: ymd(addDays(parseYmd(state.hoursStart), 28 * Number(t.dataset.step))) }),
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
+  openprefs: () => openPrefs(false),
+  prefskip: async () => { const pr = { ...myPrefs(), skipped: true, cats: myPrefs().cats || [], drinks: myPrefs().drinks || [] }; closeSheet(); try { await api.savePrefs(pr); state.user.prefs = pr; } catch(e){} toast('No problem. You can pick your favourites any time from Home.'); },
+  starcat: async t => { const c = t.dataset.cat; const pr = { cats: [], drinks: [], ...myPrefs() }; const set = new Set(pr.cats); set.has(c) ? set.delete(c) : set.add(c); pr.cats = [...set];
+    await api.savePrefs(pr); state.user.prefs = pr; toast(set.has(c) ? `★ Added ${BANNER_CATS[c]?.[2] || c} to your favourites` : 'Removed from your favourites'); render(); },
+  wofilter: t => { state.woFilter = t.dataset.val; render(); },
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
   offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
@@ -4008,6 +4058,9 @@ const forms = {
     openSheet(`<div class="sheet-h"><div><h2>Swap request sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
       <div class="sentok"><span class="tick">✓</span><p>We’ve asked them. If they say yes, it goes to the manager to approve.</p><p class="muted">You stay on your shift until the manager approves the swap. You can follow it under My shifts.</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
+  async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
+      team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };
+    await api.savePrefs(pr); state.user.prefs = pr; closeSheet(); toast('Saved. Your favourite nights now have a ★'); render(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
     const id = Number(f.dataset.id); await api.staffSetShift(id, 'cannot_work', why); state.sheet = null; await refresh();
     const s = state.ops.shifts.find(x => x.id === id);
