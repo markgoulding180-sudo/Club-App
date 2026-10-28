@@ -1339,6 +1339,11 @@ table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var
   .secnav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:visible}.secnav button{padding:8px 4px;font-size:12.5px;text-align:center}
   .secnav .full{display:none}.secnav .short{display:inline}
   .mypills{gap:6px}.mpill .tr{display:none}.mpill{padding:6px 10px;font-size:12px}.mpill b{font-size:14px} }
+.nextrota{display:grid;gap:2px;padding:10px 14px;margin-bottom:10px;border-radius:14px;border:1px solid rgba(126,166,255,.45);background:rgba(126,166,255,.09);font-size:14px}
+.nextrota b{color:#b9cdff}.nextrota span{color:var(--muted);font-size:13px}
+.nextrota.pub{border-color:rgba(61,220,132,.45);background:rgba(61,220,132,.07)}.nextrota.pub b{color:var(--green)}
+.updbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:14px;border-radius:14px;border:1px solid rgba(46,230,200,.4);background:rgba(46,230,200,.08);font-size:14px}
+.updbar.none{border-color:var(--edge);background:none}
 </style>
 
 </head>
@@ -3457,10 +3462,20 @@ function myUpdatesHtml(mine){
     else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
     else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined`, 'holiday');
   });
-  const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const next = ymd(addDays(parseYmd(cur), 28));
-  if (isPublished(next)) add('ok', `Next rota (from ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}) is published`, 'diary');
-  else add('info', `Next rota starts ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}. Mark days you’re unavailable by ${fmtDate(ymd(addDays(parseYmd(next), -7)), { weekday:'short', day:'numeric', month:'short' })}`, 'diary');
-  return `<div class="updates"><div class="updates-h">Updates</div>${items.join('')}</div>`;
+  state.myUpdates = items;
+  const next = nextRotaHtml();
+  return next + (items.length ? `<div class="updbar"><span><b>🔔 ${plural(items.length, 'update')}</b> for you</span><button class="btn sm" data-action="showupdates">View updates</button></div>`
+    : '<div class="updbar none"><span class="muted">No new updates</span></div>');
+}
+function nextRotaHtml(){
+  const today = todayStr(); const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const next = ymd(addDays(parseYmd(cur), 28)); const due = ymd(addDays(parseYmd(next), -7));
+  const f = d => fmtDate(d, { weekday:'short', day:'numeric', month:'short' });
+  return isPublished(next) ? `<div class="nextrota pub"><b>Next rota is out</b><span>It starts ${f(next)}. Check your shifts in My diary.</span></div>`
+    : `<div class="nextrota"><b>Next rota due out ${f(due)}</b><span>It starts ${f(next)}. Mark any holidays or days you’re unavailable before ${f(due)}.</span></div>`;
+}
+function openUpdates(){
+  openSheet(`<div class="sheet-h"><div><h2>Updates</h2><p class="muted">Tap one to go to it.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="updates">${(state.myUpdates || []).join('') || '<p class="muted">No new updates.</p>'}</div>`);
 }
 function myRotaNote(mine){
   const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr()); const next = ymd(addDays(parseYmd(cur), 28));
@@ -3469,7 +3484,7 @@ function myRotaNote(mine){
   const nextPub = isPublished(next); const due = ymd(addDays(parseYmd(next), -7));
   return `<div class="panel" style="padding:12px 14px;margin-bottom:12px;font-size:14px;display:grid;gap:4px">
     <b style="font-size:16px">Rota</b><span>${periodLabel(cur)}${isPublished(cur) ? ` · ${plural(inCur.length, 'shift')} · ${hrsFmt(hrs)} hours` : ' · not published yet'}</span>
-    <span class="muted">${nextPub ? `The next rota (from ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}) is published.` : `Next rota starts ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}. Mark days you’re unavailable by ${fmtDate(due, { weekday:'short', day:'numeric', month:'short' })}.`}</span></div>`;
+</div>`;
 }
 const SWAP_TXT = { asked: 'Waiting for them to say yes', accepted: 'They said yes. Waiting for the manager.', declined: 'They said no', approved: '✓ Approved by management. The rota is updated.', refused: 'The manager said no', cancelled: 'Cancelled' };
 function mySwapsHtml(){
@@ -3760,7 +3775,8 @@ const actions = {
   swappick: t => { state.sheet.pick = Number(t.dataset.id); openSwapSheet(); },
   hoursperiod: t => go('rota', { hoursStart: ymd(addDays(parseYmd(state.hoursStart), 28 * Number(t.dataset.step))) }),
   hourscsv: () => downloadHours(),
-  secjump: t => { const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
+  showupdates: () => openUpdates(),
+  secjump: t => { if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
