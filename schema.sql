@@ -619,3 +619,17 @@ end $$;
 drop trigger if exists shifts_one_a_day on public.shifts;
 create trigger shifts_one_a_day before insert or update of staff_id, shift_date, status on public.shifts
   for each row execute function public.shifts_one_a_day();
+-- Can't work requests: staff must give a reason; the manager approves (by putting cover on) or declines
+alter table public.shifts add column if not exists decision text check (decision in ('approved', 'declined'));
+alter table public.shifts add column if not exists decided_at timestamptz;
+
+create or replace function public.staff_update_shift(shift_id bigint, new_status text, why text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if new_status <> 'cannot_work' then raise exception 'Staff can only say they can''t make a shift.'; end if;
+  if length(trim(coalesce(why, ''))) < 3 then raise exception 'Please give a reason.'; end if;
+  update public.shifts set status = 'cannot_work', reason = trim(why), decision = null, decided_at = null
+  where id = shift_id and staff_id = auth.uid() and shift_date >= current_date and status in ('assigned', 'confirmed');
+  if not found then raise exception 'Shift not found or already changed.'; end if;
+end $$;
+grant execute on function public.staff_update_shift(bigint, text, text) to authenticated;
