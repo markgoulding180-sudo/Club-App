@@ -1317,6 +1317,28 @@ table.hrs th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-s
 table.hrs tfoot td{font-weight:800;border-bottom:0}
 table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var(--red);font-weight:700}
 .rotafoot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+/* My shifts */
+.myhead{flex-wrap:nowrap}.myhead h1{min-width:0}.myhead .btn{flex:none;white-space:nowrap}
+.myrota{font-size:13px;margin:-10px 0 8px}
+.mypills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.mpill{display:inline-flex;align-items:baseline;gap:5px;padding:7px 13px;border-radius:99px;font-size:13.5px;font-weight:600;color:var(--muted);background:rgba(46,230,200,.08);border:1px solid rgba(46,230,200,.3)}
+.mpill b{font-size:16px;color:var(--ink)}.mpill.low{border-color:rgba(246,210,122,.5);background:rgba(246,210,122,.08)}
+.updates{display:grid;gap:6px;margin-bottom:14px;padding:12px;border-radius:16px;border:1px solid var(--edge);background:rgba(5,9,22,.45)}
+.updates-h{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:0 4px 2px}
+.upd{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--edge);border-left-width:4px;background:rgba(255,255,255,.03);color:var(--ink);font-size:14px;cursor:pointer}
+.upd span{flex:1;min-width:0}.upd i{font-style:normal;color:var(--teal);font-size:18px}
+.upd.act{border-left-color:var(--teal);background:rgba(46,230,200,.1)}.upd.ok{border-left-color:var(--green)}.upd.wait{border-left-color:var(--yellow)}.upd.no{border-left-color:var(--red)}.upd.info{border-left-color:#7ea6ff}
+.upd:hover,.upd:focus-visible{border-color:var(--teal);outline:none}
+.secnav{position:sticky;top:var(--bandh,62px);z-index:9;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px 16px;padding:8px 4px;background:rgba(7,12,26,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.secnav::-webkit-scrollbar{display:none}
+.secnav button{flex:none;padding:8px 14px;border-radius:99px;border:1px solid var(--edge);background:rgba(255,255,255,.04);color:var(--ink);font-weight:700;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.secnav button:hover,.secnav button:focus-visible{border-color:var(--teal);color:var(--teal);outline:none}
+.msec{margin-bottom:26px}
+.secnav .short{display:none}
+@media (max-width:520px){ .myhead h1{font-size:24px}
+  .secnav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:visible}.secnav button{padding:8px 4px;font-size:12.5px;text-align:center}
+  .secnav .full{display:none}.secnav .short{display:inline}
+  .mypills{gap:6px}.mpill .tr{display:none}.mpill{padding:6px 10px;font-size:12px}.mpill b{font-size:14px} }
 </style>
 
 </head>
@@ -2174,7 +2196,8 @@ async function load(view){
     state.periods = await api.listPeriods();
     if (isAdmin()){ state.holidays = await api.listHolidays(); state.profiles = await api.listProfiles(); state.swaps = await api.listSwaps(); }
     const ws = ymd(state.rotaWeek), we = ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
-    await loadOps(ws < t ? ws : t, we > f ? we : f, !isAdmin());
+    const ps = periodStart(ws), pe = periodEnd(ps); const lo = [ws, t, ps].sort()[0], hi = [we, f, pe].sort()[2];
+    await loadOps(lo, hi, !isAdmin());
   }
   if (view === 'staff'){
     const from = ahead(-7 * WEEKS_BACK), to = ahead(27);
@@ -2184,7 +2207,7 @@ async function load(view){
   }
   if (view === 'holiday'){ const r = monthRange(state.holMonth); const from = ymd(r.start) > todayStr() ? ymd(r.start) : todayStr();
     await loadOps(from, ymd(r.end) > from ? ymd(r.end) : from, true); state.holidays = await api.listHolidays(); }
-  if (view === 'myshifts'){ state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps(todayStr(), end, true); }
+  if (view === 'myshifts'){ state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], end, true); }
 }
 async function refresh(){
   const sh = state.sheet; const y = window.scrollY;
@@ -2938,8 +2961,11 @@ function staffSelect(ds, x, job, shift, cover, k){
     return { p, why };
   }).sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || byName(a.p, b.p));
   const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
+  const pst = periodStart(ds); const tally = {};
+  state.ops.shifts.filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const t = tally[s.staff_id] ||= { n: 0, h: 0 }; t.n++; t.h += hoursOf(s.shift_date, s.session); });
+  const load = id => { const t = tally[id] || { n: 0, h: 0 }; return ` · ${t.n} shift${t.n === 1 ? '' : 's'}, ${Math.round(t.h * 10) / 10}h`; };
   return `<select id="sel-${ds}-${x.sess}-${job}-${k}" data-slotsel data-date="${ds}" data-sess="${x.sess}" data-job="${job}" data-shift="${shift?.id || ''}" data-cover="${cover?.id || ''}" aria-label="${JOBS[job]}, ${SESS[x.sess]}, ${fmtDate(ds)}">
-    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : ''}</option>`).join('')}</select>`;
+    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : load(p.id)}</option>`).join('')}</select>`;
 }
 const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
   <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
@@ -3391,39 +3417,66 @@ function myShiftsView(){
     return `<button class="day${off ? ' full' : ''}${c.today ? ' today' : ''}" data-action="toggleoff" data-date="${ds}" aria-pressed="${!!off}" aria-label="${fmtDate(ds)}${off ? ', unavailable' : ''}">
       <span class="n">${c.day}</span>${off ? '<span class="l">Unavailable</span>' : ''}</button>`;
   });
-  return page('My shifts', `<button class="btn" data-action="holnew">Request holiday</button>`) + myHolidayCard(me, false) + `
-    <div class="label" style="margin-top:28px">My diary</div>
+  const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
+  const inCur = o.shifts.filter(s => s.staff_id === me && ACTIVE(s) && periodStart(s.shift_date) === cur);
+  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  return `<div class="head myhead"><h1>My shifts</h1><button class="btn sm" data-action="holnew">Request holiday</button></div>
+    <p class="muted myrota">Rota ${periodLabel(cur)}</p><div class="mypills"><span class="mpill"><b>${inCur.length}</b> shift${inCur.length === 1 ? '' : 's'}<span class="tr"> this rota</span></span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours<span class="tr"> this rota</span></span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>
+    ${myUpdatesHtml(mine)}
+    <nav class="secnav" aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'My next shifts', 'Next shifts'], ['holiday', 'My holiday', 'Holiday'], ['swaps', 'Swaps', 'Swaps']].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
+    <section class="msec" id="sec-diary"><div class="label">My diary</div>
     <div class="panel stack">
       <p class="muted" style="font-size:14px"><b style="color:var(--teal)">Tap a shift</b> to see it, or to tell the manager you can’t work it. <b style="color:var(--ink)">Tap any other day</b> to mark yourself unavailable that day, and tap again to undo.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
       <div class="legend" style="margin:0"><span style="color:var(--teal)">Your shift</span><span style="color:var(--red)">Unavailable / can’t work</span></div>
-    </div>
-    ${mySwapsHtml()}
-    <div class="label" style="margin-top:28px">My next shifts</div>
+    </div></section>
+    <section class="msec" id="sec-next"><div class="label">My next shifts</div>
     ${myRotaNote(mine)}
     <div class="list">${mine.map(s => `<div class="dgroup">${dbox(s.shift_date)}<div class="panel stack" style="padding:12px 14px;gap:8px">
         <b>${JOBS[s.job]} · ${sessTimes(s.shift_date, s.session).join('–')}</b>
         <span class="muted" style="font-size:13px">${shiftWhat(s)}</span>
         ${ACTIVE(s) ? `${s.decision === 'declined' ? '<span class="cwnote no">Your can’t-work request was declined by management. You’re still on this shift.</span>' : ''}
           <div><button class="btn ghost sm" data-action="shiftsheet" data-id="${s.id}">Swap or can’t work</button></div>` : cwNote(s, true)}
-      </div></div>`).join('') || '<div class="empty">No shifts in the next 2 months.</div>'}</div>`;
+      </div></div>`).join('') || '<div class="empty">No shifts in the next 2 months.</div>'}</div></section>
+    <section class="msec" id="sec-holiday"><div class="label">My holiday</div>${myHolidayCard(me, false)}</section>
+    <section class="msec" id="sec-swaps"><div class="label">Swaps</div>${mySwapsHtml()}</section>`;
+}
+function myUpdatesHtml(mine){
+  const me = state.user.id; const map = staffMap(); const recent = ymd(addDays(new Date(), -14)); const today = todayStr(); const items = [];
+  const add = (cls, text, to) => items.push(`<button class="upd ${cls}" data-action="secjump" data-to="sec-${to}"><span>${text}</span><i aria-hidden="true">›</i></button>`);
+  (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => add('act', `<b>${esc(pfirst(map[w.from_staff]))} wants to swap with you.</b> Answer yes or no.`, 'swaps'));
+  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('ok', `Swap with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))} approved`, 'swaps'));
+  (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
+  (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'waiting for the manager'}`, 'swaps'));
+  mine.filter(s => s.status === 'cannot_work').forEach(s => add(s.decision === 'approved' || s.covered ? 'ok' : 'wait', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: ${s.decision === 'approved' || s.covered ? 'approved by management' : 'waiting for the manager'}`, 'next'));
+  mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: declined, you’re still on`, 'next'));
+  (state.holidays || []).filter(h => h.staff_id === me).forEach(h => {
+    const when = dayRanges(h.days); const fresh = (h.decided_at || h.created_at || '').slice(0, 10) >= recent;
+    if (h.status === 'pending') add('wait', `Holiday ${when}: waiting for approval`, 'holiday');
+    else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
+    else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined`, 'holiday');
+  });
+  const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const next = ymd(addDays(parseYmd(cur), 28));
+  if (isPublished(next)) add('ok', `Next rota (from ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}) is published`, 'diary');
+  else add('info', `Next rota starts ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}. Mark days you’re unavailable by ${fmtDate(ymd(addDays(parseYmd(next), -7)), { weekday:'short', day:'numeric', month:'short' })}`, 'diary');
+  return `<div class="updates"><div class="updates-h">Updates</div>${items.join('')}</div>`;
 }
 function myRotaNote(mine){
   const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr()); const next = ymd(addDays(parseYmd(cur), 28));
-  const inCur = mine.filter(s => periodStart(s.shift_date) === cur && ACTIVE(s));
+  const inCur = state.ops.shifts.filter(s => s.staff_id === state.user.id && periodStart(s.shift_date) === cur && ACTIVE(s));
   const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0);
   const nextPub = isPublished(next); const due = ymd(addDays(parseYmd(next), -7));
   return `<div class="panel" style="padding:12px 14px;margin-bottom:12px;font-size:14px;display:grid;gap:4px">
-    <span>${isPublished(cur) ? `<b>Rota ${periodLabel(cur)}:</b> ${plural(inCur.length, 'shift')} · ${Math.round(hrs * 10) / 10} hours` : `<b>Rota ${periodLabel(cur)}</b> isn’t published yet.`}</span>
+    <b style="font-size:16px">Rota</b><span>${periodLabel(cur)}${isPublished(cur) ? ` · ${plural(inCur.length, 'shift')} · ${hrsFmt(hrs)} hours` : ' · not published yet'}</span>
     <span class="muted">${nextPub ? `The next rota (from ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}) is published.` : `Next rota starts ${fmtDate(next, { weekday:'short', day:'numeric', month:'short' })}. Mark days you’re unavailable by ${fmtDate(due, { weekday:'short', day:'numeric', month:'short' })}.`}</span></div>`;
 }
 const SWAP_TXT = { asked: 'Waiting for them to say yes', accepted: 'They said yes. Waiting for the manager.', declined: 'They said no', approved: '✓ Approved by management. The rota is updated.', refused: 'The manager said no', cancelled: 'Cancelled' };
 function mySwapsHtml(){
   const me = state.user.id; const map = staffMap(); const recent = ymd(addDays(new Date(), -14));
   const list = (state.swaps || []).filter(w => ['asked', 'accepted'].includes(w.status) || (w.status !== 'cancelled' && (w.decided_at || w.created_at).slice(0, 10) >= recent));
-  if (!list.length) return '';
-  return `<div class="label" style="margin-top:28px">Swaps</div><div class="list">${list.map(w => {
+  if (!list.length) return '<div class="empty">No swaps. To swap a shift, tap it in My diary and choose Find a swap.</div>';
+  return `<div class="list">${list.map(w => {
     const incoming = w.to_staff === me; const other = pfirst(map[incoming ? w.from_staff : w.to_staff]);
     const youGive = incoming ? w.b : w.a, youGet = incoming ? w.a : w.b;
     const cls = w.status === 'approved' ? 'ok' : ['declined', 'refused'].includes(w.status) ? 'no' : 'wait';
@@ -3656,7 +3709,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape'){ e.stopPropagation(); closeCsel(); }
 }, true);
 document.addEventListener('change', e => { e.target.form?.querySelectorAll('select[data-cs]').forEach(x => x._sync?.()); });
-['app', 'sheetRoot'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => { enhanceSelects(el); if (cselPop && !cselPop._w.isConnected) closeCsel(); }).observe(el, { childList: true, subtree: true }); });
+['app', 'sheetRoot'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => { enhanceSelects(el); const bh = $('.band')?.offsetHeight; if (bh) document.documentElement.style.setProperty('--bandh', bh + 'px'); if (cselPop && !cselPop._w.isConnected) closeCsel(); }).observe(el, { childList: true, subtree: true }); });
 function openSheet(html){
   $('#sheetRoot').innerHTML = `<div class="sheet-wrap" data-action="backdrop"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
   $('#sheetRoot .x')?.focus();
@@ -3707,6 +3760,7 @@ const actions = {
   swappick: t => { state.sheet.pick = Number(t.dataset.id); openSwapSheet(); },
   hoursperiod: t => go('rota', { hoursStart: ymd(addDays(parseYmd(state.hoursStart), 28 * Number(t.dataset.step))) }),
   hourscsv: () => downloadHours(),
+  secjump: t => { const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
