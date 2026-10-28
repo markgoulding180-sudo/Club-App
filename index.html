@@ -1249,7 +1249,7 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 /* Banner sits in the same row as the date and title, on the right */
 .ehead .ebar{order:0 !important;flex:0 0 46%;width:46%;max-width:420px;height:68px;margin:0 !important;border:1px solid rgba(120,170,255,.35) !important;border-radius:12px;object-fit:cover;object-position:right center;margin-left:auto !important}
 .ehead:has(.ebar) .etitle{flex:1 1 auto}
-@media (max-width:480px){ .ehead .ebar{flex-basis:40%;width:40%;height:60px;object-position:58% center} .ehead:has(.ebar) .etitle b{font-size:15px} .ehead:has(.ebar) .go{display:none} }
+@media (max-width:640px){ .ehead:has(.ebar){flex-wrap:wrap} .ehead .ebar{order:9 !important;flex:1 0 100%;width:100%;max-width:none;height:auto;object-fit:contain;object-position:center;margin:4px 0 0 !important} }
 @media (min-width:900px){ .ehead .ebar{height:auto;max-width:520px;flex-basis:48%;object-fit:contain} }
 /* In-page dropdowns */
 .csel{position:relative;width:100%;min-width:0}
