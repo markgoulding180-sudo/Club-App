@@ -1258,11 +1258,9 @@ main.mhome{padding:0 !important;background:linear-gradient(180deg,#071338,#040b2
 .csel-btn.ph{color:var(--muted)}
 .csel::after{content:"";position:absolute;right:14px;top:50%;width:8px;height:8px;border-right:2px solid var(--teal);border-bottom:2px solid var(--teal);transform:translateY(-70%) rotate(45deg);pointer-events:none;transition:transform .15s}
 .csel.open::after{transform:translateY(-30%) rotate(-135deg)}
-.csel:has(.csel-pop)::after{top:22px}
 .csel-btn:focus-visible,.csel.open .csel-btn{border-color:var(--teal);box-shadow:0 0 0 3px rgba(46,230,200,.15);outline:none}
 .csel-btn:disabled{opacity:.5;cursor:not-allowed}
-.csel-pop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;max-height:300px;overflow:auto;padding:6px;border-radius:14px;background:linear-gradient(160deg,#17244d,#0c1534);border:1px solid rgba(46,230,200,.4);box-shadow:0 18px 40px -12px rgba(0,0,0,.9);display:grid;gap:2px;min-width:180px}
-.csel-pop.up{top:auto;bottom:calc(100% + 6px)}
+.csel-pop{position:fixed;z-index:1000;max-height:300px;overflow:auto;padding:6px;border-radius:14px;background:linear-gradient(160deg,#17244d,#0c1534);border:1px solid rgba(46,230,200,.4);box-shadow:0 18px 40px -12px rgba(0,0,0,.9);display:grid;gap:2px;min-width:180px}
 .csel-opt{text-align:left;background:none;border:0;border-radius:10px;padding:10px 12px;font-size:14.5px;font-weight:600;color:var(--ink);cursor:pointer}
 .csel-opt:hover,.csel-opt:focus-visible{background:rgba(46,230,200,.12);outline:none}
 .csel-opt.on{background:rgba(46,230,200,.2);color:var(--teal)}
@@ -3419,28 +3417,39 @@ function enhanceSelects(root = document){
     sel._sync(); sel.addEventListener('change', sel._sync);
   });
 }
-function closeCsel(){ document.querySelectorAll('.csel.open').forEach(w => { w.classList.remove('open'); w.querySelector('.csel-pop')?.remove(); }); }
+/* The list is put on the page itself (fixed position) so boxes with hidden overflow can't cut it off */
+let cselPop = null;
+function closeCsel(){ if (cselPop){ cselPop._w?.classList.remove('open'); cselPop.remove(); cselPop = null; } }
+function placeCsel(){
+  if (!cselPop) return; const btn = cselPop._w.querySelector('.csel-btn'); const r = btn.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight) return closeCsel();
+  const below = innerHeight - r.bottom - 12, above = r.top - 12; const up = below < 220 && above > below;
+  const max = Math.min(320, Math.max(140, up ? above : below));
+  Object.assign(cselPop.style, { left: Math.max(8, r.left) + 'px', width: Math.min(r.width, innerWidth - 16) + 'px', maxHeight: max + 'px',
+    top: up ? '' : (r.bottom + 6) + 'px', bottom: up ? (innerHeight - r.top + 6) + 'px' : '' });
+}
 document.addEventListener('click', e => {
   const opt = e.target.closest('.csel-opt');
-  if (opt){ const w = opt.closest('.csel'); const sel = w.querySelector('select'); sel.value = opt.dataset.v; closeCsel(); sel.dispatchEvent(new Event('change', { bubbles: true })); w.querySelector('.csel-btn').focus({ preventScroll: true }); return; }
+  if (opt && cselPop){ const w = cselPop._w; const sel = w.querySelector('select'); sel.value = opt.dataset.v; closeCsel(); sel.dispatchEvent(new Event('change', { bubbles: true })); w.querySelector('.csel-btn').focus({ preventScroll: true }); return; }
   const btn = e.target.closest('.csel-btn');
   if (!btn){ if (!e.target.closest('.csel-pop')) closeCsel(); return; }
-  const w = btn.parentElement; const was = w.classList.contains('open'); closeCsel(); if (was) return;
+  const w = btn.parentElement; const was = cselPop?._w === w; closeCsel(); if (was) return;
   const sel = w.querySelector('select');
-  const pop = document.createElement('div'); pop.className = 'csel-pop'; pop.setAttribute('role', 'listbox');
+  const pop = document.createElement('div'); pop.className = 'csel-pop'; pop.setAttribute('role', 'listbox'); pop._w = w;
   pop.innerHTML = [...sel.options].filter(o => !o.hidden && !(o.disabled && o.value === '')).map(o => `<button type="button" role="option" class="csel-opt${o.selected ? ' on' : ''}${o.value === '__new' ? ' add' : ''}" data-v="${esc(o.value)}" ${o.disabled ? 'disabled' : ''} aria-selected="${o.selected}">${esc(o.text)}</button>`).join('');
-  w.appendChild(pop); w.classList.add('open');
-  const r = btn.getBoundingClientRect(); if (window.innerHeight - r.bottom < 260 && r.top > 300) pop.classList.add('up');
+  document.body.appendChild(pop); cselPop = pop; w.classList.add('open'); placeCsel();
   const on = pop.querySelector('.on'); if (on) pop.scrollTop = on.offsetTop - 60;
 });
+addEventListener('scroll', e => { if (cselPop && !cselPop.contains(e.target)) placeCsel(); }, true);
+addEventListener('resize', () => placeCsel());
 document.addEventListener('keydown', e => {
-  const pop = document.querySelector('.csel.open .csel-pop'); if (!pop) return;
+  const pop = cselPop; if (!pop) return;
   const opts = [...pop.querySelectorAll('.csel-opt:not([disabled])')]; let i = opts.indexOf(document.activeElement);
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); i = e.key === 'ArrowDown' ? Math.min(opts.length - 1, i + 1) : Math.max(0, i - 1); opts[i]?.focus(); }
   if (e.key === 'Escape'){ e.stopPropagation(); closeCsel(); }
 }, true);
 document.addEventListener('change', e => { e.target.form?.querySelectorAll('select[data-cs]').forEach(x => x._sync?.()); });
-['app', 'sheetRoot'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => enhanceSelects(el)).observe(el, { childList: true, subtree: true }); });
+['app', 'sheetRoot'].forEach(id => { const el = document.getElementById(id); if (el) new MutationObserver(() => { enhanceSelects(el); if (cselPop && !cselPop._w.isConnected) closeCsel(); }).observe(el, { childList: true, subtree: true }); });
 function openSheet(html){
   $('#sheetRoot').innerHTML = `<div class="sheet-wrap" data-action="backdrop"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
   $('#sheetRoot .x')?.focus();
