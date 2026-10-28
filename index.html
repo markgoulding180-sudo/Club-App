@@ -1782,7 +1782,7 @@ function makeDemoApi(){
       (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day'));
   }
   const closedOn = b => s.closed.some(c => c.closed_date === b.booking_date && PART_SLOTS[c.part || 'all'].includes(b.slot));
-  const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.session === x.session && y.staff_id === x.staff_id);
+  const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.staff_id === x.staff_id);   // one shift a day each
   const byDate = (a, b) => a.booking_date.localeCompare(b.booking_date) || bySlot(a, b);
   const api = {
     async currentUser(){ return pub(s.users.find(u => u.id === s.session)); },
@@ -1845,12 +1845,12 @@ function makeDemoApi(){
     async listStaff(){ return s.users.filter(u => (u.role === 'staff' || u.role === 'admin') && u.skill).map(pub).sort(byName); },
     async shiftsBetween(from, to){ return s.shifts.filter(x => x.shift_date >= from && x.shift_date <= to); },
     async assignShift(x){
-      if (busy(x)) throw new Error('They are already working that shift.');
+      if (busy(x)) throw new Error('They are already working that day.');
       const n = { id: nextId(), shift_date: x.shift_date, session: x.session, job: x.job, staff_id: x.staff_id, status: 'assigned', reason: null, covered: false };
       s.shifts.push(n); save(); return n;
     },
     async updateShift(id, patch){ const x = s.shifts.find(x => x.id === id); if (!x) throw new Error('Shift not found.');
-      const next = { ...x, ...patch }; if (ACTIVE(next) && busy(next, id)) throw new Error('They are already working that shift.');
+      const next = { ...x, ...patch }; if (ACTIVE(next) && busy(next, id)) throw new Error('They are already working that day.');
       Object.assign(x, patch); save(); },
     async removeShift(id){ s.shifts = s.shifts.filter(x => x.id !== id); save(); },
     async staffSetShift(id, status, reason){
@@ -2849,11 +2849,11 @@ function bookingView(){
    ROTA (admin edits, staff view only)
    ===================================================================== */
 function staffSelect(ds, x, job, shift, cover, k){
-  const busy = new Set(x.on.filter(s => s !== shift).map(s => s.staff_id));
+  const busy = new Map(state.ops.shifts.filter(s => s.shift_date === ds && ACTIVE(s) && s.id !== shift?.id).map(s => [s.staff_id, s.session === x.sess ? 'already on' : `on ${s.session === 'day' ? 'daytime' : 'evening'}`]));
   const off = new Map(state.ops.unavail.filter(u => u.off_date === ds).map(u => [u.staff_id, u.reason]));
   const probs = new Set(x.problems.map(s => s.staff_id));
   const opts = state.ops.staff.filter(p => canDo(p, job) || p.id === shift?.staff_id).map(p => {
-    const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? 'already on' : off.has(p.id) ? 'day off' : probs.has(p.id) ? 'can’t work' : '';
+    const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? busy.get(p.id) : off.has(p.id) ? 'day off' : probs.has(p.id) ? 'can’t work' : '';
     return { p, why };
   }).sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || byName(a.p, b.p));
   const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
@@ -2894,6 +2894,9 @@ function rotaView(){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
     h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`]], 'Show')}</div>`;
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
+    const dbl = {}; state.ops.shifts.filter(s => ACTIVE(s) && s.shift_date >= today).forEach(s => (dbl[s.shift_date + '|' + s.staff_id] ||= []).push(s));
+    const twice = Object.values(dbl).filter(v => v.length > 1).sort((a, b) => a[0].shift_date.localeCompare(b[0].shift_date));
+    if (twice.length) h += `<div class="alert"><b class="t">On two shifts in one day</b>${twice.map(v => `<div>${esc(pname(map[v[0].staff_id]))} on ${fmtDate(v[0].shift_date)}: ${v.map(s => `${SESS[s.session].toLowerCase()} ${JOBS[s.job]}`).join(' and ')}. Take them off one.</div>`).join('')}</div>`;
     if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
   }
   if (admin) h += `<div class="bar"><button class="btn sm" data-action="openfill">Fill from regular shifts</button><span class="muted" style="font-size:13px">Set regular days on each person in Staff</span></div>`;
@@ -3022,6 +3025,7 @@ async function fillRota(btn){
       if (!x) continue;                                                  // club closed then: nothing to do
       if (unavail.some(u => u.staff_id === p.id && u.off_date === ds)){ skipped.push(tag + ' (day off)'); continue; }
       if (ops.shifts.some(s => s.staff_id === p.id && s.shift_date === ds && s.session === want.s)) continue;   // already sorted
+      if (ops.shifts.some(s => s.staff_id === p.id && s.shift_date === ds && ACTIVE(s))){ skipped.push(tag + ' (already working that day)'); continue; }
       if (!canDo(p, want.j)) continue;
       if ((x.have[want.j] || 0) >= x.need[want.j]){ skipped.push(`${tag} (${JOBS[want.j]} ${x.need[want.j] ? 'already full' : 'not needed'})`); continue; }
       x.have[want.j] = (x.have[want.j] || 0) + 1; plan.push({ shift_date: ds, session: want.s, job: want.j, staff_id: p.id });

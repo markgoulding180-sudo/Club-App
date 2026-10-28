@@ -604,3 +604,18 @@ begin
   update public.profiles set regular_shifts = pattern where id = pid;
 end $$;
 grant execute on function public.admin_set_regular(uuid, jsonb) to authenticated;
+-- Staff can only be on one shift a day (daytime OR evening, not both)
+create or replace function public.shifts_one_a_day()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.status in ('assigned', 'confirmed', 'late') and exists (
+    select 1 from public.shifts o
+    where o.staff_id = new.staff_id and o.shift_date = new.shift_date and o.id <> new.id
+      and o.status in ('assigned', 'confirmed', 'late')) then
+    raise exception 'They are already working that day.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists shifts_one_a_day on public.shifts;
+create trigger shifts_one_a_day before insert or update of staff_id, shift_date, status on public.shifts
+  for each row execute function public.shifts_one_a_day();
