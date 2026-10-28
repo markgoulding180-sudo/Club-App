@@ -1282,6 +1282,12 @@ label.pick [data-oftenpick]{position:absolute;opacity:0;pointer-events:none}
 .pchip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 11px;border-radius:99px;background:rgba(61,220,132,.14);border:1px solid rgba(61,220,132,.45);font-size:13px;font-weight:700;color:#bff5d6}
 .pchip button{width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.25);color:#fff;font-size:11px;cursor:pointer}
 .pdates .linkbtn{justify-self:start}
+.regt{display:grid;gap:6px}
+.regh,.regr{display:grid;grid-template-columns:44px 1fr 1fr;gap:8px;align-items:center}
+.regh span{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.regr b{font-size:14px}
+.regr .csel-btn{min-height:38px;font-size:13.5px;padding:7px 30px 7px 10px}
+.fillres:empty{display:none}
 </style>
 
 </head>
@@ -1635,6 +1641,7 @@ function makeSupabaseApi(){
     // staff records
     async listProfiles(){ return ok(await sb.from('profiles').select('*').order('last_name')); },
     async updateProfile(id, patch){ ok(await sb.rpc('admin_set_profile', { pid: id, new_role: patch.role, new_skill: patch.skill })); },
+    async setRegular(id, pattern){ const r = await sb.rpc('admin_set_regular', { pid: id, pattern }); if (r.error && /admin_set_regular/.test(r.error.message)) throw new Error('Run the regular-shifts SQL in Supabase first.'); ok(r); },
     async notesBetween(from, to){ return ok(await sb.from('staff_notes').select('*').gte('note_date', from).lte('note_date', to)); },
     async addNote(n){ ok(await sb.from('staff_notes').insert(n)); },
     async deleteNote(id){ ok(await sb.from('staff_notes').delete().eq('id', id)); },
@@ -1866,6 +1873,7 @@ function makeDemoApi(){
       save(); },
     // staff records
     async listProfiles(){ return s.users.map(pub).sort(byName); },
+    async setRegular(id, pattern){ const u = s.users.find(u => u.id === id); if (u){ u.regular_shifts = pattern; save(); } },
     async updateProfile(id, patch){ const u = s.users.find(u => u.id === id); if (!u) return;
       u.role = patch.role; u.skill = patch.skill;
       if (u.role === 'user') u.skill = null; else if (u.role === 'staff' && !u.skill) u.skill = 'both';
@@ -2087,7 +2095,7 @@ async function load(view){
     return;
   }
   if (view === 'rota'){
-    if (isAdmin()) state.holidays = await api.listHolidays();
+    if (isAdmin()){ state.holidays = await api.listHolidays(); state.profiles = await api.listProfiles(); }
     const ws = ymd(state.rotaWeek), we = ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
     await loadOps(ws < t ? ws : t, we > f ? we : f, !isAdmin());
   }
@@ -2107,6 +2115,7 @@ async function refresh(){
   if (sh?.type === 'bkday') openBkDay(sh.date);
   if (sh?.type === 'staff') openStaffProfile(sh.id);
   if (sh?.type === 'addstaff') openAddStaff();
+  if (sh?.type === 'fillrota') openFillRota();
   if (sh?.type === 'event') openEventSheet(sh.id, sh);
 }
 
@@ -2889,6 +2898,7 @@ function rotaView(){
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
     if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
   }
+  if (admin) h += `<div class="bar"><button class="btn sm" data-action="openfill">Fill from regular shifts</button><span class="muted" style="font-size:13px">Set regular days on each person in Staff</span></div>`;
   h += `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
   if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. Lounge Bar: 1 whenever open. Function Room Bar: when the room is in use (2 for parties over ${STAFF_RULES.guestsPerEventBar}). Door: every evening. Max 2 on each bar.</p>`;
   h += `<div class="list">${infos.map(i => `<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
@@ -2966,6 +2976,7 @@ function openStaffProfile(pid){
     <div class="title-row" style="margin:0">${relBadge(st)}<span class="muted" style="font-size:13px">Last ${WEEKS_BACK} weeks</span></div>
     <div class="nums">${num(st.worked, 'Shifts')}${num(Math.round(st.hours), 'Hours')}${num(st.late, 'Late', st.late > 1)}${num(st.sick, 'Sick', st.sick > 1)}${num(st.noShow, 'Didn’t turn up', st.noShow)}${num(st.cant, 'Can’t work')}</div>
     ${holidayBlock(pid)}
+    ${p.skill ? regularBlock(p) : ''}
     <p class="muted" style="font-size:13px">Next: ${st.upcoming.slice(0, 3).map(s => `${fmtDate(s.shift_date)} ${s.session === 'day' ? 'day' : 'eve'} (${JOBS[s.job]})`).join(', ') || 'no shifts'}</p>
     <form class="panel stack" data-form="addnote" data-staff="${p.id}"><b>Add to their record</b>
       <div class="grid2"><input class="in" id="nt-date" name="date" type="date" required value="${todayStr()}" aria-label="Date">
@@ -2973,6 +2984,58 @@ function openStaffProfile(pid){
       <input class="in" id="nt-text" name="note" placeholder="What happened?" aria-label="Note"><button class="btn ghost" type="submit">Add</button></form>
     <div class="hist">${hist.map(x => `<div><span class="when2">${fmtDate(x.date, { day:'numeric', month:'short' })}</span><span class="pill ${x.kind}">${esc(x.label)}</span><span class="muted">${esc(x.text)}</span>
       ${x.id ? `<button class="linkbtn" data-action="delnote" data-id="${x.id}" style="margin-left:auto">Remove</button>` : ''}</div>`).join('') || '<p class="muted">Nothing on their record.</p>'}</div>`);
+}
+/* Regular shifts: the days someone normally works. Used by "Fill from regular shifts" on the Rota. */
+const regOf = p => Array.isArray(p?.regular_shifts) ? p.regular_shifts : [];
+function regularBlock(p){
+  const reg = regOf(p); const jobs = Object.keys(JOBS).filter(j => canDo(p, j));
+  const cell = (d, sess) => { const cur = reg.find(r => String(r.d) === d && r.s === sess)?.j || '';
+    return `<select id="reg-${p.id}-${d}-${sess}" data-regular="${p.id}" data-d="${d}" data-s="${sess}" aria-label="${SESS[sess]}"><option value="">Off</option>${jobs.map(j => `<option value="${j}" ${j === cur ? 'selected' : ''}>${JOBS[j]}</option>`).join('')}</select>`; };
+  return `<div class="label" style="margin:4px 0 0">Regular shifts</div>
+    <p class="muted" style="font-size:13px;margin:0">The days ${esc(pfirst(p))} normally works. On the Rota, “Fill from regular shifts” puts them on for a whole month.</p>
+    <div class="regt"><div class="regh"><span></span><span>Daytime</span><span>Evening</span></div>
+      ${DOW.map(([d, l]) => `<div class="regr"><b>${l}</b>${cell(d, 'day')}${cell(d, 'eve')}</div>`).join('')}</div>
+    <p class="muted" style="font-size:13px;margin:0">${reg.length ? plural(reg.length, 'regular shift') + ' a week' : 'No regular shifts yet.'}</p>`;
+}
+function openFillRota(){
+  state.sheet = { type: 'fillrota' }; const m = state.fillMonth || startOfMonth(new Date());
+  const withReg = (state.ops.staff || []).map(p => ({ p, reg: regOf(state.profiles?.find(x => x.id === p.id) || p) })).filter(x => x.reg.length);
+  openSheet(`<div class="sheet-h"><div><h2>Fill from regular shifts</h2><p class="muted">Puts everyone on their regular days for the month. Shifts you’ve already set stay as they are.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="bar" style="margin:0">${stepper('fillmonth', fmtMonth(m), m <= startOfMonth(new Date()))}</div>
+    ${withReg.length ? `<div class="stack" style="gap:6px">${withReg.map(({ p, reg }) => `<div class="holline"><b>${esc(pname(p))}</b><span class="muted">${DOW.map(([d, l]) => { const r = reg.filter(x => String(x.d) === d); return r.length ? `${l} ${r.map(x => x.s === 'day' ? 'day' : 'eve').join('+')}` : ''; }).filter(Boolean).join(', ')}</span></div>`).join('')}</div>
+      <p class="muted" style="font-size:13px">Skipped: days they’re off or on holiday, days the club is closed, and jobs that already have enough people.</p>
+      <button class="btn" data-action="fillrota">Add shifts for ${fmtMonth(m)}</button><div class="fillres"></div>`
+      : `<div class="empty">No one has regular shifts yet. Go to Staff, tap someone and set their regular days.</div>`}`);
+}
+async function fillRota(btn){
+  const m = state.fillMonth || startOfMonth(new Date()); const r = monthRange(m); const first = ymd(startOfMonth(m));
+  const last = ymd(addDays(startOfMonth(stepMonth(m, 1)), -1)); const from = first > todayStr() ? first : todayStr();
+  if (from > last) throw new Error('That month has finished.');
+  btn.disabled = true; btn.textContent = 'Working it out…';
+  const [bookings, shifts, unavail, staff, profiles, closed] = await Promise.all([api.bookingsBetween(from, last), api.shiftsBetween(from, last), api.unavailBetween(from, last), api.listStaff(), api.listProfiles(), api.closedBetween(from, last)]);
+  const saveClosed = state.closed; state.closed = closed;
+  const ops = { bookings, shifts, unavail, staff, events: [] }; const regs = staff.map(p => ({ p, reg: regOf(profiles.find(x => x.id === p.id)) })).filter(x => x.reg.length);
+  const plan = [], skipped = [];
+  for (const ds of rangeDays(from, last)){
+    const dow = String(parseYmd(ds).getDay()); const info = dayInfo(ds, ops);
+    for (const { p, reg } of regs) for (const want of reg.filter(x => String(x.d) === dow)){
+      const tag = `${pfirst(p)} ${fmtDate(ds, { weekday:'short', day:'numeric', month:'short' })} ${want.s === 'day' ? 'day' : 'eve'}`;
+      const x = info.sessions.find(z => z.sess === want.s);
+      if (!x) continue;                                                  // club closed then: nothing to do
+      if (unavail.some(u => u.staff_id === p.id && u.off_date === ds)){ skipped.push(tag + ' (day off)'); continue; }
+      if (ops.shifts.some(s => s.staff_id === p.id && s.shift_date === ds && s.session === want.s)) continue;   // already sorted
+      if (!canDo(p, want.j)) continue;
+      if ((x.have[want.j] || 0) >= x.need[want.j]){ skipped.push(`${tag} (${JOBS[want.j]} ${x.need[want.j] ? 'already full' : 'not needed'})`); continue; }
+      x.have[want.j] = (x.have[want.j] || 0) + 1; plan.push({ shift_date: ds, session: want.s, job: want.j, staff_id: p.id });
+      ops.shifts.push({ shift_date: ds, session: want.s, job: want.j, staff_id: p.id, status: 'assigned' });
+    }
+  }
+  state.closed = saveClosed;
+  let added = 0;
+  for (const [k, x] of plan.entries()){ btn.textContent = `Adding ${k + 1} of ${plan.length}…`; try { await api.assignShift(x); added++; } catch(e){ skipped.push(`${pfirst(staff.find(p => p.id === x.staff_id))} ${fmtDate(x.shift_date)} (${e.message})`); } }
+  toast(added ? `${plural(added, 'shift')} added` : 'No new shifts needed');
+  state.sheet = null; await refresh();
+  if (skipped.length) document.querySelector('main .wrap')?.insertAdjacentHTML('afterbegin', `<div class="note" style="display:block"><b>${plural(added, 'shift')} added.</b> Not added: ${skipped.map(esc).join(', ')}</div>`);
 }
 function holidayBlock(pid){
   const hs = holStats(pid); const yr = hs.year;
@@ -3415,6 +3478,9 @@ const actions = {
   bkkind: t => { state.bkKind = t.dataset.val; render(); },
   bkmonth: t => { state.bkMonth = stepMonth(state.bkMonth, t.dataset.step); render(); },
   bkday: t => openBkDay(t.dataset.date),
+  openfill: async () => { if (!state.profiles?.length) state.profiles = await api.listProfiles(); state.fillMonth = state.fillMonth || startOfMonth(new Date()); openFillRota(); },
+  fillmonth: t => { state.fillMonth = stepMonth(state.fillMonth || startOfMonth(new Date()), t.dataset.step); openFillRota(); },
+  fillrota: t => fillRota(t),
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
@@ -3526,6 +3592,10 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-regular]')){ const id = el.dataset.regular; const p = state.profiles.find(x => x.id === id);
+      const pattern = [...document.querySelectorAll(`[data-regular="${id}"]`)].filter(x => x.value).map(x => ({ d: Number(x.dataset.d), s: x.dataset.s, j: x.value }));
+      await api.setRegular(id, pattern); if (p) p.regular_shifts = pattern; toast('Regular shifts saved');
+      const n = el.closest('.regt')?.nextElementSibling; if (n) n.textContent = pattern.length ? plural(pattern.length, 'regular shift') + ' a week' : 'No regular shifts yet.'; return; }
     if (el.matches('[data-slotsel]')){
       const { date, sess, job, shift, cover } = el.dataset; const who = el.value;
       if (shift && !who){ await api.removeShift(Number(shift)); toast('Taken off the shift'); }

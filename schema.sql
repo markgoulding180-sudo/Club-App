@@ -588,3 +588,19 @@ grant execute on function public.get_public_whats_on(int) to anon, authenticated
 -- Staff then register in the app and you switch them to Staff on the
 -- "Staff team" screen.
 -- =====================================================================
+-- Regular shifts: the days each staff member normally works, e.g. [{"d":5,"s":"eve","j":"lounge"}]
+-- d = day of week (0 Sun … 6 Sat), s = day/eve, j = lounge/event/door. Only admins can change it.
+alter table public.profiles add column if not exists regular_shifts jsonb not null default '[]'::jsonb;
+
+create or replace function public.admin_set_regular(pid uuid, pattern jsonb)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'Only admins can set regular shifts.'; end if;
+  if jsonb_typeof(pattern) <> 'array' or jsonb_array_length(pattern) > 14 then raise exception 'That pattern isn''t valid.'; end if;
+  if exists (select 1 from jsonb_array_elements(pattern) x
+             where (x->>'d') !~ '^[0-6]$' or x->>'s' not in ('day', 'eve') or x->>'j' not in ('lounge', 'event', 'door')) then
+    raise exception 'That pattern isn''t valid.';
+  end if;
+  update public.profiles set regular_shifts = pattern where id = pid;
+end $$;
+grant execute on function public.admin_set_regular(uuid, jsonb) to authenticated;
