@@ -113,6 +113,8 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ## Shift swaps (ask everyone)
 
+Staff have their own **Swaps** page with two tabs: **My requests** (with a 4-step tracker: Asked everyone → Pick an offer → Manager approves → Done) and **Asked of me** (requests they can help with, and their answers).
+
 1. A staff member who can't work a shift taps it and chooses **Ask everyone to swap**, with an optional message.
 2. Everyone who could work that shift (right job, free that day) sees **"Dave needs a swap. Can you help?"**, with their own shifts that Dave could take in return. They tap one to offer it, or tap **No thanks**.
 3. Dave sees the offers come in and **picks the one he wants**, first come first served. The other offers are closed automatically.
