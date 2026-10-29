@@ -1336,7 +1336,7 @@ table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var
 .msec{margin-bottom:26px}
 .secnav .short{display:none}
 @media (max-width:520px){ .myhead h1{font-size:24px}
-  .secnav{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:visible}.secnav button{padding:8px 4px;font-size:12.5px;text-align:center}
+  .secnav{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;overflow:visible}.secnav button{padding:8px 4px;font-size:12.5px;text-align:center}
   .secnav .full{display:none}.secnav .short{display:inline}
   .mypills{gap:6px}.mpill .tr{display:none}.mpill{padding:6px 10px;font-size:12px}.mpill b{font-size:14px} }
 .nextrota{display:grid;gap:2px;padding:10px 14px;margin-bottom:10px;border-radius:14px;border:1px solid rgba(126,166,255,.45);background:rgba(126,166,255,.09);font-size:14px}
@@ -1362,6 +1362,40 @@ table.hrs td.warn{color:var(--yellow);font-weight:700}table.hrs td.bad{color:var
 .event .star:hover,.event .star:focus-visible{border-color:#f6d27a;outline:none}
 .event.liked{box-shadow:inset 3px 0 0 #f6d27a}
 .sday li.myteam b{color:#f6d27a}
+/* Staff diary */
+.nextshift{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 16px;margin-bottom:12px;border-radius:18px;border:1px solid rgba(46,230,200,.45);background:linear-gradient(140deg,rgba(46,230,200,.16),rgba(20,30,62,.6));color:var(--ink);cursor:pointer}
+.nextshift .txt{display:grid;gap:2px;flex:1;min-width:0}.nextshift .txt b{font-size:19px}.nextshift .txt span{font-size:14px}
+.nextshift .lbl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.nextshift i{font-style:normal;font-size:26px;color:var(--teal)}
+.nextshift.none{display:grid;gap:2px;cursor:default;border-color:var(--edge);background:rgba(255,255,255,.03)}
+button.updbar{width:100%;color:var(--ink);cursor:pointer;text-align:left}
+.nextrota{padding:8px 12px}
+.day .l{border-radius:6px;padding:1px 4px;align-self:flex-start;max-width:100%}
+.day.t-shift{border-color:rgba(46,230,200,.6);background:linear-gradient(160deg,rgba(46,230,200,.25),rgba(46,230,200,.06))}.day.t-shift .l{background:var(--teal);color:#05211c}
+.day.t-swap{border-color:rgba(182,156,255,.7);background:linear-gradient(160deg,rgba(182,156,255,.28),rgba(182,156,255,.06))}.day.t-swap .l{background:var(--violet);color:#1b1035}
+.day.t-cw{border-color:rgba(255,107,125,.6);background:linear-gradient(160deg,rgba(255,107,125,.26),rgba(255,107,125,.06))}.day.t-cw .l{background:var(--red);color:#2b0710}
+.day.t-hol{border-color:rgba(61,220,132,.6);background:linear-gradient(160deg,rgba(61,220,132,.26),rgba(61,220,132,.06))}.day.t-hol .l{background:var(--green);color:#052513}
+.day.t-ask{border-color:rgba(255,181,71,.6);background:linear-gradient(160deg,rgba(255,181,71,.24),rgba(255,181,71,.06))}.day.t-ask .l{background:var(--amber);color:#2b1a00}
+.day.t-off{background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 6px,rgba(255,255,255,.01) 6px 12px)}.day.t-off .l{background:rgba(255,255,255,.18);color:var(--ink)}
+.day.t-offer{border:1px dashed var(--teal)}.day.t-offer .l{color:var(--teal)}
+.day.past{opacity:.55}
+.dlegend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.dlegend .k::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.dlegend .t-shift::before{background:var(--teal)}.dlegend .t-swap::before{background:var(--violet)}.dlegend .t-cw::before{background:var(--red)}
+.dlegend .t-hol::before{background:var(--green)}.dlegend .t-ask::before{background:var(--amber)}.dlegend .t-off::before{background:rgba(255,255,255,.3)}
+.clist{display:grid;gap:8px}
+.crow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;border-radius:14px;border:1px solid var(--edge);background:rgba(20,30,62,.6);color:var(--ink);cursor:pointer}
+.crow .ctxt{display:grid;gap:2px;flex:1;min-width:0}.crow .ctxt span{font-size:13.5px;color:var(--muted)}
+.crow i{font-style:normal;font-size:22px;color:var(--muted)}.crow.gone b{text-decoration:line-through;opacity:.7}
+.crow .st{font-size:12px;font-weight:800;justify-self:start;padding:2px 8px;border-radius:99px;color:var(--ink)!important}
+.st.ok{background:rgba(61,220,132,.2)}.st.wait{background:rgba(255,181,71,.22)}.st.swap{background:rgba(182,156,255,.25)}.st.no{background:rgba(255,107,125,.22)}
+.crow:hover,.crow:focus-visible,.nextshift:hover,.nextshift:focus-visible{border-color:var(--teal);outline:none}
+.dnote{padding:10px 12px;border-radius:12px;font-size:14px;font-weight:600;border:1px solid var(--edge)}
+.dnote.ok{background:rgba(61,220,132,.12);border-color:rgba(61,220,132,.45)}.dnote.wait{background:rgba(255,181,71,.12);border-color:rgba(255,181,71,.45)}
+.dnote.no{background:rgba(255,107,125,.12);border-color:rgba(255,107,125,.45)}.dnote.swap{background:rgba(182,156,255,.14);border-color:rgba(182,156,255,.5)}.dnote.off{background:rgba(255,255,255,.05)}
+.dacts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gaprow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;border:1px dashed rgba(46,230,200,.5);font-size:14px}
+.gaprow .offered{font-size:12.5px;font-weight:700;color:var(--teal);margin-right:6px}
 </style>
 
 </head>
@@ -2213,7 +2247,7 @@ async function load(view){
   if (view === 'hub'){
     await loadWhatsOn();
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
-    if (isStaff()) await loadOps(todayStr(), ahead(60), true);
+    if (isStaff()){ await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
   }
   if (view === 'whatson') await loadWhatsOn();
@@ -2266,6 +2300,8 @@ async function refresh(){
   if (sh?.type === 'staff') openStaffProfile(sh.id);
   if (sh?.type === 'addstaff') openAddStaff();
   if (sh?.type === 'shift') openShiftSheet(sh.id);
+  if (sh?.type === 'day') openDaySheet(sh.ds);
+  if (sh?.type === 'cw') openCwSheet(sh.id);
   if (sh?.type === 'swap') openSwapSheet();
   if (sh?.type === 'fillrota') openFillRota();
   if (sh?.type === 'event') openEventSheet(sh.id, sh);
@@ -2721,12 +2757,8 @@ function homeView(){
   if (isStaff()){
     const me = state.user.id;
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-    const nx = mine[0]; const offs = state.ops.unavail.filter(u => u.staff_id === me).length;
-    h += nx ? `<div class="spot">${dbox(nx.shift_date)}<div class="txt"><span class="muted">Your next shift</span><b>${JOBS[nx.job]} · ${SESS[nx.session]} ${sessTimes(nx.shift_date, nx.session).join('–')}</b></div>
-        </div>`
-      : '<div class="empty" style="margin-bottom:16px">No shifts in the next 2 months.</div>';
-    h += myHolidayCard(me, true);
-    h += `<div class="tiles">${tile('check', 'My shifts & holiday', `${plural(mine.length, 'shift')} coming up · days off and holiday`, 'myshifts')}
+    h += myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
       ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}</div>`;
     return h;
   }
@@ -3491,46 +3523,108 @@ async function exportTickets(eventId = null){
 /* =====================================================================
    STAFF MEMBER: MY SHIFTS
    ===================================================================== */
+/* ---------- Staff: one diary, tap any day for everything about it ---------- */
+const JOB_SHORT = { lounge: 'Bar', event: 'Func', door: 'Door' };
+function myDay(ds){
+  const me = state.user.id; const o = state.ops;
+  const shifts = o.shifts.filter(s => s.staff_id === me && s.shift_date === ds);
+  const shift = shifts.find(ACTIVE), cw = shifts.find(s => s.status === 'cannot_work');
+  const hol = holTaken(me).get(ds);
+  const off = o.unavail.find(u => u.staff_id === me && u.off_date === ds && !u.holiday_id && u.reason !== 'Holiday');
+  const swap = (state.swaps || []).find(w => ['asked', 'accepted'].includes(w.status) && ((w.from_staff === me && w.a?.shift_date === ds) || (w.to_staff === me && w.b?.shift_date === ds)));
+  const offer = (state.offers || []).find(x => x.staff_id === me && x.status === 'offered' && x.shift_date === ds);
+  return { ds, shift, cw, hol, off, swap, offer };
+}
+function dayTag(d){
+  if (d.hol === 'approved') return ['Hol', 't-hol', 'Holiday'];
+  if (d.hol === 'pending') return ['Asked', 't-ask', 'Holiday asked'];
+  if (d.cw) return [d.cw.decision === 'approved' || d.cw.covered ? 'Cover' : 'Can’t', 't-cw', d.cw.decision === 'approved' || d.cw.covered ? 'Can’t work, approved' : 'Can’t work, waiting'];
+  if (d.shift && d.swap) return ['Swap', 't-swap', 'Swap waiting'];
+  if (d.shift) return [JOB_SHORT[d.shift.job], 't-shift', JOBS[d.shift.job]];
+  if (d.offer) return ['Offer', 't-offer', 'You offered to work'];
+  if (d.off) return ['Off', 't-off', 'Unavailable'];
+  return null;
+}
+function myNext(){ const me = state.user.id; const today = todayStr();
+  return state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session))[0]; }
+function nextShiftCard(){
+  const nx = myNext();
+  if (!nx) return '<div class="nextshift none"><span class="lbl">Next shift</span><b>Nothing booked yet</b><span class="muted">You’ll see your shifts here once the rota is out.</span></div>';
+  const days = Math.round((parseYmd(nx.shift_date) - parseYmd(todayStr())) / 864e5);
+  return `<button class="nextshift" data-action="myday" data-date="${nx.shift_date}">${dbox(nx.shift_date)}<div class="txt"><span class="lbl">Next shift · ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}</span>
+    <b>${JOBS[nx.job]}</b><span>${SESS[nx.session]} · ${sessTimes(nx.shift_date, nx.session).join('–')}</span><span class="muted">${shiftWhat(nx)}</span></div><i aria-hidden="true">›</i></button>`;
+}
+function myStats(){
+  const me = state.user.id; const today = todayStr(); const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
+  const inCur = state.ops.shifts.filter(s => s.staff_id === me && ACTIVE(s) && periodStart(s.shift_date) === cur);
+  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  return `<div class="mypills"><span class="mpill"><b>${inCur.length}</b> shift${inCur.length === 1 ? '' : 's'}<span class="tr"> this rota</span></span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours<span class="tr"> this rota</span></span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>`;
+}
 function myShiftsView(){
   const me = state.user.id; const today = todayStr(); const o = state.ops;
-  const mine = o.shifts.filter(s => s.staff_id === me && s.shift_date >= today && (ACTIVE(s) || s.status === 'cannot_work'))
+  const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
+  const coming = o.shifts.filter(s => s.staff_id === me && s.shift_date >= today && (ACTIVE(s) || s.status === 'cannot_work'))
     .sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-  const offMap = new Map(o.unavail.filter(u => u.staff_id === me).map(u => [u.off_date, u]));
   const cal = calendar(state.offMonth, (ds, c) => {
     if (c.out) return '<div class="day out"></div>';
-    if (c.past) return `<div class="day past"><span class="n">${c.day}</span></div>`;
-    const off = offMap.get(ds); const sh = mine.find(s => s.shift_date === ds && ACTIVE(s)); const cw = mine.find(s => s.shift_date === ds && s.status === 'cannot_work');
-    if (off?.holiday_id) return `<div class="day hol${c.today ? ' today' : ''}"><span class="n">${c.day}</span><span class="l">Hol</span></div>`;
-    if (sh || cw){ const x = sh || cw;
-      return `<button class="day ${sh ? 'onshift' : 'full'}${c.today ? ' today' : ''}" data-action="shiftsheet" data-id="${x.id}" aria-label="${fmtDate(ds)}, ${sh ? 'you’re on the rota' : 'can’t work'}">
-        <span class="n">${c.day}</span><span class="l ${sh ? 'hall' : ''}">${sh ? JOBS[sh.job] : x.decision === 'approved' ? 'Approved' : 'Can’t work'}</span></button>`; }
-    return `<button class="day${off ? ' full' : ''}${c.today ? ' today' : ''}" data-action="toggleoff" data-date="${ds}" aria-pressed="${!!off}" aria-label="${fmtDate(ds)}${off ? ', unavailable' : ''}">
-      <span class="n">${c.day}</span>${off ? '<span class="l">Unavailable</span>' : ''}</button>`;
+    const tag = dayTag(myDay(ds));
+    if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${tag ? `<span class="l">${tag[0]}</span>` : ''}</div>`;
+    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}"><span class="n">${c.day}</span>${tag ? `<span class="l">${tag[0]}</span>` : ''}</button>`;
   });
-  const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
-  const inCur = o.shifts.filter(s => s.staff_id === me && ACTIVE(s) && periodStart(s.shift_date) === cur);
-  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  const status = s => { const d = myDay(s.shift_date);
+    if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">Can’t work · approved</span>' : '<span class="st wait">Can’t work · waiting</span>';
+    if (d.swap) return `<span class="st swap">Swap ${d.swap.status === 'accepted' ? '· with manager' : d.swap.to_staff === me ? '· asked you' : '· waiting'}</span>`;
+    if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
+    return ''; };
+  const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
   return `<div class="head myhead"><h1>My shifts</h1><button class="btn sm" data-action="holnew">Request holiday</button></div>
-    <p class="muted myrota">Rota ${periodLabel(cur)}</p><div class="mypills"><span class="mpill"><b>${inCur.length}</b> shift${inCur.length === 1 ? '' : 's'}<span class="tr"> this rota</span></span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours<span class="tr"> this rota</span></span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>
-    ${myUpdatesHtml(mine)}
-    <nav class="secnav" aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'My next shifts', 'Next shifts'], ['holiday', 'My holiday', 'Holiday'], ['swaps', 'Swaps', 'Swaps']].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
+    <p class="muted myrota">Rota ${periodLabel(cur)}</p>${myStats()}
+    ${nextShiftCard()}
+    ${myUpdatesHtml(coming)}
+    <nav class="secnav" aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'Coming up', 'Coming up'], ['holiday', 'My holiday', 'Holiday'], ...(swapsOpen || (state.swaps || []).length ? [['swaps', 'Swaps', 'Swaps']] : [])].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
     <section class="msec" id="sec-diary"><div class="label">My diary</div>
-    <div class="panel stack">
-      <p class="muted" style="font-size:14px"><b style="color:var(--teal)">Tap a shift</b> to see it, or to tell the manager you can’t work it. <b style="color:var(--ink)">Tap any other day</b> to mark yourself unavailable that day, and tap again to undo.</p>
+    <div class="panel stack mydiary">
+      <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to see it and to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="legend" style="margin:0"><span style="color:var(--teal)">Your shift</span><span style="color:var(--red)">Unavailable / can’t work</span></div>
+      <div class="dlegend"><span class="k t-shift">Shift</span><span class="k t-swap">Swap</span><span class="k t-cw">Can’t work</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Off = unavailable</span></div>
     </div></section>
-    <section class="msec" id="sec-next"><div class="label">My next shifts</div>
-    ${myRotaNote(mine)}
-    <div class="list">${mine.map(s => `<div class="dgroup">${dbox(s.shift_date)}<div class="panel stack" style="padding:12px 14px;gap:8px">
-        <b>${JOBS[s.job]} · ${sessTimes(s.shift_date, s.session).join('–')}</b>
-        <span class="muted" style="font-size:13px">${shiftWhat(s)}</span>
-        ${ACTIVE(s) ? `${s.decision === 'declined' ? '<span class="cwnote no">Your can’t-work request was declined by management. You’re still on this shift.</span>' : ''}
-          <div><button class="btn ghost sm" data-action="shiftsheet" data-id="${s.id}">Swap or can’t work</button></div>` : cwNote(s, true)}
-      </div></div>`).join('') || '<div class="empty">No shifts in the next 2 months.</div>'}</div></section>
+    <section class="msec" id="sec-next"><div class="label">Coming up</div>
+    <div class="clist">${coming.slice(0, state.allComing ? 999 : 6).map(s => `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
+        <span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`).join('') || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}${coming.length > 6 ? `<button class="btn ghost" data-action="allcoming">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}</div></section>
     <section class="msec" id="sec-holiday"><div class="label">My holiday</div>${myHolidayCard(me, false)}</section>
-    <section class="msec" id="sec-swaps"><div class="label">Swaps</div>${mySwapsHtml()}</section>`;
+    ${swapsOpen || (state.swaps || []).length ? `<section class="msec" id="sec-swaps"><div class="label">Swaps</div>${mySwapsHtml()}</section>` : ''}`;
+}
+function openDaySheet(ds){
+  state.sheet = { type: 'day', ds }; const d = myDay(ds); const past = ds < todayStr(); const me = state.user.id;
+  let h = `<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2>${dayTag(d) ? `<p class="muted">${dayTag(d)[2]}</p>` : ''}</div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>`;
+  const card = s => `<div class="panel stack" style="gap:4px;padding:14px"><span class="muted" style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Your shift</span><b style="font-size:18px">${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span><span class="muted" style="font-size:13px">${shiftWhat(s)}</span></div>`;
+  if (d.hol) h += `<div class="dnote ${d.hol === 'approved' ? 'ok' : 'wait'}">${d.hol === 'approved' ? '🌴 You’re on holiday.' : '🌴 You’ve asked for holiday. Waiting for the manager.'}</div>`;
+  if (d.shift){
+    h += card(d.shift);
+    if (d.shift.decision === 'declined') h += '<div class="dnote no">Your can’t-work request was declined. You’re still on this shift.</div>';
+    if (d.swap){ const other = pfirst(staffMap()[d.swap.from_staff === me ? d.swap.to_staff : d.swap.from_staff]);
+      h += `<div class="dnote swap">⇄ Swap with ${esc(other)}: ${d.swap.to_staff === me && d.swap.status === 'asked' ? 'they’ve asked you. Answer in Swaps.' : d.swap.status === 'accepted' ? 'waiting for the manager.' : 'waiting for them to say yes.'}</div>`; }
+    if (!past) h += `<div class="dacts">${!d.swap && ds > todayStr() ? `<button class="btn ghost" data-action="swapstart" data-id="${d.shift.id}">⇄ Swap this shift</button>` : ''}<button class="btn ghost" data-action="cwstart" data-id="${d.shift.id}">I can’t work it</button></div>`;
+  }
+  if (d.cw){ h += card(d.cw) + `<div class="stack" style="gap:6px">${cwNote(d.cw, !past)}</div>`; }
+  if (!d.shift && !d.cw && !d.hol && !past){
+    if (d.off) h += `<div class="dnote off">You’ve marked yourself unavailable${d.off.reason ? `: “${esc(d.off.reason)}”` : ''}.</div><button class="btn ghost" data-action="unoff" data-id="${d.off.id}">I’m available after all</button>`;
+    else h += `<form class="stack" data-form="markoff"><input type="hidden" name="date" value="${ds}"><b>Can’t work this day?</b>
+        <input class="in" name="reason" placeholder="Reason (optional)" aria-label="Reason"><div class="err"></div><button class="btn ghost" type="submit">Mark me unavailable</button></form>`;
+    h += `<button class="btn ghost" data-action="holfrom" data-date="${ds}">🌴 Ask for holiday from this day</button>`;
+    const info = dayInfo(ds, state.ops); const gaps = [];
+    info.sessions.forEach(x => JOB_ORDER.forEach(j => { if ((x.have[j] || 0) < x.need[j]){ const b = offerBtn(ds, x.sess, j); if (b) gaps.push(`<div class="gaprow"><span><b>${JOBS[j]}</b> · ${SESS[x.sess]} ${x.times.join('–')}</span>${b}</div>`); } }));
+    if (gaps.length) h += `<div class="label" style="margin:8px 0 0">Needs someone</div>${gaps.join('')}`;
+  }
+  if (!d.shift && !d.cw && !d.hol && past) h += '<p class="muted">Nothing on this day.</p>';
+  openSheet(`<div class="stack" style="gap:12px">${h}</div>`);
+}
+function openCwSheet(id){
+  const s = state.ops.shifts.find(x => x.id === id); if (!s) return;
+  state.sheet = { type: 'cw', id };
+  openSheet(`<div class="sheet-h"><div><h2>Can’t work this shift</h2><p class="muted">${fmtDate(s.shift_date, { weekday:'long', day:'numeric', month:'long' })} · ${JOBS[s.job]} ${sessTimes(s.shift_date, s.session).join('–')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>${cwBlock(s)}
+    <button class="btn ghost" data-action="myday" data-date="${s.shift_date}">‹ Back</button>`);
 }
 function myUpdatesHtml(mine){
   const me = state.user.id; const map = staffMap(); const recent = ymd(addDays(new Date(), -14)); const today = todayStr(); const items = [];
@@ -3553,8 +3647,7 @@ function myUpdatesHtml(mine){
   });
   state.myUpdates = items;
   const next = nextRotaHtml();
-  return next + (items.length ? `<div class="updbar"><span><b>🔔 ${plural(items.length, 'update')}</b> for you</span><button class="btn sm" data-action="showupdates">View updates</button></div>`
-    : '<div class="updbar none"><span class="muted">No new updates</span></div>');
+  return (items.length ? `<button class="updbar" data-action="showupdates"><span><b>🔔 ${plural(items.length, 'update')}</b> for you</span><span class="btn sm">View</span></button>` : '') + next;
 }
 function nextRotaHtml(){
   const today = todayStr(); const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const next = ymd(addDays(parseYmd(cur), 28)); const due = ymd(addDays(parseYmd(next), -7));
@@ -3865,6 +3958,11 @@ const actions = {
   hoursperiod: t => go('rota', { hoursStart: ymd(addDays(parseYmd(state.hoursStart), 28 * Number(t.dataset.step))) }),
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
+  myday: t => openDaySheet(t.dataset.date),
+  allcoming: () => { state.allComing = !state.allComing; render(); },
+  cwstart: t => openCwSheet(Number(t.dataset.id)),
+  unoff: async t => { await api.removeUnavailable(Number(t.dataset.id)); toast('Done. You’re available that day again.'); refresh(); },
+  holfrom: t => go('holiday', { holSel: [t.dataset.date], holNote: '', holMonth: startOfMonth(parseYmd(t.dataset.date)) }),
   openprefs: () => openPrefs(false),
   prefskip: async () => { const pr = { ...myPrefs(), skipped: true, cats: myPrefs().cats || [], drinks: myPrefs().drinks || [] }; closeSheet(); try { await api.savePrefs(pr); state.user.prefs = pr; } catch(e){} toast('No problem. You can pick your favourites any time from Home.'); },
   starcat: async t => { const c = t.dataset.cat; const pr = { cats: [], drinks: [], ...myPrefs() }; const set = new Set(pr.cats); set.has(c) ? set.delete(c) : set.add(c); pr.cats = [...set];
@@ -4083,7 +4181,7 @@ const forms = {
     const x = tkSums(b.id); if (b.tickets_total && x.tickets + m + g > b.tickets_total) toast(`Added. Note: that’s more than the ${b.tickets_total} tickets available.`); else toast('Tickets added');
     refresh();
   },
-  async markoff(f){ await api.markUnavailable(f.date.value, f.reason.value.trim()); toast('Day added'); refresh(); }
+  async markoff(f){ await api.markUnavailable(f.date.value, f.reason.value.trim()); toast('Marked as unavailable'); refresh(); }
 };
 document.addEventListener('submit', async e => {
   const f = e.target.closest('[data-form]'); if (!f) return;

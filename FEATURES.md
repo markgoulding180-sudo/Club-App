@@ -159,12 +159,24 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ## Staff view
 
-- **My diary:** a monthly calendar of their shifts. Tap a shift to see it, ask for a swap, or say they can't work it.
-- Tap any other day to mark themselves **unavailable**, and tap again to undo.
-- **My next shifts**, with what's on that night (for example "Function Room: 18th Birthday, 70 guests").
-- Holiday allowance and requests, with their status.
-- A reminder of when the next rota starts and the date to mark unavailable days by.
-- The full rota, read-only, so they can see who they're working with.
+- **Home and My shifts** open with the essentials: shifts and hours on this rota, holiday days left, and a big **Next shift** card (for example "Lounge Bar · Evening 17:00–23:30 · in 2 days").
+- An **updates** button appears only when something needs their attention, along with when the next rota is due out.
+- **My diary:** one colour-coded calendar.
+
+  | Colour | Means |
+  |---|---|
+  | Teal | Shift (Bar / Func / Door) |
+  | Purple | Swap waiting |
+  | Red | Can't work |
+  | Green | Holiday |
+  | Amber | Holiday asked |
+  | Grey | Unavailable |
+
+- **Tap any day** for one simple pop-up:
+  - On a shift day: **Swap this shift** or **I can't work it**.
+  - On a free day: **Mark me unavailable**, **Ask for holiday from this day**, or **I can work this** for any shift that day that still needs someone.
+- **Coming up** lists their next shifts with a status label, then **My holiday** and **Swaps**.
+- The full rota is read-only, so they can see who they're working with.
 
 ---
 
