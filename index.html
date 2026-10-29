@@ -1408,6 +1408,18 @@ button.updbar{width:100%;color:var(--ink);cursor:pointer;text-align:left}
   .mydiary .day .l{font-size:10px;padding:1px 3px;letter-spacing:0}
   .mydiary .day .l2{font-size:10px}
 }
+.howlink{display:inline-block;margin:-12px 0 10px;font-size:14px}
+details.howto{border:1px solid var(--edge);border-radius:16px;background:rgba(20,30,62,.6);overflow:hidden}
+details.howto summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 16px;font-weight:800;font-size:16px}
+details.howto summary::-webkit-details-marker{display:none}
+details.howto summary::after{content:"›";margin-left:auto;font-size:22px;color:var(--teal);transition:transform .15s}
+details.howto[open] summary::after{transform:rotate(90deg)}
+details.howto .hic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(46,230,200,.12);font-size:18px;flex:none}
+.howbody{padding:0 16px 16px;font-size:14.5px;line-height:1.55;display:grid;gap:10px}
+.howbody ul,.howbody ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.hkeys{display:grid;gap:8px}
+.hkey{display:flex;align-items:center;gap:12px}
+.hkey .day{flex:none;width:58px;min-height:46px;cursor:default;padding:5px}
 </style>
 
 </head>
@@ -2324,6 +2336,7 @@ async function refresh(){
    ===================================================================== */
 const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const ICONS = {
+  help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/>'),
   star: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>'),
   home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>'),
   cal: svg('<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
@@ -2343,7 +2356,7 @@ function navItems(){
   if (isStaff()) return [['hub','Home','home'],['myshifts','My shifts','check'],['rota','Rota','rota'],['whatson','What’s On','music']];
   return [['hub','Home','home'],['whatson','What’s On','music'],['book','Book','hall'],['mine','My bookings','check']];
 }
-const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && state.view === 'holiday') || (v === 'tickets' && state.view === 'tkevent');
+const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
 const navBtn = (v, label, ic, withIcon) => `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}</button>`;
 function render(){
   $('#demoBar').hidden = LIVE;
@@ -2363,7 +2376,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -2771,7 +2784,8 @@ function homeView(){
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
     h += myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
-      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}</div>`;
+      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}
+      ${tile('help', 'How it works', 'Your diary, swaps, can’t work, holiday', 'staffhelp')}</div>`;
     return h;
   }
   if (next){ const d = new Date(next.starts_at);
@@ -3593,6 +3607,7 @@ function myShiftsView(){
     return ''; };
   const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
   return `<div class="head myhead"><h1>My shifts</h1><button class="btn sm" data-action="holnew">Request holiday</button></div>
+    <button class="linkbtn howlink" data-action="go" data-view="staffhelp">? How it works</button>
     <p class="muted myrota">Rota ${periodLabel(cur)}</p>${myStats()}
     ${nextShiftCard()}
     ${myUpdatesHtml(coming)}
@@ -3609,6 +3624,41 @@ function myShiftsView(){
         <span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`).join('') || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}${coming.length > 6 ? `<button class="btn ghost" data-action="allcoming">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}</div></section>
     <section class="msec" id="sec-holiday"><div class="label">My holiday</div>${myHolidayCard(me, false)}</section>
     ${swapsOpen || (state.swaps || []).length ? `<section class="msec" id="sec-swaps"><div class="label">Swaps</div>${mySwapsHtml()}</section>` : ''}`;
+}
+/* ---------- Staff: how it all works ---------- */
+function staffHelpView(){
+  const sec = (ic, title, body, open = false) => `<details class="howto"${open ? ' open' : ''}><summary><span class="hic">${ic}</span>${title}</summary><div class="howbody">${body}</div></details>`;
+  const key = (cls, a, b, txt) => `<div class="hkey"><span class="day ${cls}"><span class="l">${a}</span>${b ? `<span class="l2">${b}</span>` : ''}</span><span>${txt}</span></div>`;
+  return page('How it works', '', ['myshifts', 'My shifts']) + `<p class="muted" style="margin:-6px 0 16px">Everything you need to know about your shifts, in one place. Tap a topic to open it.</p>
+  <div class="stack" style="gap:10px">
+  ${sec('📅', 'Your diary', `<p>Your diary in <b>My shifts</b> shows every day of the month. <b>Tap any day</b> to see it and do something about it.</p>
+    <div class="hkeys">${key('t-shift', 'Bar', '18:00', 'Your shift: which bar (Bar, Func = Function Room, Door) and the start time')}
+    ${key('t-swap', 'Swap?', '11:00', 'A swap is waiting for an answer')}${key('t-cw', 'Asked', 'off', 'You asked off this shift. Waiting for the manager')}
+    ${key('t-offok', 'Off ✓', '', 'The manager approved it. You’re off and someone else is working it')}${key('t-hol', 'Hol', 'booked', 'Holiday booked')}
+    ${key('t-ask', 'Hol', 'asked', 'Holiday asked for. Waiting for the manager')}${key('t-off', 'Unavail.', '', 'You marked yourself unavailable')}</div>
+    <p><b>Coming up</b>, under the diary, lists your next shifts. The top of the page shows your next shift, your shifts and hours on this rota, and how many holiday days you have left.</p>`, true)}
+  ${sec('🗓️', 'How the rota works', `<ul><li>Rotas run for <b>4 weeks, Monday to Sunday</b>.</li><li>The manager makes the next rota in the <b>last week</b> of the current one, then publishes it. You only see it once it’s published.</li>
+    <li>The box at the top of My shifts tells you when the next rota is due out. <b>Mark any days you can’t work, and ask for holiday, before then.</b></li><li>The <b>Rota</b> page shows everyone’s shifts, so you can see who you’re working with.</li></ul>`)}
+  ${sec('🚫', 'Days you can’t work', `<ol><li>Tap the day in your diary.</li><li>Tap <b>Mark me unavailable</b>. Adding a reason is optional.</li></ol>
+    <p>The manager won’t put you on that day. Changed your mind? Tap the day again and choose <b>I’m available after all</b>.</p>`)}
+  ${sec('🙋', 'Can’t work a shift you’re on', `<ol><li>Tap the shift in your diary, then <b>I can’t work it</b>.</li><li>Give a reason. <b>You must give one.</b></li><li>Tap <b>Send to the manager</b>.</li></ol>
+    <ul><li>You stay on the shift until the manager approves it. When they find someone, your diary changes to <b>Off ✓</b>.</li>
+    <li>You need to ask at least <b>${CW_NOTICE_DAYS} days</b> before the shift. Any later, please <b>phone the manager</b>.</li><li>You can ask off up to <b>${CW_MAX} shifts per rota</b>.</li>
+    <li>Plans changed? Tap the shift and choose <b>Withdraw, I can work it</b>. You can do this until the manager answers.</li></ul>`)}
+  ${sec('⇄', 'Swap a shift with someone', `<ol><li>Tap your shift, then <b>Swap this shift</b>.</li><li>You’ll only see shifts you could swap: jobs you can both do, on days you’re both free. Pick one.</li>
+    <li>Add a message if you like, and send it.</li><li>Your colleague says <b>Yes</b> or <b>No</b>. If they say yes, it goes to the manager.</li><li>Once the manager approves it, the rota changes and you’ll see it in your diary.</li></ol>
+    <p>If someone asks to swap with you, it shows in <b>Updates</b> and under <b>Swaps</b>, with <b>Yes, swap</b> and <b>No thanks</b> buttons. You can cancel a swap you asked for until the manager approves it.</p>`)}
+  ${sec('🌴', 'Holiday', `<ul><li>You get <b>${HOLIDAY_DAYS} days a year</b> (January to December).</li><li>Tap <b>Request holiday</b> at the top of My shifts, or tap a day in your diary and choose <b>Ask for holiday from this day</b>.</li>
+    <li>Pick your days and send. It shows as <b>Hol asked</b> until the manager answers.</li><li>If it’s approved and you’re on any shifts those days, you come off them and the manager finds someone.</li>
+    <li>You can withdraw a request until it’s answered.</li></ul>`)}
+  ${sec('✋', 'Pick up an extra shift', `<p>If a shift still needs someone and you could work it, you’ll see <b>I can work this</b>. It shows on the <b>Rota</b> page and when you tap that day in your diary.</p>
+    <p>Tap it and the manager will let you know. If they say yes, it appears in your diary. You can withdraw your offer until they answer.</p>`)}
+  ${sec('🔔', 'Updates', `<p>When something needs you, a <b>🔔 updates</b> button appears at the top of Home and My shifts. For example: someone wants to swap, your holiday is approved, or the manager answered your can’t-work request.</p>
+    <p>Tap it to see them all. Tap one to go straight to it.</p>`)}
+  ${sec('⏱️', 'Your hours', `<p>Every shift counts as its set opening times. For example, an evening on the Lounge Bar from 18:00 to 23:00 counts as 5 hours.</p>
+    <p>Your shifts and hours for the current rota show at the top of Home and My shifts. The manager uses the same figures for wages.</p>`)}
+  </div>
+  <div class="panel" style="margin-top:18px;font-size:14px">Still stuck? Speak to the manager.</div>`;
 }
 function openDaySheet(ds){
   state.sheet = { type: 'day', ds }; const d = myDay(ds); const past = ds < todayStr(); const me = state.user.id;
