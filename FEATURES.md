@@ -111,12 +111,14 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
-## Shift swaps
+## Shift swaps (ask everyone)
 
-1. A staff member taps their shift and chooses **Find a swap**. They only see colleagues' shifts they could swap: jobs they can both do, on days they're both free.
-2. They pick one and add a message if they like. The colleague gets **"Ben wants to swap with you"** with **Yes, swap** and **No thanks** buttons.
-3. If the colleague says yes, it goes to the manager under **Swaps to approve**.
-4. The manager taps **Approve** and the rota updates, or taps **Decline**. Both staff see the result.
+1. A staff member who can't work a shift taps it and chooses **Ask everyone to swap**, with an optional message.
+2. Everyone who could work that shift (right job, free that day) sees **"Dave needs a swap. Can you help?"**, with their own shifts that Dave could take in return. They tap one to offer it, or tap **No thanks**.
+3. Dave sees the offers come in and **picks the one he wants**, first come first served. The other offers are closed automatically.
+4. The manager sees **Swaps to approve** showing both people and both shifts, and taps **Approve**. The rota updates.
+
+If no one can swap, the staff member can still tell the manager they can't work it, with a reason, at least 2 days ahead and up to 2 shifts per rota.
 
 ---
 
@@ -140,7 +142,7 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ## Holidays
 
-- Each staff member gets **28 days a year** (Jan–Dec). They ask for holiday by tapping the days on a calendar, which also shows the days they're working and the days with events on.
+- Each staff member gets **28 days a year** (Jan–Dec). Holiday is asked for **before the rota comes out**. Days already on a published rota are locked; for those, staff swap their shift instead. They ask for holiday by tapping the days on a calendar, which also shows the days they're working and the days with events on.
 - The admin sees each request with useful context: how many shifts it affects, who else is off, and how many days that person has left.
 - **Approve** takes them off any shifts on those days, and those shifts go to **Cover needed**. **Decline** shows as declined in their account.
 - An approved holiday can be cancelled later, and they go back on any shifts that haven't been covered yet.
