@@ -1396,6 +1396,18 @@ button.updbar{width:100%;color:var(--ink);cursor:pointer;text-align:left}
 .dacts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .gaprow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;border:1px dashed rgba(46,230,200,.5);font-size:14px}
 .gaprow .offered{font-size:12.5px;font-weight:700;color:var(--teal);margin-right:6px}
+.day .l2{font-size:10.5px;font-weight:700;color:var(--ink);opacity:.9;line-height:1.1;white-space:nowrap;overflow:hidden;max-width:100%}
+.day.t-offok{border-color:rgba(160,175,200,.5);background:linear-gradient(160deg,rgba(160,175,200,.18),rgba(160,175,200,.04))}.day.t-offok .l{background:#c5d0e6;color:#141c33}
+.dlegend .t-offok::before{background:#c5d0e6}
+@media (max-width:560px){
+  .mydiary{padding:10px 6px}
+  .mydiary .cal{padding:0}
+  .mydiary .cal-head,.mydiary .cal-grid{gap:3px}
+  .mydiary .day{min-height:66px;padding:4px 3px;gap:2px;border-radius:9px}
+  .mydiary .day .n{font-size:13px}
+  .mydiary .day .l{font-size:10px;padding:1px 3px;letter-spacing:0}
+  .mydiary .day .l2{font-size:10px}
+}
 </style>
 
 </head>
@@ -3536,13 +3548,15 @@ function myDay(ds){
   return { ds, shift, cw, hol, off, swap, offer };
 }
 function dayTag(d){
-  if (d.hol === 'approved') return ['Hol', 't-hol', 'Holiday'];
-  if (d.hol === 'pending') return ['Asked', 't-ask', 'Holiday asked'];
-  if (d.cw) return [d.cw.decision === 'approved' || d.cw.covered ? 'Cover' : 'Can’t', 't-cw', d.cw.decision === 'approved' || d.cw.covered ? 'Can’t work, approved' : 'Can’t work, waiting'];
-  if (d.shift && d.swap) return ['Swap', 't-swap', 'Swap waiting'];
-  if (d.shift) return [JOB_SHORT[d.shift.job], 't-shift', JOBS[d.shift.job]];
-  if (d.offer) return ['Offer', 't-offer', 'You offered to work'];
-  if (d.off) return ['Off', 't-off', 'Unavailable'];
+  // [line 1, css class, full description, line 2]
+  const st = s => sessTimes(s.shift_date, s.session)[0];
+  if (d.hol === 'approved') return ['Hol', 't-hol', 'Holiday', 'booked'];
+  if (d.hol === 'pending') return ['Hol', 't-ask', 'Holiday asked, waiting for the manager', 'asked'];
+  if (d.cw) return d.cw.decision === 'approved' || d.cw.covered ? ['Off ✓', 't-offok', 'You asked off this shift and the manager approved it', ''] : ['Asked', 't-cw', 'You asked off this shift, waiting for the manager', 'off'];
+  if (d.shift && d.swap) return ['Swap?', 't-swap', `${JOBS[d.shift.job]} ${st(d.shift)}, swap waiting`, st(d.shift)];
+  if (d.shift) return [JOB_SHORT[d.shift.job], 't-shift', `${JOBS[d.shift.job]}, ${SESS[d.shift.session].toLowerCase()} from ${st(d.shift)}`, st(d.shift)];
+  if (d.offer) return ['Offered', 't-offer', 'You offered to work', ''];
+  if (d.off) return ['Unavail.', 't-off', 'You marked yourself unavailable', ''];
   return null;
 }
 function myNext(){ const me = state.user.id; const today = todayStr();
@@ -3568,11 +3582,12 @@ function myShiftsView(){
   const cal = calendar(state.offMonth, (ds, c) => {
     if (c.out) return '<div class="day out"></div>';
     const tag = dayTag(myDay(ds));
-    if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${tag ? `<span class="l">${tag[0]}</span>` : ''}</div>`;
-    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}"><span class="n">${c.day}</span>${tag ? `<span class="l">${tag[0]}</span>` : ''}</button>`;
+    const lab = tag ? `<span class="l">${tag[0]}</span>${tag[3] ? `<span class="l2">${tag[3]}</span>` : ''}` : '';
+    if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${lab}</div>`;
+    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}"><span class="n">${c.day}</span>${lab}</button>`;
   });
   const status = s => { const d = myDay(s.shift_date);
-    if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">Can’t work · approved</span>' : '<span class="st wait">Can’t work · waiting</span>';
+    if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
     if (d.swap) return `<span class="st swap">Swap ${d.swap.status === 'accepted' ? '· with manager' : d.swap.to_staff === me ? '· asked you' : '· waiting'}</span>`;
     if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
     return ''; };
@@ -3587,7 +3602,7 @@ function myShiftsView(){
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to see it and to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="dlegend"><span class="k t-shift">Shift</span><span class="k t-swap">Swap</span><span class="k t-cw">Can’t work</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Off = unavailable</span></div>
+      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span></div>
     </div></section>
     <section class="msec" id="sec-next"><div class="label">Coming up</div>
     <div class="clist">${coming.slice(0, state.allComing ? 999 : 6).map(s => `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
@@ -3688,8 +3703,8 @@ function mySwapsHtml(){
 }
 function shiftWhat(s){ const x = dayInfo(s.shift_date, state.ops).sessions.find(y => y.sess === s.session);
   return x?.bks.length ? x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ') : 'Normal opening'; }
-const cwNote = (s, withdraw) => `<span class="cwnote">Can’t work${s.reason ? `: “${esc(s.reason)}”` : ''}</span>
-  ${s.decision === 'approved' || s.covered ? '<span class="cwnote ok">✓ Approved by management. Someone else is covering.</span>' : `<span class="cwnote wait">Waiting for the manager to approve</span>${withdraw ? `<div><button class="btn ghost sm" data-action="cwwithdraw" data-id="${s.id}">Withdraw, I can work it</button></div>` : ''}`}`;
+const cwNote = (s, withdraw) => `<span class="cwnote">You asked off this shift${s.reason ? `: “${esc(s.reason)}”` : ''}</span>
+  ${s.decision === 'approved' || s.covered ? '<span class="cwnote ok">✓ Approved. You’re off this shift and someone else is working it.</span>' : `<span class="cwnote wait">Waiting for the manager to approve</span>${withdraw ? `<div><button class="btn ghost sm" data-action="cwwithdraw" data-id="${s.id}">Withdraw, I can work it</button></div>` : ''}`}`;
 function cwBlock(s){
   const me = state.user.id;
   if (s.shift_date < ymd(addDays(new Date(), CW_NOTICE_DAYS))) return `<p class="cwnote wait">This shift is less than ${CW_NOTICE_DAYS} days away. If you can’t work it, please phone the manager.</p>`;
