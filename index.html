@@ -1449,6 +1449,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .wkjump button:hover,.wkjump button:focus-visible{border-color:var(--teal);outline:none}
 .wkhead{font-family:var(--display);font-weight:800;font-size:18px;margin:14px 0 2px;padding:8px 12px;border-radius:12px;background:rgba(46,230,200,.1);border:1px solid rgba(46,230,200,.35);color:var(--teal)}
 .list > .wkhead:first-child{margin-top:0}
+.ftpt{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:.04em;vertical-align:2px}
+.ftpt.ft{background:rgba(46,230,200,.18);color:var(--teal)}.ftpt.pt{background:rgba(182,156,255,.2);color:var(--violet)}
+.row-main .days{font-size:13px;color:var(--ink);opacity:.9}.row-main .days b{color:var(--muted);font-weight:700}
 </style>
 
 </head>
@@ -1831,6 +1834,7 @@ function makeSupabaseApi(){
     // staff records
     async listProfiles(){ return ok(await sb.from('profiles').select('*').order('last_name')); },
     async updateProfile(id, patch){ ok(await sb.rpc('admin_set_profile', { pid: id, new_role: patch.role, new_skill: patch.skill })); },
+    async setAvail(id, days){ const r = await sb.rpc('admin_set_avail', { pid: id, days }); if (r.error && /admin_set_avail/.test(r.error.message)) throw new Error('Run the part-time days SQL in Supabase first.'); ok(r); },
     async setRegular(id, pattern){ const r = await sb.rpc('admin_set_regular', { pid: id, pattern }); if (r.error && /admin_set_regular/.test(r.error.message)) throw new Error('Run the regular-shifts SQL in Supabase first.'); ok(r); },
     async notesBetween(from, to){ return ok(await sb.from('staff_notes').select('*').gte('note_date', from).lte('note_date', to)); },
     async addNote(n){ ok(await sb.from('staff_notes').insert(n)); },
@@ -2129,6 +2133,7 @@ function makeDemoApi(){
     // staff records
     async listProfiles(){ return s.users.map(pub).sort(byName); },
     async setRegular(id, pattern){ const u = s.users.find(u => u.id === id); if (u){ u.regular_shifts = pattern; save(); } },
+    async setAvail(id, days){ const u = s.users.find(u => u.id === id); if (u){ u.avail_days = days; save(); } },
     async updateProfile(id, patch){ const u = s.users.find(u => u.id === id); if (!u) return;
       u.role = patch.role; u.skill = patch.skill;
       if (u.role === 'user') u.skill = null; else if (u.role === 'staff' && !u.skill) u.skill = 'both';
@@ -3139,13 +3144,14 @@ function staffSelect(ds, x, job, shift, cover, k){
   const opts = state.ops.staff.filter(p => canDo(p, job) || p.id === shift?.staff_id).map(p => {
     const why = p.id === shift?.staff_id ? '' : busy.has(p.id) ? busy.get(p.id) : off.has(p.id) ? (off.get(p.id) === 'Holiday' ? 'on holiday' : 'unavailable') : probs.has(p.id) ? 'can’t work' : '';
     return { p, why };
-  }).sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || byName(a.p, b.p));
+  }).map(o => { const pr = (state.profiles || []).find(x => x.id === o.p.id); o.can = !o.why && availOf(pr).includes(parseYmd(ds).getDay()); return o; })
+    .sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || (b.can ? 1 : 0) - (a.can ? 1 : 0) || byName(a.p, b.p));
   const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
   const pst = periodStart(ds); const tally = {};
   state.ops.shifts.filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const t = tally[s.staff_id] ||= { n: 0, h: 0 }; t.n++; t.h += hoursOf(s.shift_date, s.session); });
   const load = id => { const t = tally[id] || { n: 0, h: 0 }; return ` · ${t.n} shift${t.n === 1 ? '' : 's'}, ${Math.round(t.h * 10) / 10}h`; };
   return `<select id="sel-${ds}-${x.sess}-${job}-${k}" data-slotsel data-date="${ds}" data-sess="${x.sess}" data-job="${job}" data-shift="${shift?.id || ''}" data-cover="${cover?.id || ''}" aria-label="${JOBS[job]}, ${SESS[x.sess]}, ${fmtDate(ds)}">
-    <option value="">${first}</option>${opts.map(({ p, why }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : p.id === shift?.staff_id ? '' : load(p.id)}</option>`).join('')}</select>`;
+    <option value="">${first}</option>${opts.map(({ p, why, can }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : p.id === shift?.staff_id ? '' : (can ? ' ★ can work' : '') + load(p.id)}</option>`).join('')}</select>`;
 }
 const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
   <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
@@ -3303,9 +3309,11 @@ const relBadge = st => `<span class="rel ${st.relCls}">${st.rel == null ? 'New' 
 function staffView(){
   const staff = state.profiles.filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort(byName);
   return page('Staff', `<button class="btn ghost" data-action="addstaff">+ Add staff</button>`)
-    + `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Last ${WEEKS_BACK} weeks. Tap someone to see their record.</p>
+    + `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Full-time staff have regular shifts that Fill from regular shifts puts on the rota. Part-time staff have days they can work, and the rota suggests them on those days. Figures are for the last ${WEEKS_BACK} weeks. Tap someone to change their days or see their record.</p>
     <div class="list">${staff.map(p => { const st = staffStats(p.id);
-      return `<div class="row" role="button" tabindex="0" data-action="staffprofile" data-id="${p.id}"><div class="row-main"><b>${esc(pname(p))}</b>
+      const reg = regOf(p), av = availOf(p);
+      return `<div class="row" role="button" tabindex="0" data-action="staffprofile" data-id="${p.id}"><div class="row-main"><b>${esc(pname(p))} <span class="ftpt ${reg.length ? 'ft' : 'pt'}">${reg.length ? 'Full time' : 'Part time'}</span></b>
+        <span class="days">${reg.length ? `<b>Works:</b> ${regSummary(reg)}` : av.length ? `<b>Can work:</b> ${availSummary(av)}` : '<i>No days set yet</i>'}</span>
         <span class="sub">${SKILLS[p.skill] || '—'} · ${st.worked} shifts · ${st.sick} sick · ${st.noShow} didn’t turn up · ${st.late} late · Holiday ${holStats(p.id).used}/${HOLIDAY_DAYS}</span></div>${relBadge(st)}<span class="go" aria-hidden="true">›</span></div>`; }).join('') || '<div class="empty">No staff yet. Use “Add staff”.</div>'}</div>`;
 }
 function openStaffProfile(pid){
@@ -3325,7 +3333,7 @@ function openStaffProfile(pid){
     <div class="title-row" style="margin:0">${relBadge(st)}<span class="muted" style="font-size:13px">Last ${WEEKS_BACK} weeks</span></div>
     <div class="nums">${num(st.worked, 'Shifts')}${num(Math.round(st.hours), 'Hours')}${num(st.late, 'Late', st.late > 1)}${num(st.sick, 'Sick', st.sick > 1)}${num(st.noShow, 'Didn’t turn up', st.noShow)}${num(st.cant, 'Can’t work')}</div>
     ${holidayBlock(pid)}
-    ${p.skill ? regularBlock(p) : ''}
+    ${p.skill ? regularBlock(p) + availBlock(p) : ''}
     <p class="muted" style="font-size:13px">Next: ${st.upcoming.slice(0, 3).map(s => `${fmtDate(s.shift_date)} ${s.session === 'day' ? 'day' : 'eve'} (${JOBS[s.job]})`).join(', ') || 'no shifts'}</p>
     <form class="panel stack" data-form="addnote" data-staff="${p.id}"><b>Add to their record</b>
       <div class="grid2"><input class="in" id="nt-date" name="date" type="date" required value="${todayStr()}" aria-label="Date">
@@ -3335,6 +3343,10 @@ function openStaffProfile(pid){
       ${x.id ? `<button class="linkbtn" data-action="delnote" data-id="${x.id}" style="margin-left:auto">Remove</button>` : ''}</div>`).join('') || '<p class="muted">Nothing on their record.</p>'}</div>`);
 }
 /* Regular shifts: the days someone normally works. Used by "Fill from regular shifts" on the Rota. */
+const availOf = p => Array.isArray(p?.avail_days) ? p.avail_days.map(Number) : [];
+const DNAME = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }; const DORDER = [1, 2, 3, 4, 5, 6, 0];
+const regSummary = reg => DORDER.flatMap(d => reg.filter(r => Number(r.d) === d).map(r => `${DNAME[d]} ${r.s === 'day' ? 'day' : 'eve'} ${r.j === 'door' ? 'Door' : r.j === 'event' ? 'Function' : 'Bar'}`)).join(', ');
+const availSummary = days => DORDER.filter(d => days.includes(d)).map(d => DNAME[d]).join(', ');
 const regOf = p => Array.isArray(p?.regular_shifts) ? p.regular_shifts : [];
 function regularBlock(p){
   const reg = regOf(p); const jobs = Object.keys(JOBS).filter(j => canDo(p, j));
@@ -3345,6 +3357,12 @@ function regularBlock(p){
     <div class="regt"><div class="regh"><span></span><span>Daytime</span><span>Evening</span></div>
       ${DOW.map(([d, l]) => `<div class="regr"><b>${l}</b>${cell(d, 'day')}${cell(d, 'eve')}</div>`).join('')}</div>
     <p class="muted" style="font-size:13px;margin:0">${reg.length ? plural(reg.length, 'regular shift') + ' a week' : 'No regular shifts yet.'}</p>`;
+}
+function availBlock(p){
+  const av = availOf(p);
+  return `<div class="label" style="margin:10px 0 0">Days they can work (part-time)</div>
+    <p class="muted" style="font-size:13px;margin:0">When a shift on these days needs someone, the rota lists ${esc(pfirst(p))} first, marked “can work”.</p>
+    <div class="dows">${DORDER.map(d => `<label class="dow"><input type="checkbox" data-avail="${p.id}" value="${d}" ${av.includes(d) ? 'checked' : ''}><span>${DNAME[d]}</span></label>`).join('')}</div>`;
 }
 function openFillRota(){
   state.sheet = { type: 'fillrota' }; const st = state.fillStart || adminRotaStart(); state.fillStart = st;
@@ -4332,6 +4350,8 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-avail]')){ const id = el.dataset.avail; const days = [...document.querySelectorAll(`[data-avail="${id}"]:checked`)].map(x => Number(x.value));
+      await api.setAvail(id, days); const p = state.profiles.find(x => x.id === id); if (p) p.avail_days = days; toast('Days saved'); return; }
     if (el.matches('[data-regular]')){ const id = el.dataset.regular; const p = state.profiles.find(x => x.id === id);
       const pattern = [...document.querySelectorAll(`[data-regular="${id}"]`)].filter(x => x.value).map(x => ({ d: Number(x.dataset.d), s: x.dataset.s, j: x.value }));
       await api.setRegular(id, pattern); if (p) p.regular_shifts = pattern; toast('Regular shifts saved');
