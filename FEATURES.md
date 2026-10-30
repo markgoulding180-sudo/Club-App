@@ -255,3 +255,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 ---
 
 *Ask for a walkthrough of the Admin, Staff and Member views.*
+
+## Club messages to members
+- Admins (Secretary, Bar Manager, Entertainments, App admin) have a **Message a member** tile on the admin home page.
+- Search any member by name, email or membership number and send them a private message. It lands on the member's **Friends → Message board**, shown as "Railway Club · Secretary".
+- The member can reply; members still can't message strangers, only friends and the club.
+- SQL: `update-club-to-member-messages.sql`.

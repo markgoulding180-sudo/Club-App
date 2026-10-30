@@ -1508,6 +1508,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .jmeta{display:flex;gap:6px;flex-wrap:wrap}.jmeta span{padding:4px 10px;border-radius:99px;background:rgba(46,230,200,.12);color:var(--teal);font-size:12.5px;font-weight:700}
 .jcard.closed{opacity:.6}.jcard details summary{cursor:pointer;font-size:14px}.appl{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--edge);font-size:13.5px}.appl span{color:var(--muted)}
 .rolerow{flex-wrap:wrap}.rolerow .row-main{flex:1 1 220px}.rolerow .csel{width:230px;flex:none}@media (max-width:560px){ .rolerow .csel{width:100%} }
+.conv.club .av{background:linear-gradient(140deg,#2ee6c8,#1b8f7d);font-size:20px}
 </style>
 
 </head>
@@ -1915,8 +1916,9 @@ function makeSupabaseApi(){
     async jobApplicants(jid){ const r = await sb.rpc('job_applicants', { jid }); return r.error ? [] : r.data; },
     async myInbox(){ const r = await sb.from('member_messages').select('*').order('created_at', { ascending: false }).limit(300); return r.error ? [] : r.data; },
     async sendDm(to, body){ const r = await sb.from('member_messages').insert({ recipient: to, body }); if (r.error && /member_messages/.test(r.error.message) && !/row-level/.test(r.error.message)) throw new Error('This needs the message board SQL running in Supabase first.');
-      if (r.error && /row-level/.test(r.error.message)) throw new Error('You can only message friends.'); ok(r); },
+      if (r.error && /row-level/.test(r.error.message)) throw new Error('You can only message friends, or reply to the club.'); ok(r); },
     async markRead(friend){ await sb.rpc('mark_messages_read', { friend }); },
+    async msgContacts(){ const r = await sb.rpc('msg_contacts'); return r.error ? [] : r.data; },
     async deleteDm(id){ ok(await sb.from('member_messages').delete().eq('id', id)); },
     async myRsvps(){ const { data } = await sb.auth.getSession(); if (!data.session) return []; const r = await sb.from('event_rsvps').select('event_key,status').eq('user_id', data.session.user.id); return r.error ? [] : r.data; },
     async setRsvp(key, date, status){ const { data } = await sb.auth.getSession(); const uid = data.session.user.id;
@@ -2220,8 +2222,10 @@ function makeDemoApi(){
     async withdrawApp(id){ s.apps = (s.apps ||= []).filter(a => a.id !== id); save(); },
     async jobApplicants(jid){ return (s.apps ||= []).filter(a => a.job_id === jid).map(a => { const u = s.users.find(x => x.id === a.user_id) || {}; return { ...a, first_name: u.first_name, last_name: u.last_name, email: u.email, phone: a.phone || u.phone, membership_no: u.membership_no }; }); },
     async myInbox(){ return (s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => ({ ...m })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
-    async sendDm(to, body){ const ok2 = (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)); if (!ok2) throw new Error('You can only message friends.');
+    async sendDm(to, body){ const ok2 = meU()?.role === 'admin' || (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)) || (s.dms || []).some(m => m.sender === to && m.recipient === s.session && s.users.find(u => u.id === to)?.role === 'admin'); if (!ok2) throw new Error('You can only message friends, or reply to the club.');
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
+    async msgContacts(){ const ids = new Set((s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => m.sender === s.session ? m.recipient : m.sender));
+      return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin' }; }); },
     async markRead(friend){ (s.dms ||= []).filter(m => m.recipient === s.session && m.sender === friend && !m.read_at).forEach(m => m.read_at = new Date().toISOString()); save(); },
     async deleteDm(id){ s.dms = (s.dms ||= []).filter(m => m.id !== id); save(); },
     async myRsvps(){ return (s.rsvps ||= []).filter(r => r.user_id === s.session).map(r => ({ event_key: r.event_key, status: r.status })); },
@@ -2562,7 +2566,7 @@ async function loadWhatsOn(){
 async function load(view){
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
-    if (isMember()){ state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
+    if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()) state.msgs = await api.listMessages();
     if (isStaff()){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
@@ -2584,9 +2588,10 @@ async function load(view){
     state.clubNames = [...new Set(past.filter(b => !b.event_details?.sport).map(b => b.event_type).filter(Boolean))].sort();
     state.sportNames = [...new Set(past.filter(b => b.event_details?.sport).map(b => b.event_type).filter(Boolean))].sort(); }
   if (view === 'booking' && isAdmin()){ const past = await api.clubEvents(ahead(-400), ahead(400)).catch(() => []); state.clubNames = [...new Set(past.map(b => b.event_type).filter(Boolean))].sort(); }
-  if (view === 'friends'){ await loadWhatsOn(); state.friends = await api.myFriends(); state.inbox = await api.myInbox(); state.frGoingById = {};
+  if (view === 'friends'){ await loadWhatsOn(); state.friends = await api.myFriends(); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.frGoingById = {};
     (await api.friendsRsvps(todayStr())).forEach(r => (state.frGoingById[r.who] ||= {})[r.event_key] = r.status); return; }
   if (view === 'register'){ state.register = await api.listRegister(); state.profiles = await api.listProfiles(); return; }
+  if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
@@ -2685,7 +2690,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3089,6 +3094,7 @@ function homeView(){
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
       ${tile('music', 'What’s On', nextTxt, 'whatson')}
       ${tile('mail', 'Notices', 'Send a message to everyone on the app', 'notices')}
+      ${canArea('register') || canArea('notices') ? `<button class="tile" data-action="go" data-view="clubmsg"><span class="ic">${ICONS.mail}</span><b>Message a member</b><span class="sub">Private message to one member</span></button>` : ''}
       ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
       ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
     </div>`;
@@ -4215,31 +4221,51 @@ function messagesView(){
     </div>`; }).join('') || `<div class="empty">${tab === 'open' ? 'Nothing to deal with.' : 'No finished messages yet.'}</div>`}</div>`;
 }
 const unreadDms = () => (state.inbox || []).filter(m => m.recipient === state.user?.id && !m.read_at).length;
+function convPeople(){
+  const fr = (state.friends || []).filter(f => f.status === 'accepted').map(f => ({ other: f.other, first_name: f.first_name, last_initial: f.last_initial, club: false }));
+  (state.contacts || []).filter(c => !fr.some(f => f.other === c.id)).forEach(c => fr.push({ other: c.id, first_name: c.first_name, last_initial: c.last_initial, club: c.is_club, title: c.title }));
+  return fr;
+}
+const personName = f => f.club ? `${esc(CONFIG.CLUB_NAME)} · ${esc(f.title || 'Club')}` : `${esc(f.first_name)} ${esc(f.last_initial)}.`;
 function boardHtml(){
-  const me = state.user.id; const fr = (state.friends || []).filter(f => f.status === 'accepted'); const all = state.inbox || [];
+  const me = state.user.id; const fr = convPeople(); const all = state.inbox || [];
   const convs = fr.map(f => { const ms = all.filter(m => m.sender === f.other || m.recipient === f.other); return { f, last: ms[0], unread: ms.filter(m => m.recipient === me && !m.read_at).length }; })
     .sort((a, b) => (b.last?.created_at || '').localeCompare(a.last?.created_at || ''));
-  if (!fr.length) return '<div class="empty">Add friends first, then you can message them here.</div>';
-  return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}" data-action="dmopen" data-id="${f.other}"><span class="av">${esc((f.first_name || '?')[0])}</span>
-      <span class="ctxt"><b>${esc(f.first_name)} ${esc(f.last_initial)}.</b><span>${last ? `${last.sender === me ? 'You: ' : ''}${esc(last.body.slice(0, 70))}${last.body.length > 70 ? '…' : ''}` : 'No messages yet. Say hello!'}</span></span>
+  if (!fr.length) return '<div class="empty">Add friends first, then you can message them here. Messages from the club also show here.</div>';
+  return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}"><span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>
+      <span class="ctxt"><b>${personName(f)}</b><span>${last ? `${last.sender === me ? 'You: ' : ''}${esc(last.body.slice(0, 70))}${last.body.length > 70 ? '…' : ''}` : 'No messages yet. Say hello!'}</span></span>
       <span class="cmeta">${last ? `<small>${fmtWhen(last.created_at)}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></button>`).join('')}</div>`;
 }
 const fmtWhen = iso => { const d = new Date(iso); return ymd(d) === todayStr() ? d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString('en-GB', { day:'numeric', month:'short' }); };
 async function openDm(uid){
-  const f = (state.friends || []).find(x => x.other === uid); if (!f) return;
+  let f = convPeople().find(x => x.other === uid);
+  if (!f && isAdmin()){ const p = (state.profiles || []).find(x => x.id === uid); if (p) f = { other: uid, first_name: p.first_name, last_initial: (p.last_name || '').slice(0, 1), full: pname(p), member: p.membership_no }; }
+  if (!f) return;
   state.sheet = { type: 'dm', id: uid };
   if ((state.inbox || []).some(m => m.sender === uid && m.recipient === state.user.id && !m.read_at)){ await api.markRead(uid); (state.inbox || []).forEach(m => { if (m.sender === uid && !m.read_at) m.read_at = new Date().toISOString(); }); }
   const ms = (state.inbox || []).filter(m => m.sender === uid || m.recipient === uid).slice().reverse();
-  openSheet(`<div class="sheet-h"><div class="frname"><span class="av">${esc((f.first_name || '?')[0])}</span><div><h2 style="margin:0">${esc(f.first_name)} ${esc(f.last_initial)}.</h2><span>Friend</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+  openSheet(`<div class="sheet-h"><div class="frname"><span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span><div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? `From ${esc(f.first_name)}` : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><p>${esc(m.body)}</p><small>${fmtWhen(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
     <form class="dmform" data-form="senddm" data-to="${uid}"><textarea class="in" name="body" rows="2" maxlength="500" required placeholder="Write a message…"></textarea><button class="btn" type="submit">Send</button><div class="err"></div></form>`);
   setTimeout(() => { const t = document.getElementById('thread'); if (t) t.scrollTop = t.scrollHeight; }, 30);
   render();  // updates unread badges behind the sheet
 }
+function clubMsgView(){
+  const me = state.user.id; const all = state.inbox || []; const q = (state.cmQ || '').toLowerCase();
+  const people = Object.fromEntries((state.profiles || []).map(p => [p.id, p]));
+  const threads = [...new Set(all.map(m => m.sender === me ? m.recipient : m.sender))].map(id => { const ms = all.filter(m => m.sender === id || m.recipient === id); return { id, p: people[id], last: ms[0], unread: ms.filter(m => m.recipient === me && !m.read_at).length }; });
+  const found = q.length >= 2 ? (state.profiles || []).filter(p => p.id !== me && `${p.first_name} ${p.last_name} ${p.email} ${p.membership_no}`.toLowerCase().includes(q)).slice(0, 12) : [];
+  return page('Message a member') + `<p class="muted" style="margin:-8px 0 14px">Send a private message to one member. It appears on their message board, and they can reply. To message everyone, use Notices.</p>
+    <div class="panel stack"><b>Start a message</b><input class="in" id="cm-q" placeholder="Search by name, email or membership number" value="${esc(state.cmQ || '')}" data-cmsearch>
+      ${found.map(p => `<button class="conv" data-action="dmopen" data-id="${p.id}"><span class="av">${esc((p.first_name || '?')[0])}</span><span class="ctxt"><b>${esc(pname(p))}</b><span>${esc([p.membership_no, p.email].filter(Boolean).join(' · '))}</span></span><i aria-hidden="true">›</i></button>`).join('') || (q.length >= 2 ? '<p class="muted">No one found.</p>' : '')}</div>
+    <div class="label" style="margin-top:20px">Conversations</div>
+    <div class="list">${threads.map(t => `<button class="conv${t.unread ? ' new' : ''}" data-action="dmopen" data-id="${t.id}"><span class="av">${esc((t.p?.first_name || '?')[0])}</span>
+      <span class="ctxt"><b>${esc(t.p ? pname(t.p) : 'Member')}</b><span>${t.last.sender === me ? 'You: ' : ''}${esc(t.last.body.slice(0, 70))}</span></span><span class="cmeta"><small>${fmtWhen(t.last.created_at)}</small>${t.unread ? `<span class="badge">${t.unread}</span>` : ''}</span></button>`).join('') || '<div class="empty">No conversations yet.</div>'}</div>`;
+}
 function friendsView(){
   const ftab = state.frTab === 'board' ? 'board' : 'friends'; const un = unreadDms();
   const tabs = `<div class="bar">${seg('frtab', ftab, [['friends', 'Friends'], ['board', `Message board${un ? ` (${un})` : ''}`]], 'Show')}</div>`;
-  if (ftab === 'board') return page('Friends') + tabs + `<p class="muted" style="margin:-4px 0 12px;font-size:14px">Messages between you and your friends. Only your friends can message you.</p>` + boardHtml();
+  if (ftab === 'board') return page('Friends') + tabs + `<p class="muted" style="margin:-4px 0 12px;font-size:14px">Messages from your friends, and from the club (secretary, manager). Only friends and the club can message you.</p>` + boardHtml();
   return friendsListView(tabs);
 }
 function friendsListView(tabs){
@@ -4856,6 +4882,7 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-cmsearch]')){ state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
     if (el.matches('[data-rolesearch]')){ state.roleQ = el.value; render(); document.getElementById('role-q')?.focus(); return; }
     if (el.matches('[data-roleset]')){ const pr = ROLE_PRESETS[el.value]; await api.setAccess(el.dataset.roleset, pr); const p = state.profiles.find(x => x.id === el.dataset.roleset); if (p) Object.assign(p, { role: pr.role, title: pr.title, perms: pr.perms });
       if (el.dataset.roleset === state.user.id) Object.assign(state.user, { role: pr.role, title: pr.title, perms: pr.perms }); toast(`Now: ${pr.label}`); render(); return; }
@@ -4953,7 +4980,7 @@ const forms = {
     if (f.notify.checked) await api.sendNotice({ title: `Staff wanted: ${j.title}`, body: [[j.job_type, j.hours, j.pay].filter(Boolean).join(' · '), j.description].filter(Boolean).join('\n') + '\nInterested? Open “Work for us” in the app.', audience: 'all', job_id: saved?.id || null });
     toast(f.notify.checked ? 'Job posted and sent to everyone' : 'Job posted'); refresh(); },
   async applyjob(f){ await api.applyJob(Number(f.dataset.id), f.note.value.trim(), f.phone.value.trim()); toast('Thanks! The club will be in touch.'); refresh(); },
-  async senddm(f){ const body = f.body.value.trim(); if (!body) return; await api.sendDm(f.dataset.to, body); state.inbox = await api.myInbox(); openDm(f.dataset.to); },
+  async senddm(f){ const body = f.body.value.trim(); if (!body) return; await api.sendDm(f.dataset.to, body); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); openDm(f.dataset.to); },
   async mynumber(f){ const no = f.no.value.trim().toUpperCase(); if (!/^[A-Z0-9-]{2,20}$/.test(no)) throw new Error('Check the number on your card.'); await api.setMyNumber(no); state.user.membership_no = no; toast('Saved'); render(); },
   async addfriend(f){ const no = f.no.value.trim(); if (!state.frFound || state.frFound.no !== no) return actions.fr_lookup(f.querySelector('[data-action=fr_lookup]'));
     const likes = [...f.querySelectorAll('[name=like]:checked')].map(x => x.value); await api.sendFriend(no, likes); state.frFound = null; toast('Friend request sent'); refresh(); },
@@ -4993,7 +5020,7 @@ const forms = {
   },
   async markoff(f){ await api.markUnavailable(f.date.value, f.reason.value.trim()); toast('Marked as unavailable'); refresh(); }
 };
-document.addEventListener('input', e => { const el = e.target; if (el.matches?.('[data-wordcount]')){ const n = words(el.value); const p = el.form?.querySelector('.wc'); if (p){ p.textContent = `${n} of ${MSG_WORDS} words`; p.style.color = n > MSG_WORDS ? 'var(--red)' : ''; } } });
+document.addEventListener('input', e => { const el = e.target; if (el.matches?.('[data-cmsearch]')){ clearTimeout(window._cmT); window._cmT = setTimeout(() => { state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); } if (el.matches?.('[data-wordcount]')){ const n = words(el.value); const p = el.form?.querySelector('.wc'); if (p){ p.textContent = `${n} of ${MSG_WORDS} words`; p.style.color = n > MSG_WORDS ? 'var(--red)' : ''; } } });
 document.addEventListener('submit', async e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   e.preventDefault();
