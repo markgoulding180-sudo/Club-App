@@ -3401,7 +3401,7 @@ async function fillRota(btn){
   let added = 0;
   for (const [k, x] of plan.entries()){ btn.textContent = `Adding ${k + 1} of ${plan.length}…`; try { await api.assignShift(x); added++; } catch(e){ skipped.push(`${pfirst(staff.find(p => p.id === x.staff_id))} ${fmtDate(x.shift_date)} (${e.message})`); } }
   toast(added ? `${plural(added, 'shift')} added` : 'No new shifts needed');
-  state.sheet = null; await refresh();
+  closeSheet(); await refresh();
   if (skipped.length) document.querySelector('main .wrap')?.insertAdjacentHTML('afterbegin', `<div class="note" style="display:block"><b>${plural(added, 'shift')} added.</b> Not added: ${skipped.map(esc).join(', ')}</div>`);
 }
 function holidayBlock(pid){
