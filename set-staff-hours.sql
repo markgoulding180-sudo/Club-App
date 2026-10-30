@@ -1,10 +1,10 @@
 -- Full time: Adam, Luis, Yannika, Heather (regular weekly shifts, at least 2 days off each).
 -- Part time: Joe, Jamie, Larry (no regular shifts, used as and when).
--- Door only: Yannika and Larry.
+-- Door only: Larry. Yannika works bar and door.
 -- Days: 0 Sun, 1 Mon, 2 Tue, 3 Wed, 4 Thu, 5 Fri, 6 Sat.
 -- Between them the full-timers cover every regular shift: Lounge Bar every evening, Lounge Bar daytime Fri/Sat/Sun/Mon, Door every evening.
 
-update public.profiles set skill = 'door', regular_shifts =      -- Yannika: Door, Wed to Sun evenings (off Mon, Tue)
+update public.profiles set skill = 'both', regular_shifts =      -- Yannika: Door, Wed to Sun evenings (off Mon, Tue)
   '[{"d":3,"s":"eve","j":"door"},{"d":4,"s":"eve","j":"door"},{"d":5,"s":"eve","j":"door"},{"d":6,"s":"eve","j":"door"},{"d":0,"s":"eve","j":"door"}]'
   where lower(email) = 'yannika@railway.com';
 update public.profiles set skill = 'both', regular_shifts =      -- Luis: Mon day bar, Tue eve door, Thu eve bar, Fri eve bar, Sun day bar (off Wed, Sat)
