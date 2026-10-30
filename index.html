@@ -1443,6 +1443,12 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .swcard .linkbtn{justify-self:start}
 .crow .ic.sw{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgba(182,156,255,.2);color:var(--violet);flex:none}
 .crow .ic.sw svg{width:20px;height:20px}
+.wkjump{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.wkjump button{display:grid;gap:2px;padding:8px 6px;border-radius:12px;border:1px solid var(--edge);background:rgba(255,255,255,.04);color:var(--ink);cursor:pointer;text-align:center}
+.wkjump button b{font-size:13.5px}.wkjump button span{font-size:11.5px;color:var(--muted)}
+.wkjump button:hover,.wkjump button:focus-visible{border-color:var(--teal);outline:none}
+.wkhead{font-family:var(--display);font-weight:800;font-size:18px;margin:14px 0 2px;padding:8px 12px;border-radius:12px;background:rgba(46,230,200,.1);border:1px solid rgba(46,230,200,.35);color:var(--teal)}
+.list > .wkhead:first-child{margin-top:0}
 </style>
 
 </head>
@@ -1702,6 +1708,7 @@ function dayRanges(days){
 /* 4-weekly rotas, Monday to Sunday. The first starts on ROTA_ANCHOR; each 28 days after is the next. */
 const ROTA_ANCHOR = '2026-11-02'; const CW_NOTICE_DAYS = 2, CW_MAX = 2;
 const periodStart = ds => { const a = parseYmd(ROTA_ANCHOR); const n = Math.floor(Math.round((parseYmd(ds) - a) / 864e5) / 28); return ymd(addDays(a, n * 28)); };
+const adminRotaStart = () => state.rotaStart || periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr());
 const periodEnd = st => ymd(addDays(parseYmd(st), 27));
 const isPublished = (ds, periods = state.periods || []) => ds < ROTA_ANCHOR || periods.some(p => p.start_date === periodStart(ds) && p.published_at);
 const periodLabel = st => `${fmtDate(st, { day:'numeric', month:'short' })} – ${fmtDate(periodEnd(st), { day:'numeric', month:'short', year:'numeric' })}`;
@@ -2357,7 +2364,7 @@ async function load(view){
   if (view === 'rota'){
     state.periods = await api.listPeriods(); state.offers = await api.listOffers(todayStr());
     if (isAdmin()){ state.holidays = await api.listHolidays(); state.profiles = await api.listProfiles(); state.swaps = await api.listSwaps(); }
-    const ws = ymd(state.rotaWeek), we = ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
+    const ws = isAdmin() ? adminRotaStart() : ymd(state.rotaWeek), we = isAdmin() ? periodEnd(ws) : ymd(addDays(state.rotaWeek, 6)), t = todayStr(), f = ahead(27);
     const ps = periodStart(ws), pe = periodEnd(ps); const lo = [ws, t, ps].sort()[0], hi = [we, f, pe].sort()[2];
     await loadOps(lo, hi, !isAdmin());
   }
@@ -3174,7 +3181,7 @@ function slotsHtml(ds, x){
   return h;
 }
 function rotaView(){
-  const admin = isAdmin(); const ws = state.rotaWeek; const days = rangeDays(ymd(ws), ymd(addDays(ws, 6))); const today = todayStr(); const map = staffMap();
+  const admin = isAdmin(); const ws = admin ? parseYmd(adminRotaStart()) : state.rotaWeek; const days = admin ? rangeDays(ymd(ws), periodEnd(ymd(ws))) : rangeDays(ymd(ws), ymd(addDays(ws, 6))); const today = todayStr(); const map = staffMap();
   if (admin && state.rotaTab === 'holidays'){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
     return page('Rota') + `<div class="bar">${seg('rotatab', 'holidays', [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>` + holidayAdminHtml();
@@ -3199,23 +3206,25 @@ function rotaView(){
   }
   if (inPeriods){
     const wk = Math.round((parseYmd(ymd(ws)) - parseYmd(pst)) / 864e5 / 7) + 1;
-    h += `<div class="pbar ${pub ? 'pub' : 'draft'}"><div><b>Rota ${periodLabel(pst)}</b><span>Week ${wk} of 4 · ${pub ? '✓ Published. Staff can see it.' : admin ? 'Draft. Staff can’t see this rota yet.' : 'Not published yet.'}</span></div>
+    h += `<div class="pbar ${pub ? 'pub' : 'draft'}"><div><b>Rota ${periodLabel(pst)}</b><span>${admin ? '4 weeks, Monday to Sunday' : `Week ${wk} of 4`} · ${pub ? '✓ Published. Staff can see it.' : admin ? 'Draft. Staff can’t see this rota yet.' : 'Not published yet.'}</span></div>
       ${admin ? (pub ? `<button class="btn ghost sm" data-action="publishrota" data-start="${pst}" data-on="0">Unpublish</button>` : `<button class="btn sm gold" data-action="publishrota" data-start="${pst}" data-on="1">Publish rota</button>`) : ''}</div>`;
-    if (admin && !pub && wk === 1) h += `<p class="muted" style="font-size:13px;margin:-4px 0 12px">Make each rota in the last week of the one before, then publish it. Staff mark the days they’re unavailable before then.</p>`;
+    if (admin && !pub) h += `<p class="muted" style="font-size:13px;margin:-4px 0 12px">Make each rota in the last week of the one before, then publish it. Staff mark the days they’re unavailable before then.</p>`;
   }
   if (!admin && inPeriods && !pub) return h + `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>
     <div class="empty">The rota for ${periodLabel(pst)} hasn’t been published yet. You’ll see it here once the manager publishes it. Mark any days you’re unavailable in My shifts before then.</div>`;
   if (admin) h += `<div class="bar"><button class="btn sm" data-action="openfill">Fill from regular shifts</button><span class="muted" style="font-size:13px">Set regular days on each person in Staff</span></div>`;
-  h += `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
+  h += admin ? `<div class="bar">${stepper('rotaweek', `Rota ${periodLabel(ymd(ws))}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">Current rota</button></div>
+    <div class="wkjump">${[0, 1, 2, 3].map(w => { const a = days[w * 7], b = days[w * 7 + 6]; return `<button data-action="wkjump" data-date="${a}"><b>Week ${w + 1}</b><span>${fmtDate(a, { day:'numeric', month:'short' })}–${fmtDate(b, { day:'numeric', month:'short' })}</span></button>`; }).join('')}</div>`
+    : `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
   if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. Lounge Bar: 1 whenever open. Function Room Bar: when the room is in use (2 for parties over ${STAFF_RULES.guestsPerEventBar}). Door: every evening. Max 2 on each bar.</p>`;
-  h += `<div class="list">${infos.map(i => `<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
+  h += `<div class="list">${infos.map((i, n) => `${admin && n % 7 === 0 ? `<div class="wkhead" id="wk-${i.ds}">Week ${n / 7 + 1} · ${fmtDate(i.ds, { day:'numeric', month:'short' })} – ${fmtDate(days[n + 6], { day:'numeric', month:'short' })}</div>` : ''}<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
       <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}</div>
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
         ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
       ${(() => { const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday')); const nm = l => l.map(u => esc(pfirst(map[u.staff_id]))).join(', ');
         return (un.length ? `<p class="muted" style="font-size:13px">Unavailable: ${nm(un)}</p>` : '') + (hol.length ? `<p class="muted" style="font-size:13px">On holiday: ${nm(hol)}</p>` : ''); })()}</div>`).join('')}</div>`;
-  h += `<div class="rotafoot"><button class="btn ghost" data-action="rotaweek" data-step="-1">‹ Previous week</button><button class="btn ghost" data-action="rotaweek" data-step="1">Next week ›</button></div>`;
+  h += `<div class="rotafoot"><button class="btn ghost" data-action="rotaweek" data-step="-1">‹ Previous ${admin ? 'rota' : 'week'}</button><button class="btn ghost" data-action="rotaweek" data-step="1">Next ${admin ? 'rota' : 'week'} ›</button></div>`;
   return h;
 }
 
@@ -3338,7 +3347,7 @@ function regularBlock(p){
     <p class="muted" style="font-size:13px;margin:0">${reg.length ? plural(reg.length, 'regular shift') + ' a week' : 'No regular shifts yet.'}</p>`;
 }
 function openFillRota(){
-  state.sheet = { type: 'fillrota' }; const st = state.fillStart || periodStart(ymd(state.rotaWeek) < ROTA_ANCHOR ? ROTA_ANCHOR : ymd(state.rotaWeek)); state.fillStart = st;
+  state.sheet = { type: 'fillrota' }; const st = state.fillStart || adminRotaStart(); state.fillStart = st;
   const withReg = (state.ops.staff || []).map(p => ({ p, reg: regOf(state.profiles?.find(x => x.id === p.id) || p) })).filter(x => x.reg.length);
   openSheet(`<div class="sheet-h"><div><h2>Fill from regular shifts</h2><p class="muted">Puts everyone on their regular days for the 4-week rota. Shifts you’ve already set stay as they are.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <div class="bar" style="margin:0">${stepper('fillperiod', `Rota ${periodLabel(st)}${isPublished(st) ? ' · published' : ' · draft'}`, st <= periodStart(todayStr()) || st <= ROTA_ANCHOR)}</div>
@@ -4225,8 +4234,10 @@ const actions = {
   delpayment: async t => { if (!armed(t)) return; await api.deletePayment(Number(t.dataset.id)); toast('Payment removed'); refresh(); },
   reopenday: async t => { await api.reopenDay(Number(t.dataset.id)); toast('Bookings allowed again'); refresh(); },
   // rota
-  rotaweek: t => go('rota', { rotaWeek: Number(t.dataset.step) ? addDays(state.rotaWeek, 7 * Number(t.dataset.step)) : startOfWeek(new Date()) }),
-  rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)) }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
+  rotaweek: t => isAdmin() ? go('rota', { rotaStart: Number(t.dataset.step) ? ymd(addDays(parseYmd(adminRotaStart()), 28 * Number(t.dataset.step))) : null })
+    : go('rota', { rotaWeek: Number(t.dataset.step) ? addDays(state.rotaWeek, 7 * Number(t.dataset.step)) : startOfWeek(new Date()) }),
+  wkjump: t => { const el = document.getElementById('wk-' + t.dataset.date); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - 8, behavior: 'smooth' }); },
+  rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)), rotaStart: isAdmin() ? periodStart(ds) : state.rotaStart }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
   cwdecline: async t => { if (!armed(t, 'Tap again to decline')) return; await api.updateShift(Number(t.dataset.id), { status: 'assigned', decision: 'declined', decided_at: new Date().toISOString() }); toast('Declined. They stay on the shift.'); refresh(); },
   undoproblem: async t => { await api.updateShift(Number(t.dataset.id), { status: 'confirmed', covered: false }); toast('Put back on the shift'); refresh(); },
   // staff
