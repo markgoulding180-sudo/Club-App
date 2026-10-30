@@ -1504,6 +1504,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 const CONFIG = {
   SUPABASE_URL: 'https://tvflgseltbjnkxyfjlem.supabase.co',          // e.g. https://abcd1234.supabase.co
   SUPABASE_ANON_KEY: 'sb_publishable_4RXO2VIJAVBVS4f80OaQ_Q_sXDoc0WW',     // publishable / anon key
+  CARD_PAYMENTS: false,   // true = show “Pay by card” buttons (needs the Stripe set-up in PAYMENTS-SETUP.md)
   CLUB_NAME: 'Railway Club',
   TOWN: 'Ashford',
   PHONE: '01233 620962',
@@ -3681,7 +3682,7 @@ function openEventSheet(id, keep = null){
       ${line('g', 'Non-member ticket', Number(b.price_guest) || 0, g)}
       <div class="r-rule"></div>
       <div class="r-tot"><span>TOTAL · <span id="tq-t">${plural(m + g, 'ticket')}</span></span><b id="ta-t">${money2(m * (Number(b.price_member) || 0) + g * (Number(b.price_guest) || 0))}</b></div>
-      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : 'Pay by card below,<br>or at the bar or on the door.'}</div>
+      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : (CONFIG.CARD_PAYMENTS ? 'Pay by card below,<br>or at the bar or on the door.' : 'Pay at the bar or on the door.')}</div>
       <div class="r-bar"></div></div>` : '';
   const acts = !b.ticketed ? '<p class="muted">Free entry, no ticket needed. Just come along.</p>'
     : past ? '<p class="muted" style="text-align:center">This event has finished.</p>'
@@ -3689,7 +3690,7 @@ function openEventSheet(id, keep = null){
     : left === 0 && !mine ? '<p class="tkleft low">Sold out</p>'
     : `${left != null ? `<p class="tkleft ${left <= 10 ? 'low' : ''}">${left} ticket${left === 1 ? '' : 's'} left</p>` : ''}
        <button class="btn wide" data-action="treserve" data-id="${id}" id="tk-save" ${m + g < 1 ? 'disabled' : ''}>${mine ? 'Save changes' : 'Reserve tickets'}</button>
-       ${mine && mine.status === 'reserved' && Number(mine.total) > 0 ? `<button class="btn gold wide" data-action="paynow" data-kind="tickets" data-id="${mine.id}">💳 Pay ${money2(mine.total)} now by card</button><p class="muted" style="font-size:12.5px;text-align:center;margin:-4px 0 0">Or pay at the bar or on the door.</p>` : ''}
+       ${CONFIG.CARD_PAYMENTS && mine && mine.status === 'reserved' && Number(mine.total) > 0 ? `<button class="btn gold wide" data-action="paynow" data-kind="tickets" data-id="${mine.id}">💳 Pay ${money2(mine.total)} now by card</button><p class="muted" style="font-size:12.5px;text-align:center;margin:-4px 0 0">Or pay at the bar or on the door.</p>` : ''}
        ${mine ? `<button class="btn ghost wide" data-action="tcancel" data-id="${mine.id}">Cancel my tickets</button>` : ''}`;
   openSheet(`<div class="sheet-top">${eventBanner(b)}<button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     ${e?.b?.notes ? `<p class="muted">${esc(e.b.notes)}</p>` : ''}
@@ -4386,7 +4387,7 @@ function mineView(){
   const today = todayStr();
   const row = b => { const pi = payInfo(b, state.myPayments);
     return `<div class="row"><span class="room ${b.room}">${ROOMS[b.room].short}</span><div class="row-main"><b>${fmtDate(b.booking_date, { weekday:'short', day:'numeric', month:'short', year:'numeric' })} · ${esc(b.event_type || 'Booking')}</b>
-      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}</span>${b.status === 'confirmed' && b.booking_date >= today && (pi.depositDue || pi.balance) ? `<span class="paybtns">${pi.depositDue ? `<button class="btn gold sm" data-action="paynow" data-kind="booking" data-part="deposit" data-id="${b.id}">💳 Pay ${money(pi.depositDue)} deposit</button>` : `<button class="btn sm" data-action="paynow" data-kind="booking" data-part="balance" data-id="${b.id}">💳 Pay ${money(pi.balance)} balance</button>`}<small>or pay at the bar</small></span>` : ''}</div>
+      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}${!CONFIG.CARD_PAYMENTS && b.status === 'confirmed' && pi.depositDue ? ` · Pay your ${money(pi.depositDue)} deposit at the bar` : ''}</span>${CONFIG.CARD_PAYMENTS && b.status === 'confirmed' && b.booking_date >= today && (pi.depositDue || pi.balance) ? `<span class="paybtns">${pi.depositDue ? `<button class="btn gold sm" data-action="paynow" data-kind="booking" data-part="deposit" data-id="${b.id}">💳 Pay ${money(pi.depositDue)} deposit</button>` : `<button class="btn sm" data-action="paynow" data-kind="booking" data-part="balance" data-id="${b.id}">💳 Pay ${money(pi.balance)} balance</button>`}<small>or pay at the bar</small></span>` : ''}</div>
       <span class="pill ${b.status}">${b.status}</span>${b.status === 'confirmed' ? payPill(pi, true) : ''}
       ${b.status !== 'cancelled' && b.booking_date >= today ? `<button class="btn ghost sm" data-action="cancelmine" data-id="${b.id}">Cancel</button>` : ''}</div>`; };
   const up = state.mine.filter(b => b.booking_date >= today), past = state.mine.filter(b => b.booking_date < today);

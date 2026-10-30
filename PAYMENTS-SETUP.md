@@ -29,7 +29,10 @@ Supabase → Edge Functions → **Secrets** → add:
 | `STRIPE_WEBHOOK_SECRET` | the `whsec_…` signing secret |
 | `APP_URL` | `https://club-app-zeta.vercel.app` |
 
-## 6. Test
+## 6. Switch the buttons on
+In `index.html`, change `CARD_PAYMENTS: false` to `CARD_PAYMENTS: true` (or ask Claude to). Until then members only see "Pay at the bar".
+
+## 7. Test
 Sign in as a member, reserve tickets → **Pay now by card**. Use test card `4242 4242 4242 4242`, any future date, any CVC.
 You come back to My bookings; within a few seconds the tickets show **Paid**.
 For room hire, the admin confirms a booking first; the member then sees **Pay deposit**. Payments show on the booking as "Online (card)".
