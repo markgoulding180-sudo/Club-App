@@ -1462,6 +1462,19 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covcard{display:grid;gap:8px;padding:14px;margin-bottom:12px;border-radius:16px;border:1px solid rgba(255,181,71,.5);background:linear-gradient(160deg,rgba(255,181,71,.12),rgba(20,30,62,.6))}
 .hbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:520px){ .myhead{flex-wrap:wrap} .myhead h1{flex:1 0 100%} .hbtns{justify-content:flex-start} }
+.rsvp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rbtn{padding:6px 12px;border-radius:99px;border:1px solid var(--edge);background:rgba(5,9,22,.5);color:var(--ink);font-weight:700;font-size:13px;cursor:pointer;position:relative;z-index:2}
+.rbtn.on{background:rgba(46,230,200,.2);border-color:var(--teal);color:var(--teal)}
+.rcount{font-size:12.5px;color:var(--muted);font-weight:600}
+.frgo{font-size:12.5px;font-weight:700;color:#f6d27a}
+.frcard{display:grid;gap:8px;padding:12px 14px;margin-bottom:10px;border-radius:16px;border:1px solid var(--edge);background:rgba(20,30,62,.6)}
+.frcard.req{border-color:rgba(46,230,200,.5);background:rgba(46,230,200,.08)}
+.frname{display:flex;align-items:center;gap:12px}.frname > div{display:grid;gap:1px}.frname span:not(.av){font-size:13px;color:var(--muted)}
+.frname .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px;background:linear-gradient(140deg,#f6d27a,#e39b2d);color:#2b1a00;flex:none}
+.frname.big .av{width:48px;height:48px;font-size:21px}.frname.big b{font-size:18px}
+.chipsrow{display:flex;flex-wrap:wrap;gap:6px}.chipb{padding:5px 11px;border-radius:99px;border:1px solid var(--edge);background:none;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer}
+.chipb.on{border-color:rgba(246,210,122,.6);background:rgba(246,210,122,.16);color:#f6d27a}
+.frgoing{display:grid;gap:3px;font-size:13.5px}
 </style>
 
 </head>
@@ -1819,6 +1832,22 @@ function makeSupabaseApi(){
     async removeShift(id){ ok(await sb.from('shifts').delete().eq('id', id)); },
     async staffSetShift(id, status, reason){ ok(await sb.rpc('staff_update_shift', { shift_id: id, new_status: status, why: reason || null })); },
     async withdrawCantWork(id){ ok(await sb.rpc('staff_withdraw_cantwork', { shift_id: id })); },
+    async myRsvps(){ const { data } = await sb.auth.getSession(); if (!data.session) return []; const r = await sb.from('event_rsvps').select('event_key,status').eq('user_id', data.session.user.id); return r.error ? [] : r.data; },
+    async setRsvp(key, date, status){ const { data } = await sb.auth.getSession(); const uid = data.session.user.id;
+      const r = status ? await sb.from('event_rsvps').upsert({ user_id: uid, event_key: key, event_date: date, status }) : await sb.from('event_rsvps').delete().eq('user_id', uid).eq('event_key', key);
+      if (r.error && /event_rsvps/.test(r.error.message)) throw new Error('This needs the friends SQL running in Supabase first.'); ok(r); },
+    async rsvpCounts(keys){ if (!keys.length) return []; const r = await sb.rpc('get_rsvp_counts', { keys }); return r.error ? [] : r.data; },
+    async findMember(no){ const r = await sb.rpc('find_member', { no }); if (r.error && /find_member/.test(r.error.message)) throw new Error('This needs the friends SQL running in Supabase first.'); return ok(r)[0] || null; },
+    async sendFriend(no, likes){ ok(await sb.rpc('send_friend_request', { no, shared: likes })); },
+    async answerFriend(id, yes){ ok(await sb.rpc('answer_friend', { fid: id, yes })); },
+    async friendLikes(id, likes){ ok(await sb.rpc('update_friend_likes', { fid: id, shared: likes })); },
+    async removeFriend(id){ ok(await sb.rpc('remove_friend', { fid: id })); },
+    async myFriends(){ const r = await sb.rpc('my_friends'); return r.error ? [] : r.data; },
+    async friendsRsvps(from){ const r = await sb.rpc('friends_rsvps', { from_date: from }); return r.error ? [] : r.data; },
+    async setMyNumber(no){ const { data } = await sb.auth.getSession(); ok(await sb.from('profiles').update({ membership_no: no }).eq('id', data.session.user.id)); },
+    async listRegister(){ const r = await sb.from('club_members').select('*').order('last_name'); if (r.error && /club_members/.test(r.error.message)) throw new Error('Run the friends SQL in Supabase first.'); return ok(r); },
+    async addRegister(rows){ ok(await sb.from('club_members').upsert(rows)); },
+    async deleteRegister(no){ ok(await sb.from('club_members').delete().eq('membership_no', no)); },
     async listMessages(){ const r = await sb.from('staff_messages').select('*').order('created_at', { ascending: false }).limit(200); return r.error ? [] : r.data; },
     async sendMessage(m){ const r = await sb.from('staff_messages').insert(m); if (r.error && /staff_messages/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); ok(r); },
     async updateMessage(id, patch){ ok(await sb.from('staff_messages').update(patch).eq('id', id)); },
@@ -1880,6 +1909,10 @@ function makeDemoApi(){
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} };
   const nextId = () => ++s.seq;
   s.periods ||= []; s.swaps ||= [];
+  if (!s.register){ s.register = [['ARC-0412','Jo','Bloggs','Full'],['ARC-0377','Pat','Doyle','Full'],['ARC-0101','Margaret','Hughes','Senior'],['ARC-0158','Dean','Fletcher','Full'],['ARC-0233','Sarah','Kent','Full'],['ARC-0299','Brian','Cooke','Senior'],['ARC-0310','Priya','Kapoor','Full'],['ARC-0455','Liam','Walsh','Family']].map(([n, f, l, t]) => ({ membership_no: n, first_name: f, last_name: l, tier: t, active: true }));
+    const evs = (s.bookings || []).filter(b => b.booking_kind === 'club' && b.status !== 'cancelled').slice(0, 4);
+    s.rsvps = evs.map((b, i) => ({ user_id: 'u-pat', event_key: 'b' + b.id, event_date: b.booking_date, status: i % 2 ? 'interested' : 'going' }));
+    s.friends = []; }
   const meU = () => s.users.find(u => u.id === s.session);
   function seed(){
     const t = new Date(); const d = n => ymd(addDays(t, n));
@@ -2079,6 +2112,29 @@ function makeDemoApi(){
       x.status = status; x.reason = reason.trim(); x.decision = null; save(); },
     async withdrawCantWork(id){ const x = s.shifts.find(x => x.id === id && x.staff_id === s.session && x.status === 'cannot_work' && !x.covered && !x.decision); if (!x) throw new Error('The manager has already dealt with this one.'); x.status = 'assigned'; x.reason = null; save(); },
     async listPeriods(){ return s.periods.map(p => ({ ...p })); },
+    async myRsvps(){ return (s.rsvps ||= []).filter(r => r.user_id === s.session).map(r => ({ event_key: r.event_key, status: r.status })); },
+    async setRsvp(key, date, status){ s.rsvps = (s.rsvps ||= []).filter(r => !(r.user_id === s.session && r.event_key === key)); if (status) s.rsvps.push({ user_id: s.session, event_key: key, event_date: date, status }); save(); },
+    async rsvpCounts(keys){ const m = {}; (s.rsvps ||= []).filter(r => keys.includes(r.event_key)).forEach(r => { const x = m[r.event_key] ||= { event_key: r.event_key, going: 0, interested: 0 }; x[r.status]++; }); return Object.values(m); },
+    async findMember(no){ const n = no.trim().toUpperCase(); const reg = (s.register ||= []).find(r => r.membership_no.toUpperCase() === n && r.active !== false);
+      const app = s.users.find(u => (u.membership_no || '').toUpperCase() === n && u.id !== s.session && (!reg || reg.last_name.toLowerCase() === (u.last_name || '').toLowerCase()));
+      if (!reg && !app) return null; return { first_name: reg?.first_name || app.first_name, last_initial: (reg?.last_name || app?.last_name || '').slice(0, 1), on_app: !!app }; },
+    async sendFriend(no, likes){ const n = no.trim().toUpperCase(); const reg = (s.register ||= []).find(r => r.membership_no.toUpperCase() === n);
+      const them = s.users.find(u => (u.membership_no || '').toUpperCase() === n && u.id !== s.session && (!reg || reg.last_name.toLowerCase() === (u.last_name || '').toLowerCase()));
+      if (!them) throw new Error('That member isn’t on the app yet. Ask them to register with their membership number.');
+      s.friends ||= []; const f = s.friends.find(f => [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(them.id));
+      if (f){ f.likes = likes; if (f.status === 'declined'){ f.status = 'pending'; f.requester = s.session; f.addressee = them.id; } }
+      else s.friends.push({ id: nextId(), requester: s.session, addressee: them.id, status: 'pending', likes, created_at: new Date().toISOString() }); save(); },
+    async answerFriend(id, yes){ const f = (s.friends ||= []).find(f => f.id === id && f.addressee === s.session && f.status === 'pending'); if (!f) throw new Error('That request has already been answered.'); f.status = yes ? 'accepted' : 'declined'; save(); },
+    async friendLikes(id, likes){ const f = (s.friends ||= []).find(f => f.id === id); if (f){ f.likes = likes; save(); } },
+    async removeFriend(id){ s.friends = (s.friends ||= []).filter(f => f.id !== id); save(); },
+    async myFriends(){ return (s.friends ||= []).filter(f => f.status !== 'declined' && [f.requester, f.addressee].includes(s.session)).map(f => { const o = s.users.find(u => u.id === (f.requester === s.session ? f.addressee : f.requester)) || {};
+      return { id: f.id, other: o.id, first_name: o.first_name, last_initial: (o.last_name || '').slice(0, 1), status: f.status, incoming: f.addressee === s.session, likes: f.likes || [] }; }); },
+    async friendsRsvps(from){ const ids = (s.friends ||= []).filter(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session)).map(f => f.requester === s.session ? f.addressee : f.requester);
+      return (s.rsvps ||= []).filter(r => ids.includes(r.user_id) && r.event_date >= from).map(r => ({ event_key: r.event_key, who: r.user_id, first_name: s.users.find(u => u.id === r.user_id)?.first_name, status: r.status })); },
+    async setMyNumber(no){ const u = s.users.find(u => u.id === s.session); if (u){ u.membership_no = no; save(); } },
+    async listRegister(){ return [...(s.register ||= [])].sort((a, b) => a.last_name.localeCompare(b.last_name)); },
+    async addRegister(rows){ s.register ||= []; rows.forEach(r => { const i = s.register.findIndex(x => x.membership_no === r.membership_no); if (i >= 0) s.register[i] = { ...s.register[i], ...r }; else s.register.push({ active: true, ...r }); }); save(); },
+    async deleteRegister(no){ s.register = (s.register ||= []).filter(r => r.membership_no !== no); save(); },
     async listMessages(){ const me = meU(); return (s.msgs ||= []).filter(m => me?.role === 'admin' || m.staff_id === s.session).map(m => ({ ...m })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
     async sendMessage(m){ (s.msgs ||= []).push({ id: nextId(), staff_id: s.session, status: 'new', reply: null, created_at: new Date().toISOString(), ...m }); save(); },
     async updateMessage(id, patch){ const m = (s.msgs ||= []).find(x => x.id === id); if (m){ Object.assign(m, patch); save(); } },
@@ -2359,6 +2415,10 @@ async function loadWhatsOn(){
   const byTime = (a, b) => a.starts_at.localeCompare(b.starts_at);
   state.sportList = all.filter(e => !e.b && e.category === 'Sport').sort(byTime);
   state.events = all.filter(e => !isFootball(e)).sort(byTime);
+  if (state.user){ const keys = state.events.map(evKey);
+    const [mine, counts, fr] = await Promise.all([state.user.role === 'user' ? api.myRsvps() : [], api.rsvpCounts(keys), state.user.role === 'user' ? api.friendsRsvps(todayStr()) : []]);
+    state.rsvp = Object.fromEntries(mine.map(r => [r.event_key, r.status])); state.rsvpN = Object.fromEntries(counts.map(c => [c.event_key, c]));
+    state.frGoing = {}; fr.forEach(r => (state.frGoing[r.event_key] ||= []).push(r)); }
 }
 async function load(view){
   if (view === 'hub'){
@@ -2384,6 +2444,9 @@ async function load(view){
     state.clubNames = [...new Set(past.filter(b => !b.event_details?.sport).map(b => b.event_type).filter(Boolean))].sort();
     state.sportNames = [...new Set(past.filter(b => b.event_details?.sport).map(b => b.event_type).filter(Boolean))].sort(); }
   if (view === 'booking' && isAdmin()){ const past = await api.clubEvents(ahead(-400), ahead(400)).catch(() => []); state.clubNames = [...new Set(past.map(b => b.event_type).filter(Boolean))].sort(); }
+  if (view === 'friends'){ await loadWhatsOn(); state.friends = await api.myFriends(); state.frGoingById = {};
+    (await api.friendsRsvps(todayStr())).forEach(r => (state.frGoingById[r.who] ||= {})[r.event_key] = r.status); return; }
+  if (view === 'register'){ state.register = await api.listRegister(); state.profiles = await api.listProfiles(); return; }
   if (view === 'messages'){ state.msgs = await api.listMessages(); if (isAdmin()){ state.profiles = await api.listProfiles(); await loadOps(ahead(-60), ahead(60)); } return; }
   if (view === 'rota' && isAdmin() && state.rotaTab === 'hours'){
     const st = state.hoursStart || periodStart(todayStr()); state.hoursStart = st;
@@ -2455,7 +2518,7 @@ const ICONS = {
 function navItems(){
   if (isAdmin()) return [['hub','Home','home'],['bookings','Bookings','cal'],['rota','Rota','rota'],['staff','Staff','team'],['tickets','Tickets','ticket'],['whatson','What’s On','music']];
   if (isStaff()) return [['hub','Home','home'],['myshifts','My shifts','check'],['swaps','Swaps','swap'],['rota','Rota','rota'],['whatson','What’s On','music']];
-  return [['hub','Home','home'],['whatson','What’s On','music'],['book','Book','hall'],['mine','My bookings','check']];
+  return [['hub','Home','home'],['whatson','What’s On','music'],['friends','Friends','team'],['book','Book','hall'],['mine','My bookings','check']];
 }
 const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
 const navBtn = (v, label, ic, withIcon) => `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}</button>`;
@@ -2477,7 +2540,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, friends: friendsView, register: registerView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -2875,6 +2938,7 @@ function homeView(){
       ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
       ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill this week` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
+      ${tile('team', 'Membership register', 'Every member and their number', 'register')}
       ${tile('mail', 'Messages from staff', (() => { const n = (state.msgs || []).filter(m => m.status === 'new').length; return n ? `${plural(n, 'new message')}` : 'Nothing new'; })(), 'messages', (state.msgs || []).filter(m => m.status === 'new').length)}
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
       ${tile('music', 'What’s On', nextTxt, 'whatson')}
@@ -2899,6 +2963,7 @@ function homeView(){
     ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
     ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
     ${tile('check', 'My bookings & tickets', 'Room hire, deposits and event tickets', 'mine')}
+    ${tile('team', 'Friends', 'Add friends by membership number', 'friends')}
     ${tile('star', 'My preferences', (myPrefs().cats || []).length ? `${(myPrefs().cats || []).map(c => BANNER_CATS[c]?.[2]).filter(Boolean).slice(0, 3).join(', ')}${(myPrefs().cats || []).length > 3 ? '…' : ''}` : 'Pick your favourite nights and drinks', 'prefs').replace('data-action="go" data-view="prefs"', 'data-action="openprefs"')}</div>`;
   const picks = (state.events || []).filter(likesEvent).slice(0, 3);
   if (picks.length) h += `<div class="label" style="margin-top:24px">Picked for you</div><div class="list">${picks.map(e => { const d = new Date(e.starts_at);
@@ -3479,6 +3544,7 @@ function whatsOnView(){
       <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}${admin ? '' : starBtn(e)}
       ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
       ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
+      ${e.category === 'Sport' && !e.b ? '' : rsvpHtml(e)}
       ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
   let list;
   const fy = state.woFilter === 'mine' && !admin; if (tab === 'events') list = clubList.filter(e => !fy || likesEvent(e)).map(card).join('');
@@ -3535,12 +3601,22 @@ function openPrefs(first = false){
       <label class="chk"><input type="checkbox" name="offers" ${pr.offers === false ? '' : 'checked'}> Show me offers based on what I like</label>
       <div class="err"></div><button class="btn" type="submit">Save</button>${first ? '<button class="btn ghost" type="button" data-action="prefskip">Skip for now</button>' : ''}</form>`);
 }
+const evKey = e => e.b ? 'b' + e.b.id : 'e' + e.id;
+function rsvpHtml(e){
+  if (!state.user) return ''; const k = evKey(e); const n = state.rsvpN?.[k] || { going: 0, interested: 0 }; const me = state.rsvp?.[k];
+  const fr = (state.frGoing?.[k] || []); const frTxt = fr.length ? `<span class="frgo">👥 ${esc(fr.slice(0, 2).map(f => f.first_name).join(' & '))}${fr.length > 2 ? ` +${fr.length - 2}` : ''} ${fr.some(f => f.status === 'going') ? (fr.length > 1 ? 'are going' : 'is going') : 'interested'}</span>` : '';
+  const cnt = n.going || n.interested ? `<span class="rcount">${n.going ? `${n.going} going` : ''}${n.going && n.interested ? ' · ' : ''}${n.interested ? `${n.interested} interested` : ''}</span>` : '';
+  if (state.user.role !== 'user') return cnt ? `<div class="rsvp">${cnt}</div>` : '';
+  const d = dayOf(e.starts_at);
+  return `<div class="rsvp"><button class="rbtn${me === 'going' ? ' on' : ''}" data-action="rsvp" data-key="${k}" data-date="${d}" data-val="going" aria-pressed="${me === 'going'}">✓ Going</button><button class="rbtn${me === 'interested' ? ' on' : ''}" data-action="rsvp" data-key="${k}" data-date="${d}" data-val="interested" aria-pressed="${me === 'interested'}">☆ Interested</button>${cnt}${frTxt}</div>`;
+}
 function clubEventCard(e, d){
   const b = e.b; const left = b.ticketed ? ticketsLeft(b) : null; const mine = b.ticketed ? myTicketFor(b.id) : null;
   return `<div class="event club${likesCat(catOf(e)) ? ' liked' : ''}" role="button" tabindex="0" data-action="openevent" data-id="${b.id}" style="${evVars(b.event_type)}${bannerBg(e)}"><div class="ehead">
       <div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
       <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${ROOMS[b.room].name}</span></div>${cardBanner(e)}${starBtn(e)}<span class="go" aria-hidden="true" style="color:var(--muted);font-size:22px">›</span></div>
     ${b.notes ? `<p class="edesc">${esc(b.notes)}</p>` : ''}
+    ${rsvpHtml(e)}
     <div class="tline">${b.ticketed ? `<span class="tk">${ICONS.ticket}Members ${money2(b.price_member)} · Non-members ${money2(b.price_guest)}</span>${left != null ? `<span class="left">${left ? `${left} left` : 'Sold out'}</span>` : ''}`
       : '<span class="tk">Open · free entry</span>'}<span class="grow"></span>
       ${mine ? `<span class="mine">You have ${plural(mine.member_qty + mine.guest_qty, 'ticket')}</span>` : b.ticketed && left !== 0 ? '<span class="btn sm">Reserve tickets</span>' : ''}</div></div>`;
@@ -3981,6 +4057,48 @@ function messagesView(){
       ${m.status !== 'done' ? `<form class="msgreply" data-form="replymsg" data-id="${m.id}"><input class="in" name="reply" placeholder="Reply (optional)" maxlength="300"><button class="btn sm" type="submit">Reply &amp; mark done</button>${m.status === 'new' ? `<button class="btn ghost sm" type="button" data-action="msgseen" data-id="${m.id}">Mark seen</button>` : ''}</form>` : ''}
     </div>`; }).join('') || `<div class="empty">${tab === 'open' ? 'Nothing to deal with.' : 'No finished messages yet.'}</div>`}</div>`;
 }
+function friendsView(){
+  const me = state.user; const fr = state.friends || []; const map = {};
+  (state.events || []).forEach(e => map[evKey(e)] = e);
+  const inc = fr.filter(f => f.status === 'pending' && f.incoming), sent = fr.filter(f => f.status === 'pending' && !f.incoming), ok = fr.filter(f => f.status === 'accepted');
+  const myCats = new Set(myPrefs().cats || []);
+  const goingFor = id => Object.entries(state.frGoingById?.[id] || {}).map(([k, st]) => [map[k], st]).filter(([e]) => e).sort((a, b) => a[0].starts_at.localeCompare(b[0].starts_at));
+  const likeChips = (f, edit) => PREF_CATS.filter(([k]) => k !== 'sport').map(([k, l]) => edit ? `<button class="chipb${(f.likes || []).includes(k) ? ' on' : ''}" data-action="fr_like" data-id="${f.id}" data-cat="${k}">${l}</button>` : (f.likes || []).includes(k) ? `<span class="chipb on">${l}</span>` : '').join('');
+  const found = state.frFound;
+  return page('Friends') + `<p class="muted" style="margin:-8px 0 14px">Add other members by their membership number. See what they’re going to, and the nights you both like.</p>
+    ${!me.membership_no ? `<form class="panel stack" data-form="mynumber" style="margin-bottom:14px"><b>Add your membership number</b><span class="muted" style="font-size:14px">It’s on your membership card. Friends use it to find you.</span>
+      <div class="bar" style="margin:0"><input class="in" name="no" placeholder="e.g. ARC-0412" required style="flex:1 1 160px"><button class="btn sm" type="submit">Save</button></div><div class="err"></div></form>`
+      : `<p class="muted" style="font-size:13px;margin:-6px 0 14px">Your membership number: <b style="color:var(--ink)">${esc(me.membership_no)}</b></p>`}
+    ${inc.length ? `<div class="label">Friend requests</div>${inc.map(f => `<div class="frcard req"><div class="frname"><span class="av">${esc((f.first_name || '?')[0])}</span><div><b>${esc(f.first_name)} ${esc(f.last_initial)}.</b><span>wants to be friends${(f.likes || []).length ? ` · likes ${f.likes.map(c => BANNER_CATS[c]?.[2] || c).join(', ')}` : ''}</span></div></div>
+      <div class="bar" style="margin:0"><button class="btn sm" data-action="fr_answer" data-id="${f.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="fr_answer" data-id="${f.id}" data-yes="0">Decline</button></div></div>`).join('')}` : ''}
+    <div class="label">Add a friend</div>
+    <form class="panel stack" data-form="addfriend" id="fr-add"><label class="f">Their membership number<div class="bar" style="margin:0"><input class="in" name="no" value="${esc(found?.no || '')}" placeholder="From their membership card" autocomplete="off" style="flex:1 1 160px"><button class="btn ghost sm" type="button" data-action="fr_lookup">Find</button></div></label>
+      ${found ? found.none ? '<p class="cwnote no">No member found with that number. Check the card and try again.</p>'
+        : `<div class="frname big"><span class="av">${esc(found.first_name[0])}</span><div><b>${esc(found.first_name)} ${esc(found.last_initial)}.</b><span>${found.on_app ? 'On the app' : 'Not on the app yet. Ask them to register.'}</span></div></div>
+          ${found.on_app ? `<div class="f">Nights you both like (optional)<div class="chips">${PREF_CATS.filter(([k]) => k !== 'sport').map(([k, l]) => `<label class="chip"><input type="checkbox" name="like" value="${k}" ${myCats.has(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+          <button class="btn" type="submit">Send friend request</button>` : ''}` : ''}<div class="err"></div></form>
+    <div class="label" style="margin-top:20px">My friends (${ok.length})</div>
+    ${ok.map(f => { const g = goingFor(f.other); return `<div class="frcard"><div class="frname"><span class="av">${esc((f.first_name || '?')[0])}</span><div><b>${esc(f.first_name)} ${esc(f.last_initial)}.</b>
+        <span>${(f.likes || []).length ? 'You both like:' : 'No shared nights picked yet'}</span></div><span class="grow"></span><button class="linkbtn" data-action="fr_edit" data-id="${state.frEdit === f.id ? 0 : f.id}">${state.frEdit === f.id ? 'Done' : 'Edit'}</button></div>
+      <div class="chipsrow">${likeChips(f, state.frEdit === f.id)}</div>
+      ${g.length ? `<div class="frgoing">${g.slice(0, 3).map(([e, st]) => `<span>${st === 'going' ? '✓ Going' : '☆ Interested'}: <b>${esc(e.title)}</b> · ${fmtDate(dayOf(e.starts_at), { weekday:'short', day:'numeric', month:'short' })}</span>`).join('')}</div>` : '<span class="muted" style="font-size:13px">Not going to anything yet</span>'}
+      ${state.frEdit === f.id ? `<button class="linkbtn" style="color:var(--red)" data-action="fr_remove" data-id="${f.id}">Remove friend</button>` : ''}</div>`; }).join('') || '<div class="empty">No friends yet. Add someone with their membership number.</div>'}
+    ${sent.length ? `<div class="label" style="margin-top:20px">Waiting for them to accept</div>${sent.map(f => `<div class="frcard"><div class="frname"><span class="av">${esc((f.first_name || '?')[0])}</span><div><b>${esc(f.first_name)} ${esc(f.last_initial)}.</b><span>Request sent</span></div><span class="grow"></span><button class="linkbtn" data-action="fr_remove" data-id="${f.id}">Cancel</button></div></div>`).join('')}` : ''}`;
+}
+/* Admin: the club's membership register */
+function registerView(){
+  const q = (state.regQ || '').toLowerCase(); const all = state.register || [];
+  const list = all.filter(r => !q || `${r.membership_no} ${r.first_name} ${r.last_name}`.toLowerCase().includes(q));
+  const onApp = new Set((state.profiles || []).map(p => (p.membership_no || '').toUpperCase()));
+  return page('Membership register') + `<p class="muted" style="margin:-8px 0 14px">Every club member and their membership number. Members use these numbers to add friends in the app.</p>
+    <form class="panel stack" data-form="addreg"><b>Add a member</b><div class="grid2"><input class="in" name="no" placeholder="Membership no. e.g. ARC-0500" required><input class="in" name="tier" placeholder="Membership type (optional)"></div>
+      <div class="grid2"><input class="in" name="first" placeholder="First name" required><input class="in" name="last" placeholder="Surname" required></div><div class="err"></div><button class="btn" type="submit">Add to the register</button></form>
+    <details class="panel" style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">Add lots at once (paste from a spreadsheet)</summary>
+      <form class="stack" data-form="importreg" style="margin-top:10px"><p class="muted" style="font-size:13px;margin:0">One member per line: <b>number, first name, surname, type</b> (type is optional).</p>
+        <textarea class="in" name="rows" rows="6" placeholder="ARC-0500, Jane, Smith, Full&#10;ARC-0501, Tom, Jones"></textarea><div class="err"></div><button class="btn ghost" type="submit">Import</button></form></details>
+    <div class="bar" style="margin-top:16px"><input class="in" id="reg-q" placeholder="Search by name or number" value="${esc(state.regQ || '')}" data-regsearch style="flex:1 1 220px"><span class="muted" style="font-size:13px">${plural(all.length, 'member')} · ${all.filter(r => onApp.has(r.membership_no.toUpperCase())).length} on the app</span></div>
+    <div class="list">${list.slice(0, 300).map(r => `<div class="row"><div class="row-main"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><span class="sub">${esc(r.membership_no)}${r.tier ? ' · ' + esc(r.tier) : ''}${onApp.has(r.membership_no.toUpperCase()) ? ' · <span style="color:var(--teal)">on the app</span>' : ''}</span></div><button class="linkbtn" data-action="reg_del" data-no="${esc(r.membership_no)}">Remove</button></div>`).join('') || '<div class="empty">No members yet.</div>'}</div>`;
+}
 function openCwSheet(id){
   const s = state.ops.shifts.find(x => x.id === id); if (!s) return;
   state.sheet = { type: 'cw', id };
@@ -4317,6 +4435,17 @@ const actions = {
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
   myday: t => openDaySheet(t.dataset.date),
+  rsvp: async t => { const k = t.dataset.key; const cur = state.rsvp?.[k]; const v = cur === t.dataset.val ? null : t.dataset.val;
+    await api.setRsvp(k, t.dataset.date, v); state.rsvp[k] = v || undefined; const n = state.rsvpN[k] ||= { going: 0, interested: 0 }; if (cur) n[cur]--; if (v) n[v]++;
+    toast(v === 'going' ? 'You’re going. See you there!' : v === 'interested' ? 'Marked as interested' : 'Removed'); render(); },
+  fr_lookup: async t => { const f = t.closest('form'); const no = f.no.value.trim(); if (!no) return toast('Type their membership number');
+    const m = await api.findMember(no); state.frFound = m ? { ...m, no } : { none: true, no }; render(); setTimeout(() => document.getElementById('fr-add')?.scrollIntoView({ block: 'center' }), 50); },
+  fr_answer: async t => { await api.answerFriend(Number(t.dataset.id), t.dataset.yes === '1'); toast(t.dataset.yes === '1' ? 'You’re now friends' : 'Request declined'); refresh(); },
+  fr_remove: async t => { if (!armed(t)) return; await api.removeFriend(Number(t.dataset.id)); toast('Removed'); refresh(); },
+  fr_edit: t => { state.frEdit = Number(t.dataset.id); render(); },
+  fr_like: async t => { const id = Number(t.dataset.id); const f = state.friends.find(x => x.id === id); const set = new Set(f.likes || []); set.has(t.dataset.cat) ? set.delete(t.dataset.cat) : set.add(t.dataset.cat);
+    f.likes = [...set]; await api.friendLikes(id, f.likes); render(); },
+  reg_del: async t => { if (!armed(t)) return; await api.deleteRegister(t.dataset.no); toast('Removed from the register'); refresh(); },
   msgstart: t => openMessage(t.dataset.topic || '', t.dataset.shift || ''),
   msgtab: t => { state.msgTab = t.dataset.val; render(); },
   msgseen: async t => { await api.updateMessage(Number(t.dataset.id), { status: 'seen' }); refresh(); },
@@ -4461,6 +4590,7 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-regsearch]')){ state.regQ = el.value; render(); document.getElementById('reg-q')?.focus(); return; }
     if (el.matches('[data-topicpick]')){ const h = el.form.querySelector('.topichelp'); if (h) h.hidden = el.value !== 'cant_work'; return; }
     if (el.matches('[data-avail]')){ const id = el.dataset.avail; const days = [...document.querySelectorAll(`[data-avail="${id}"]:checked`)].map(x => Number(x.value));
       await api.setAvail(id, days); const p = state.profiles.find(x => x.id === id); if (p) p.avail_days = days; toast('Days saved'); return; }
@@ -4548,6 +4678,13 @@ const forms = {
   async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
       team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };
     await api.savePrefs(pr); state.user.prefs = pr; closeSheet(); toast('Saved. Your favourite nights now have a ★'); render(); },
+  async mynumber(f){ const no = f.no.value.trim().toUpperCase(); if (!/^[A-Z0-9-]{2,20}$/.test(no)) throw new Error('Check the number on your card.'); await api.setMyNumber(no); state.user.membership_no = no; toast('Saved'); render(); },
+  async addfriend(f){ const no = f.no.value.trim(); if (!state.frFound || state.frFound.no !== no) return actions.fr_lookup(f.querySelector('[data-action=fr_lookup]'));
+    const likes = [...f.querySelectorAll('[name=like]:checked')].map(x => x.value); await api.sendFriend(no, likes); state.frFound = null; toast('Friend request sent'); refresh(); },
+  async addreg(f){ await api.addRegister([{ membership_no: f.no.value.trim().toUpperCase(), first_name: f.first.value.trim(), last_name: f.last.value.trim(), tier: f.tier.value.trim() || null, active: true }]); toast('Added'); refresh(); },
+  async importreg(f){ const rows = f.rows.value.split(/\r?\n/).map(l => l.split(/[,\t]/).map(x => x.trim())).filter(c => c[0] && c[1] && c[2])
+      .map(([n, fn, ln, t]) => ({ membership_no: n.toUpperCase(), first_name: fn, last_name: ln, tier: t || null, active: true }));
+    if (!rows.length) throw new Error('Nothing to import. Use: number, first name, surname'); await api.addRegister(rows); toast(`${plural(rows.length, 'member')} added`); refresh(); },
   async sendmsg(f){
     const topic = f.querySelector('[name=topic]:checked')?.value; if (!topic) throw new Error('Pick what it’s about.');
     const body = f.body.value.trim(); const n = words(body); if (!n) throw new Error('Add a short message.'); if (n > MSG_WORDS) throw new Error(`Please keep it to ${MSG_WORDS} words. You have ${n}.`);

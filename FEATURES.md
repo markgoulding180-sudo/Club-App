@@ -50,6 +50,16 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Going, interested and friends
+
+- Every event on What's On has **✓ Going** and **☆ Interested** buttons, with a count ("12 going · 5 interested"). The manager sees the counts too, which helps with staffing and stock.
+- **Friends tab:** members add each other by **membership number** (from their membership card). The app shows the first name and surname initial so they know it's the right person, and the friend has to accept.
+- When adding a friend they can pick the nights they both like (Bingo, Quiz…). Each friend card shows those, plus what the friend is going to.
+- What's On shows when friends are going ("👥 Pat is going").
+- **Membership register (admin):** the club's list of every member and their number, added one at a time or pasted in from a spreadsheet. An app account only counts as that member if the surname matches the register.
+
+---
+
 ## Room hire bookings (members)
 
 - A booking calendar for each room (for example the **Function Room**, up to 120 guests, and the **Lounge Bar**, up to 60).
