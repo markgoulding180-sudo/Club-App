@@ -1486,6 +1486,14 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .bub.me{align-self:flex-end;background:linear-gradient(140deg,rgba(46,230,200,.32),rgba(46,230,200,.16));border-bottom-right-radius:4px}
 .dmform{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:8px}.dmform .err{grid-column:1 / -1}
 .paybtns{display:grid;gap:3px;justify-items:end}.paybtns small{font-size:11.5px;color:var(--muted)}
+.duebox{display:grid;gap:8px;padding:12px 14px;margin:0 0 16px;border-radius:16px;border:1px solid rgba(255,181,71,.55);background:linear-gradient(160deg,rgba(255,181,71,.14),rgba(20,30,62,.6))}
+.dueh{font-size:15px;color:var(--amber)}.dueline{display:grid;gap:3px;font-size:14px;padding-top:8px;border-top:1px solid rgba(255,181,71,.25)}
+.due{font-size:12.5px;color:var(--amber)}.due.warn{color:#ffcf6b}.due.bad{color:var(--red)}
+.duetag{font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:99px;background:rgba(255,181,71,.16);color:var(--amber);white-space:nowrap}
+.duetag.warn{background:rgba(255,181,71,.28)}.duetag.bad{background:rgba(255,107,125,.2);color:var(--red)}
+.nbadge{position:absolute;top:2px;right:calc(50% - 22px);min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1}
+.nav .nbadge{position:static;display:inline-grid;margin-left:5px;vertical-align:1px}
+.tabbar button{position:relative}
 </style>
 
 </head>
@@ -1768,6 +1776,36 @@ function payInfo(b, payments){
   else if (depositDue === 0){ key = 'deposit'; label = `Deposit paid · ${money(balance)} left`; short = 'Deposit paid'; }
   else { key = 'due'; label = paid ? `${money(depositDue)} of deposit still due` : `${money(effDep)} deposit due`; short = 'Deposit due'; }
   return { ps, paid, price, dep: effDep, depositDue, balance, key, label, short };
+}
+/* Payment deadlines: room-hire deposit within 7 days of confirmation; tickets held for up to 5 days */
+const DEP_DAYS = 7, TK_HOLD_DAYS = 5;
+const dShort = ds => fmtDate(ds, { weekday:'short', day:'numeric', month:'short' });
+const daysTo = ds => Math.round((parseYmd(ds) - parseYmd(todayStr())) / 864e5);
+function depositDue(b, payments){
+  if (b.status !== 'confirmed' || b.booking_kind === 'club' || b.booking_date < todayStr()) return null;
+  const pi = payInfo(b, payments); if (!pi.depositDue) return null;
+  const base = (b.confirmed_at || b.created_at || todayStr()).slice(0, 10);
+  let due = ymd(addDays(parseYmd(base), DEP_DAYS)); if (due > b.booking_date) due = b.booking_date;
+  const n = daysTo(due); return { amount: pi.depositDue, due, days: n, overdue: n < 0 };
+}
+function ticketHold(t, eventDate){
+  if (t.status !== 'reserved' || !eventDate || eventDate < todayStr()) return null;
+  let due = ymd(addDays(parseYmd((t.created_at || todayStr()).slice(0, 10)), TK_HOLD_DAYS)); if (due > eventDate) due = eventDate;
+  const n = daysTo(due); return { due, days: n, expired: n < 0, amount: Number(t.total) || 0 };
+}
+const dueWhen = d => d.overdue || d.expired ? `<b class="due bad">Overdue since ${dShort(d.due)}</b>` : d.days === 0 ? '<b class="due warn">Due today</b>' : `<b class="due ${d.days <= 2 ? 'warn' : ''}">Due by ${dShort(d.due)} · ${d.days} day${d.days === 1 ? '' : 's'} left</b>`;
+function memberDues(){
+  const out = [];
+  (state.mine || []).forEach(b => { const d = depositDue(b, state.myPayments || []); if (d) out.push({ kind: 'deposit', b, d }); });
+  (state.myTk || []).forEach(t => { const d = ticketHold(t, t.bookings?.booking_date); if (d && d.amount > 0) out.push({ kind: 'tickets', t, d }); });
+  return out.sort((a, z) => a.d.due.localeCompare(z.d.due));
+}
+function duesBanner(){
+  const ds = memberDues(); if (!ds.length) return '';
+  return `<div class="duebox"><b class="dueh">💷 Payment${ds.length > 1 ? 's' : ''} due</b>${ds.map(x => x.kind === 'deposit'
+      ? `<div class="dueline"><span><b>${money(x.d.amount)} deposit</b> for ${ROOMS[x.b.room].name} on ${dShort(x.b.booking_date)}. Please pay at the club within ${DEP_DAYS} days of your booking being confirmed.</span>${dueWhen(x.d)}</div>`
+      : `<div class="dueline"><span><b>${money2(x.d.amount)} for ${plural((x.t.member_qty || 0) + (x.t.guest_qty || 0), 'ticket')}</b> to ${esc(x.t.bookings?.event_type || 'an event')} on ${dShort(x.t.bookings.booking_date)}. Tickets are held for up to ${TK_HOLD_DAYS} days. Please come into the club and pay.</span>${x.d.expired ? `<b class="due bad">Hold ended ${dShort(x.d.due)}: the club may release them</b>` : dueWhen(x.d)}</div>`).join('')}
+    <span class="muted" style="font-size:12.5px">Pay at the bar. Cash or card.</span></div>`;
 }
 const payPill = (pi, short = false) => `<span class="paypill ${pi.key}">${esc(short ? pi.short : pi.label)}</span>`;
 /* "No bookings" can be set for the afternoon, the evening or all day. Members can't book it; admins still can. */
@@ -2453,7 +2491,7 @@ async function loadWhatsOn(){
 async function load(view){
   if (view === 'hub'){
     await loadWhatsOn();
-    if (state.user?.role === 'user') state.inbox = await api.myInbox();
+    if (state.user?.role === 'user'){ state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()) state.msgs = await api.listMessages();
     if (isStaff()){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
@@ -2553,7 +2591,8 @@ function navItems(){
   return [['hub','Home','home'],['whatson','What’s On','music'],['friends','Friends','team'],['book','Book','hall'],['mine','My bookings','check']];
 }
 const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
-const navBtn = (v, label, ic, withIcon) => `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}</button>`;
+const navBadge = v => v === 'mine' && state.user?.role === 'user' ? memberDues().length : v === 'friends' ? unreadDms() : 0;
+const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
   $('#demoBar').hidden = LIVE;
   document.body.classList.toggle('authpage', !state.user);
@@ -2991,6 +3030,7 @@ function homeView(){
   if (next){ const d = new Date(next.starts_at);
     h += `<div class="spot"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${timeOf(next.starts_at)}</div></div>
       <div class="txt"><span class="muted">Next up</span><b>${esc(next.title)}</b>${next.description ? `<span class="muted">${esc(next.description)}</span>` : ''}</div></div>`; }
+  h += duesBanner();
   h += `<div class="tiles">${tile('music', 'What’s On', nextTxt, 'whatson')}
     ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
     ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
@@ -3018,7 +3058,7 @@ function bkRow(b, payments, { date = false, decide = false } = {}){
     <span class="room ${b.room}">${ROOMS[b.room].short}</span>
     <div class="row-main"><b>${esc(b.event_type || 'Booking')} · ${esc(bname(b))}</b>
       <span class="sub">${date ? fmtDate(b.booking_date) + ' · ' : ''}${slotLabel(b.slot)} · ${b.guests ?? '?'} guests${b.price != null ? ' · ' + money(b.price) : ''}</span></div>
-    ${b.status !== 'confirmed' ? `<span class="pill ${b.status}">${b.status}</span>` : ''}${b.status !== 'pending' ? payPill(pi, true) : ''}
+    ${b.status !== 'confirmed' ? `<span class="pill ${b.status}">${b.status}</span>` : ''}${b.status !== 'pending' ? payPill(pi, true) : ''}${(() => { const d = depositDue(b, payments); return d ? `<span class="duetag ${d.overdue ? 'bad' : d.days <= 2 ? 'warn' : ''}">${d.overdue ? 'Deposit overdue' : `Deposit by ${dShort(d.due)}`}</span>` : ''; })()}
     ${decide ? `<div class="acts"><button class="btn sm" data-action="status" data-id="${b.id}" data-status="confirmed">Confirm</button><button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="cancelled">Decline</button></div>` : '<span class="go" aria-hidden="true">›</span>'}
   </div>`;
 }
@@ -3682,7 +3722,7 @@ function openEventSheet(id, keep = null){
       ${line('g', 'Non-member ticket', Number(b.price_guest) || 0, g)}
       <div class="r-rule"></div>
       <div class="r-tot"><span>TOTAL · <span id="tq-t">${plural(m + g, 'ticket')}</span></span><b id="ta-t">${money2(m * (Number(b.price_member) || 0) + g * (Number(b.price_guest) || 0))}</b></div>
-      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : (CONFIG.CARD_PAYMENTS ? 'Pay by card below,<br>or at the bar or on the door.' : 'Pay at the bar or on the door.')}</div>
+      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : (CONFIG.CARD_PAYMENTS ? 'Pay by card below,<br>or at the bar or on the door.' : (() => { const d = mine && ticketHold(mine, b.booking_date); return d ? (d.expired ? `Hold ended ${dShort(d.due)}.<br>Please speak to the club.` : `Held until ${dShort(d.due)} (${TK_HOLD_DAYS} days max).<br>Please come into the club and pay.`) : `Tickets are held for up to ${TK_HOLD_DAYS} days.<br>Please come into the club and pay.`; })())}</div>
       <div class="r-bar"></div></div>` : '';
   const acts = !b.ticketed ? '<p class="muted">Free entry, no ticket needed. Just come along.</p>'
     : past ? '<p class="muted" style="text-align:center">This event has finished.</p>'
@@ -3736,7 +3776,8 @@ function tkEventView(){
   const left = b.tickets_total ? Math.max(0, b.tickets_total - x.tickets) : null;
   const row = r => `<div class="row tres ${r.status}"><div class="row-main"><b>${esc([r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown')}${r.membership_no ? ` <span class="muted" style="font-weight:600;font-size:13px">${esc(r.membership_no)}</span>` : ''}</b>
       <span class="sub">${[r.member_qty ? `${r.member_qty} × member` : '', r.guest_qty ? `${r.guest_qty} × non-member` : ''].filter(Boolean).join(' · ')} · Ref #${r.id}${r.user_id ? '' : ' · added by the club'}</span>
-      <span class="sub">${esc([r.phone, r.email].filter(Boolean).join(' · ') || '')}${r.note ? ` · “${esc(r.note)}”` : ''}</span></div>
+      <span class="sub">${esc([r.phone, r.email].filter(Boolean).join(' · ') || '')}${r.note ? ` · “${esc(r.note)}”` : ''}</span>
+      ${(() => { const d = ticketHold(r, b.booking_date); return d ? `<span class="sub">${d.expired ? `<b class="due bad">Hold ended ${dShort(d.due)}</b>` : `Held until ${dShort(d.due)}`}</span>` : ''; })()}</div>
       <span class="amt">${money2(r.total)}</span>
       <select data-tstatus data-id="${r.id}" aria-label="Status for ${esc(r.first_name || '')}">${Object.entries(TICKET_STATUS).map(([k, l]) => `<option value="${k}" ${k === r.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <span class="pill ${r.status}" style="justify-self:end">${TICKET_STATUS[r.status]}</span></div>`;
@@ -3752,6 +3793,7 @@ function tkEventView(){
         <div class="grid2"><label class="f">Member tickets<input name="member_qty" type="number" min="0" max="50" value="1"></label><label class="f">Non-member tickets<input name="guest_qty" type="number" min="0" max="50" value="0"></label></div>
         <label class="check"><input type="checkbox" name="paid"> Already paid</label>
         <div class="err"></div><button class="btn" type="submit">Add tickets</button></form></details>
+    ${(() => { const n = rs.filter(r => ticketHold(r, b.booking_date)?.expired).length; return n ? `<div class="alert"><b class="t">${plural(n, 'reservation')} not paid within ${TK_HOLD_DAYS} days</b><div>Release them so the tickets can be sold again. <button class="linkbtn" data-action="tkrelease" data-id="${b.id}">Release ${n === 1 ? 'it' : 'them'}</button></div></div>` : ''; })()}
     <div class="label">Reservations (${x.orders})</div>
     <div class="list">${rs.map(row).join('') || '<div class="empty">No one has reserved yet.</div>'}</div>`;
 }
@@ -4387,7 +4429,7 @@ function mineView(){
   const today = todayStr();
   const row = b => { const pi = payInfo(b, state.myPayments);
     return `<div class="row"><span class="room ${b.room}">${ROOMS[b.room].short}</span><div class="row-main"><b>${fmtDate(b.booking_date, { weekday:'short', day:'numeric', month:'short', year:'numeric' })} · ${esc(b.event_type || 'Booking')}</b>
-      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}${!CONFIG.CARD_PAYMENTS && b.status === 'confirmed' && pi.depositDue ? ` · Pay your ${money(pi.depositDue)} deposit at the bar` : ''}</span>${CONFIG.CARD_PAYMENTS && b.status === 'confirmed' && b.booking_date >= today && (pi.depositDue || pi.balance) ? `<span class="paybtns">${pi.depositDue ? `<button class="btn gold sm" data-action="paynow" data-kind="booking" data-part="deposit" data-id="${b.id}">💳 Pay ${money(pi.depositDue)} deposit</button>` : `<button class="btn sm" data-action="paynow" data-kind="booking" data-part="balance" data-id="${b.id}">💳 Pay ${money(pi.balance)} balance</button>`}<small>or pay at the bar</small></span>` : ''}</div>
+      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}</span>${(() => { const d = depositDue(b, state.myPayments); return d && !CONFIG.CARD_PAYMENTS ? `<span class="sub">Pay your ${money(d.amount)} deposit at the bar · ${dueWhen(d)}</span>` : b.status === 'pending' ? `<span class="sub">Once the club confirms, pay the deposit within ${DEP_DAYS} days</span>` : ''; })()}${CONFIG.CARD_PAYMENTS && b.status === 'confirmed' && b.booking_date >= today && (pi.depositDue || pi.balance) ? `<span class="paybtns">${pi.depositDue ? `<button class="btn gold sm" data-action="paynow" data-kind="booking" data-part="deposit" data-id="${b.id}">💳 Pay ${money(pi.depositDue)} deposit</button>` : `<button class="btn sm" data-action="paynow" data-kind="booking" data-part="balance" data-id="${b.id}">💳 Pay ${money(pi.balance)} balance</button>`}<small>or pay at the bar</small></span>` : ''}</div>
       <span class="pill ${b.status}">${b.status}</span>${b.status === 'confirmed' ? payPill(pi, true) : ''}
       ${b.status !== 'cancelled' && b.booking_date >= today ? `<button class="btn ghost sm" data-action="cancelmine" data-id="${b.id}">Cancel</button>` : ''}</div>`; };
   const up = state.mine.filter(b => b.booking_date >= today), past = state.mine.filter(b => b.booking_date < today);
@@ -4396,9 +4438,11 @@ function mineView(){
   const tRow = t => { const ev = t.bookings || {};
     return `<div class="row" role="button" tabindex="0" data-action="openevent" data-id="${t.booking_id}" style="${evVars(ev.event_type)}"><span class="room club">${ICONS.ticket.replace('<svg', '<svg width="14" height="14"')}</span>
       <div class="row-main"><b>${ev.booking_date ? fmtDate(ev.booking_date, { weekday:'short', day:'numeric', month:'short' }) : ''} · ${esc(ev.event_type || 'Event')}</b>
-      <span class="sub">${[t.member_qty ? `${t.member_qty} member` : '', t.guest_qty ? `${t.guest_qty} non-member` : ''].filter(Boolean).join(' · ')} · ${money2(t.total)} · Ref #${String(t.id).padStart(6, '0')}</span></div>
+      <span class="sub">${[t.member_qty ? `${t.member_qty} member` : '', t.guest_qty ? `${t.guest_qty} non-member` : ''].filter(Boolean).join(' · ')} · ${money2(t.total)} · Ref #${String(t.id).padStart(6, '0')}</span>
+      ${(() => { const d = ticketHold(t, ev.booking_date); return d && d.amount ? `<span class="sub">${d.expired ? `<b class="due bad">Hold ended ${dShort(d.due)}</b>` : `Pay at the club · ${dueWhen(d)}`}</span>` : ''; })()}</div>
       <span class="pill ${t.status}">${TICKET_STATUS[t.status]}</span><span class="go" aria-hidden="true">›</span></div>`; };
   return page('My bookings', `<button class="btn" data-action="go" data-view="book" data-room="hall">Book a room</button>`)
+    + duesBanner()
     + `<div class="label">My tickets</div><div class="list">${tUp.map(tRow).join('') || `<div class="empty">No tickets reserved. <button class="linkbtn" data-action="go" data-view="whatson">See What’s On</button></div>`}</div>`
     + (tPast.length ? `<div class="list" style="margin-top:8px">${tPast.map(tRow).join('')}</div>` : '')
     + `<div class="label" style="margin-top:24px">Room bookings</div><div class="list">${up.map(row).join('') || '<div class="empty">No bookings coming up.</div>'}</div>`
@@ -4505,6 +4549,9 @@ const actions = {
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
   myday: t => openDaySheet(t.dataset.date),
+  tkrelease: async t => { if (!armed(t)) return; const b = state.tk.events.find(x => x.id === Number(t.dataset.id));
+    const rs = state.tk.res.filter(r => r.booking_id === b.id && ticketHold(r, b.booking_date)?.expired);
+    for (const r of rs) await api.updateTicket(r.id, { status: 'cancelled', note: `Not paid within ${TK_HOLD_DAYS} days` }); toast(`${plural(rs.length, 'reservation')} released`); refresh(); },
   paynow: async t => { t.disabled = true; const old = t.textContent; t.textContent = 'Opening secure payment…';
     try { const url = await api.payOnline(t.dataset.kind, Number(t.dataset.id), t.dataset.part); if (url.startsWith('?')) { history.replaceState(null, '', url); return afterPayment(); } window.location.href = url; }
     catch(e){ t.disabled = false; t.textContent = old; throw e; } },

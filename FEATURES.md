@@ -87,6 +87,12 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Payment deadlines
+
+- Room hire: the deposit is due **within 7 days** of the club confirming the booking. Ticket reservations are **held for up to 5 days**, until the event at the latest.
+- Members see a **💷 Payments due** box on Home and My bookings, with a countdown ("Due by Tue 3 Nov · 4 days left"), and a red badge on the My bookings tab.
+- The manager sees "Deposit by …" or "Deposit overdue" on bookings, and "Hold ended" on unpaid tickets, with one tap to release them for sale again.
+
 ## Card payments
 
 - Members pay for **tickets** and **room-hire deposits and balances** by card, Apple Pay or Google Pay, on Stripe's secure page. The money goes straight to the club.
