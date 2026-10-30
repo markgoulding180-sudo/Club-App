@@ -111,6 +111,24 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Message the manager
+
+- Staff tap **✉ Message the manager** and pick a topic: can't work a shift (no swaps available), feeling ill, problem at the club, abuse from a member or guest, complaint, or something else. Then they write up to 60 words.
+- The manager sees **Messages from staff** on their Home screen and the Rota, can reply, and marks each one seen or done. Staff see the reply in **My messages**.
+
+## Unplanned absence
+
+- Swaps and holiday asked for before the rota comes out never count against anyone.
+- If a staff member can't work and no one can swap, they message the manager about that shift. The manager decides: **Allow (goes on record as unplanned absence)**, **Allow (special circumstances, not on record)**, or **Decline**.
+- The staff record and the Hours report count unplanned absences.
+
+## Finding cover
+
+- On any shift that needs someone, the manager taps **📣 Ask everyone to cover**. Everyone who could work it (right job, not already working, not unavailable) sees **Cover needed** with **Yes, I can work it** / **No, sorry**.
+- The manager sees how many said yes and no, then picks from the people who said yes. The others are told automatically.
+
+---
+
 ## Shift swaps (ask everyone)
 
 Staff have their own **Swaps** page with two tabs: **My requests** (with a 4-step tracker: Asked everyone → Pick an offer → Manager approves → Done) and **Asked of me** (requests they can help with, and their answers).
