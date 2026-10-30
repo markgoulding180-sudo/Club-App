@@ -87,6 +87,14 @@ Each person signs in with an email and password, and sees only what their accoun
 
 ---
 
+## Card payments
+
+- Members pay for **tickets** and **room-hire deposits and balances** by card, Apple Pay or Google Pay, on Stripe's secure page. The money goes straight to the club.
+- The app marks it paid automatically, and the manager sees it on the booking as "Online (card)". Refunds made in Stripe are recorded too.
+- Paying at the bar or door still works as before.
+
+---
+
 ## Tickets
 
 - Members reserve tickets for ticketed events, choosing how many member tickets and how many guest tickets.

@@ -1,0 +1,5 @@
+# Used only if you deploy with the Supabase CLI. Stripe can't sign in, so the webhook must not require a login.
+[functions.stripe-webhook]
+verify_jwt = false
+[functions.create-checkout]
+verify_jwt = true

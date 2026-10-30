@@ -1485,6 +1485,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .bub.them{align-self:flex-start;background:rgba(255,255,255,.08);border-bottom-left-radius:4px}
 .bub.me{align-self:flex-end;background:linear-gradient(140deg,rgba(46,230,200,.32),rgba(46,230,200,.16));border-bottom-right-radius:4px}
 .dmform{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:8px}.dmform .err{grid-column:1 / -1}
+.paybtns{display:grid;gap:3px;justify-items:end}.paybtns small{font-size:11.5px;color:var(--muted)}
 </style>
 
 </head>
@@ -1577,7 +1578,7 @@ const HOL_STATUS = { pending: 'Waiting', approved: 'Approved', declined: 'Declin
 /* Payments. The deposit secures a booking; the rest of the hire price is the balance. */
 const DEPOSIT = 100;
 const PAY_KINDS = { deposit: 'Deposit', balance: 'Balance', refund: 'Refund' };
-const PAY_METHODS = { cash: 'Cash', card: 'Card', bank: 'Bank transfer', other: 'Other' };
+const PAY_METHODS = { cash: 'Cash', card: 'Card', bank: 'Bank transfer', other: 'Other', online: 'Online (card)' };
 const CLOSE_PARTS = { all: 'All day', afternoon: 'Afternoon', evening: 'Evening' };
 const PART_SLOTS = { all: ['afternoon', 'evening', 'full_day'], afternoon: ['afternoon', 'full_day'], evening: ['evening', 'full_day'] };
 
@@ -1842,6 +1843,9 @@ function makeSupabaseApi(){
     async removeShift(id){ ok(await sb.from('shifts').delete().eq('id', id)); },
     async staffSetShift(id, status, reason){ ok(await sb.rpc('staff_update_shift', { shift_id: id, new_status: status, why: reason || null })); },
     async withdrawCantWork(id){ ok(await sb.rpc('staff_withdraw_cantwork', { shift_id: id })); },
+    async payOnline(kind, id, part){ const { data, error } = await sb.functions.invoke('create-checkout', { body: { kind, id, part } });
+      if (error){ let msg = 'Card payments aren’t set up yet. Please pay at the bar.'; try { msg = (await error.context.json()).error || msg; } catch(e) {} throw new Error(msg); }
+      if (data?.error) throw new Error(data.error); return data.url; },
     async myInbox(){ const r = await sb.from('member_messages').select('*').order('created_at', { ascending: false }).limit(300); return r.error ? [] : r.data; },
     async sendDm(to, body){ const r = await sb.from('member_messages').insert({ recipient: to, body }); if (r.error && /member_messages/.test(r.error.message) && !/row-level/.test(r.error.message)) throw new Error('This needs the message board SQL running in Supabase first.');
       if (r.error && /row-level/.test(r.error.message)) throw new Error('You can only message friends.'); ok(r); },
@@ -2127,6 +2131,11 @@ function makeDemoApi(){
       x.status = status; x.reason = reason.trim(); x.decision = null; save(); },
     async withdrawCantWork(id){ const x = s.shifts.find(x => x.id === id && x.staff_id === s.session && x.status === 'cannot_work' && !x.covered && !x.decision); if (!x) throw new Error('The manager has already dealt with this one.'); x.status = 'assigned'; x.reason = null; save(); },
     async listPeriods(){ return s.periods.map(p => ({ ...p })); },
+    async payOnline(kind, id, part){
+      if (kind === 'tickets'){ const t = (s.tickets ||= []).find(x => x.id === id && x.user_id === s.session); if (!t || t.status !== 'reserved') throw new Error('Nothing to pay.'); t.status = 'paid'; t.paid_at = new Date().toISOString(); }
+      else { const b = s.bookings.find(x => x.id === id); const ps = s.payments.filter(x => x.booking_id === id); const pi = payInfo(b, ps); const amt = part === 'deposit' ? pi.depositDue : pi.balance;
+        if (!amt) throw new Error('Nothing to pay.'); s.payments.push({ id: nextId(), booking_id: id, user_id: s.session, amount: amt, kind: part === 'deposit' ? 'deposit' : 'balance', method: 'online', paid_on: todayStr(), note: 'Paid online (demo)' }); }
+      save(); return '?paid=1&demo=1'; },
     async myInbox(){ return (s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => ({ ...m })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
     async sendDm(to, body){ const ok2 = (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)); if (!ok2) throw new Error('You can only message friends.');
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
@@ -3672,7 +3681,7 @@ function openEventSheet(id, keep = null){
       ${line('g', 'Non-member ticket', Number(b.price_guest) || 0, g)}
       <div class="r-rule"></div>
       <div class="r-tot"><span>TOTAL · <span id="tq-t">${plural(m + g, 'ticket')}</span></span><b id="ta-t">${money2(m * (Number(b.price_member) || 0) + g * (Number(b.price_guest) || 0))}</b></div>
-      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : 'Pay at the bar or on the door.<br>Online payment is coming soon.'}</div>
+      <div class="r-foot">${mine?.status === 'paid' ? 'Paid. Thank you! Show this at the door.' : 'Pay by card below,<br>or at the bar or on the door.'}</div>
       <div class="r-bar"></div></div>` : '';
   const acts = !b.ticketed ? '<p class="muted">Free entry, no ticket needed. Just come along.</p>'
     : past ? '<p class="muted" style="text-align:center">This event has finished.</p>'
@@ -3680,6 +3689,7 @@ function openEventSheet(id, keep = null){
     : left === 0 && !mine ? '<p class="tkleft low">Sold out</p>'
     : `${left != null ? `<p class="tkleft ${left <= 10 ? 'low' : ''}">${left} ticket${left === 1 ? '' : 's'} left</p>` : ''}
        <button class="btn wide" data-action="treserve" data-id="${id}" id="tk-save" ${m + g < 1 ? 'disabled' : ''}>${mine ? 'Save changes' : 'Reserve tickets'}</button>
+       ${mine && mine.status === 'reserved' && Number(mine.total) > 0 ? `<button class="btn gold wide" data-action="paynow" data-kind="tickets" data-id="${mine.id}">💳 Pay ${money2(mine.total)} now by card</button><p class="muted" style="font-size:12.5px;text-align:center;margin:-4px 0 0">Or pay at the bar or on the door.</p>` : ''}
        ${mine ? `<button class="btn ghost wide" data-action="tcancel" data-id="${mine.id}">Cancel my tickets</button>` : ''}`;
   openSheet(`<div class="sheet-top">${eventBanner(b)}<button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     ${e?.b?.notes ? `<p class="muted">${esc(e.b.notes)}</p>` : ''}
@@ -4149,6 +4159,15 @@ function registerView(){
     <div class="bar" style="margin-top:16px"><input class="in" id="reg-q" placeholder="Search by name or number" value="${esc(state.regQ || '')}" data-regsearch style="flex:1 1 220px"><span class="muted" style="font-size:13px">${plural(all.length, 'member')} · ${all.filter(r => onApp.has(r.membership_no.toUpperCase())).length} on the app</span></div>
     <div class="list">${list.slice(0, 300).map(r => `<div class="row"><div class="row-main"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><span class="sub">${esc(r.membership_no)}${r.tier ? ' · ' + esc(r.tier) : ''}${onApp.has(r.membership_no.toUpperCase()) ? ' · <span style="color:var(--teal)">on the app</span>' : ''}</span></div><button class="linkbtn" data-action="reg_del" data-no="${esc(r.membership_no)}">Remove</button></div>`).join('') || '<div class="empty">No members yet.</div>'}</div>`;
 }
+/* Back from Stripe: Stripe tells the app separately; give it a few seconds to arrive */
+async function afterPayment(){
+  const q = new URLSearchParams(location.search); const okPaid = q.get('paid') === '1'; history.replaceState(null, '', location.pathname);
+  closeSheet(); await go('mine');
+  if (!okPaid) return toast('Payment cancelled. Nothing was taken.');
+  toast('Payment received. Thank you!');
+  if (q.get('demo')) return;
+  for (let i = 0; i < 4; i++){ await new Promise(r => setTimeout(r, 2500)); await refresh(); }
+}
 function openCwSheet(id){
   const s = state.ops.shifts.find(x => x.id === id); if (!s) return;
   state.sheet = { type: 'cw', id };
@@ -4367,7 +4386,7 @@ function mineView(){
   const today = todayStr();
   const row = b => { const pi = payInfo(b, state.myPayments);
     return `<div class="row"><span class="room ${b.room}">${ROOMS[b.room].short}</span><div class="row-main"><b>${fmtDate(b.booking_date, { weekday:'short', day:'numeric', month:'short', year:'numeric' })} · ${esc(b.event_type || 'Booking')}</b>
-      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}${b.status === 'confirmed' && pi.depositDue ? ` · Pay your ${money(pi.depositDue)} deposit at the bar` : ''}</span></div>
+      <span class="sub">${slotLabel(b.slot)} · ${b.guests ?? '?'} guests · ${money(b.price || 0)}</span>${b.status === 'confirmed' && b.booking_date >= today && (pi.depositDue || pi.balance) ? `<span class="paybtns">${pi.depositDue ? `<button class="btn gold sm" data-action="paynow" data-kind="booking" data-part="deposit" data-id="${b.id}">💳 Pay ${money(pi.depositDue)} deposit</button>` : `<button class="btn sm" data-action="paynow" data-kind="booking" data-part="balance" data-id="${b.id}">💳 Pay ${money(pi.balance)} balance</button>`}<small>or pay at the bar</small></span>` : ''}</div>
       <span class="pill ${b.status}">${b.status}</span>${b.status === 'confirmed' ? payPill(pi, true) : ''}
       ${b.status !== 'cancelled' && b.booking_date >= today ? `<button class="btn ghost sm" data-action="cancelmine" data-id="${b.id}">Cancel</button>` : ''}</div>`; };
   const up = state.mine.filter(b => b.booking_date >= today), past = state.mine.filter(b => b.booking_date < today);
@@ -4485,6 +4504,9 @@ const actions = {
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
   myday: t => openDaySheet(t.dataset.date),
+  paynow: async t => { t.disabled = true; const old = t.textContent; t.textContent = 'Opening secure payment…';
+    try { const url = await api.payOnline(t.dataset.kind, Number(t.dataset.id), t.dataset.part); if (url.startsWith('?')) { history.replaceState(null, '', url); return afterPayment(); } window.location.href = url; }
+    catch(e){ t.disabled = false; t.textContent = old; throw e; } },
   frtab: t => { state.frTab = t.dataset.val; render(); },
   dmopen: t => openDm(t.dataset.id),
   dmdel: async t => { if (!armed(t)) return; await api.deleteDm(Number(t.dataset.id)); state.inbox = await api.myInbox(); openDm(state.sheet.id); },
@@ -4785,6 +4807,7 @@ document.addEventListener('submit', async e => {
 /* ---------- start ---------- */
 (async () => {
   try { state.user = await api.currentUser(); } catch(e) {}
+  if (state.user && /[?&]paid=/.test(location.search)) return afterPayment();
   if (state.user) go('hub'); else { render(); loadPublicEvents(); }
 })();
 </script>
