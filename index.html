@@ -1494,6 +1494,20 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .nbadge{position:absolute;top:2px;right:calc(50% - 22px);min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;display:grid;place-items:center;line-height:1}
 .nav .nbadge{position:static;display:inline-grid;margin-left:5px;vertical-align:1px}
 .tabbar button{position:relative}
+.viewas{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 14px;padding:8px 10px;border-radius:14px;border:1px dashed rgba(246,210,122,.55);background:rgba(246,210,122,.07);font-size:12.5px}
+.viewas > span{font-weight:800;color:#f6d27a;margin-right:4px}
+.viewas button{padding:5px 10px;border-radius:99px;border:1px solid var(--edge);background:none;color:var(--ink);font-weight:700;font-size:12.5px;cursor:pointer}
+.viewas button[aria-pressed=true]{background:#f6d27a;color:#2b1a00;border-color:#f6d27a}
+.rolekey{display:grid;gap:6px}.rolekey > div{display:grid;grid-template-columns:200px 1fr;gap:10px;font-size:13.5px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.04)}
+.rolekey span{color:var(--muted)}@media (max-width:560px){ .rolekey > div{grid-template-columns:1fr;gap:2px} }
+.ncard,.jcard{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid var(--edge);background:rgba(20,30,62,.6);margin-bottom:10px}
+.ncard.new{border-color:rgba(246,210,122,.6);background:linear-gradient(160deg,rgba(246,210,122,.12),rgba(20,30,62,.6))}
+.ncard p{margin:0;white-space:pre-wrap;font-size:14.5px}.ntop{display:flex;align-items:center;gap:8px;justify-content:space-between}.ntop small{font-size:12px;color:var(--muted)}
+.nbox{display:grid;gap:8px;padding:12px 14px;margin:0 0 16px;border-radius:16px;border:1px solid rgba(246,210,122,.55);background:linear-gradient(160deg,rgba(246,210,122,.12),rgba(20,30,62,.6))}
+.nline{display:grid;gap:2px;font-size:14px;padding-top:8px;border-top:1px solid rgba(246,210,122,.2)}.nline span{color:var(--muted)}
+.jmeta{display:flex;gap:6px;flex-wrap:wrap}.jmeta span{padding:4px 10px;border-radius:99px;background:rgba(46,230,200,.12);color:var(--teal);font-size:12.5px;font-weight:700}
+.jcard.closed{opacity:.6}.jcard details summary{cursor:pointer;font-size:14px}.appl{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--edge);font-size:13.5px}.appl span{color:var(--muted)}
+.rolerow{flex-wrap:wrap}.rolerow .row-main{flex:1 1 220px}.rolerow .csel{width:230px;flex:none}@media (max-width:560px){ .rolerow .csel{width:100%} }
 </style>
 
 </head>
@@ -1885,6 +1899,20 @@ function makeSupabaseApi(){
     async payOnline(kind, id, part){ const { data, error } = await sb.functions.invoke('create-checkout', { body: { kind, id, part } });
       if (error){ let msg = 'Card payments aren’t set up yet. Please pay at the bar.'; try { msg = (await error.context.json()).error || msg; } catch(e) {} throw new Error(msg); }
       if (data?.error) throw new Error(data.error); return data.url; },
+    async setAccess(id, a){ const r = await sb.rpc('admin_set_access', { pid: id, new_role: a.role, new_title: a.title, new_perms: a.perms }); if (r.error && /admin_set_access/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); ok(r); },
+    async listNotices(){ const r = await sb.from('club_notices').select('*').order('created_at', { ascending: false }).limit(60); return r.error ? [] : r.data; },
+    async myNoticeReads(){ const { data } = await sb.auth.getSession(); const r = await sb.from('notice_reads').select('notice_id').eq('user_id', data.session.user.id); return r.error ? [] : r.data.map(x => x.notice_id); },
+    async noticeReadCounts(){ const r = await sb.from('notice_reads').select('notice_id'); const m = {}; (r.data || []).forEach(x => m[x.notice_id] = (m[x.notice_id] || 0) + 1); return m; },
+    async markNoticesRead(ids){ if (!ids.length) return; const { data } = await sb.auth.getSession(); await sb.from('notice_reads').upsert(ids.map(id => ({ user_id: data.session.user.id, notice_id: id })), { ignoreDuplicates: true }); },
+    async sendNotice(n){ const r = await sb.from('club_notices').insert(n); if (r.error && /club_notices/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); ok(r); },
+    async deleteNotice(id){ ok(await sb.from('club_notices').delete().eq('id', id)); },
+    async listJobs(){ const r = await sb.from('jobs').select('*').order('created_at', { ascending: false }); return r.error ? [] : r.data; },
+    async saveJob(j){ const r = await sb.from('jobs').insert(j).select().single(); if (r.error && /jobs/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); return ok(r); },
+    async setJob(id, patch){ ok(await sb.from('jobs').update(patch).eq('id', id)); },
+    async myApplications(){ const { data } = await sb.auth.getSession(); const r = await sb.from('job_applications').select('*').eq('user_id', data.session.user.id); return r.error ? [] : r.data; },
+    async applyJob(jid, note, phone){ ok(await sb.from('job_applications').insert({ job_id: jid, note: note || null, phone: phone || null })); },
+    async withdrawApp(id){ ok(await sb.from('job_applications').delete().eq('id', id)); },
+    async jobApplicants(jid){ const r = await sb.rpc('job_applicants', { jid }); return r.error ? [] : r.data; },
     async myInbox(){ const r = await sb.from('member_messages').select('*').order('created_at', { ascending: false }).limit(300); return r.error ? [] : r.data; },
     async sendDm(to, body){ const r = await sb.from('member_messages').insert({ recipient: to, body }); if (r.error && /member_messages/.test(r.error.message) && !/row-level/.test(r.error.message)) throw new Error('This needs the message board SQL running in Supabase first.');
       if (r.error && /row-level/.test(r.error.message)) throw new Error('You can only message friends.'); ok(r); },
@@ -1967,6 +1995,7 @@ function makeDemoApi(){
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} };
   const nextId = () => ++s.seq;
   s.periods ||= []; s.swaps ||= [];
+  { const a = (s.users || []).find(u => u.id === 'u-admin'); if (a && !a.perms){ a.perms = ['owner']; a.title = 'App admin'; } }
   if (!s.register){ s.register = [['ARC-0412','Jo','Bloggs','Full'],['ARC-0377','Pat','Doyle','Full'],['ARC-0101','Margaret','Hughes','Senior'],['ARC-0158','Dean','Fletcher','Full'],['ARC-0233','Sarah','Kent','Full'],['ARC-0299','Brian','Cooke','Senior'],['ARC-0310','Priya','Kapoor','Full'],['ARC-0455','Liam','Walsh','Family']].map(([n, f, l, t]) => ({ membership_no: n, first_name: f, last_name: l, tier: t, active: true }));
     const evs = (s.bookings || []).filter(b => b.booking_kind === 'club' && b.status !== 'cancelled').slice(0, 4);
     s.rsvps = evs.map((b, i) => ({ user_id: 'u-pat', event_key: 'b' + b.id, event_date: b.booking_date, status: i % 2 ? 'interested' : 'going' }));
@@ -2175,6 +2204,21 @@ function makeDemoApi(){
       else { const b = s.bookings.find(x => x.id === id); const ps = s.payments.filter(x => x.booking_id === id); const pi = payInfo(b, ps); const amt = part === 'deposit' ? pi.depositDue : pi.balance;
         if (!amt) throw new Error('Nothing to pay.'); s.payments.push({ id: nextId(), booking_id: id, user_id: s.session, amount: amt, kind: part === 'deposit' ? 'deposit' : 'balance', method: 'online', paid_on: todayStr(), note: 'Paid online (demo)' }); }
       save(); return '?paid=1&demo=1'; },
+    async setAccess(id, a){ const u = s.users.find(x => x.id === id); if (!u) return; if (u.id === s.session && !a.perms.includes('owner')) throw new Error('You can’t remove your own app admin access.');
+      u.role = a.role; u.title = a.title; u.perms = a.perms; if (a.role === 'user') u.skill = null; else if (a.role === 'staff' && !u.skill) u.skill = 'both'; save(); },
+    async listNotices(){ return [...(s.notices ||= [])].sort((a, b) => b.created_at.localeCompare(a.created_at)); },
+    async myNoticeReads(){ return (s.nreads ||= []).filter(r => r.user_id === s.session).map(r => r.notice_id); },
+    async noticeReadCounts(){ const m = {}; (s.nreads ||= []).forEach(r => m[r.notice_id] = (m[r.notice_id] || 0) + 1); return m; },
+    async markNoticesRead(ids){ s.nreads ||= []; ids.forEach(id => { if (!s.nreads.some(r => r.user_id === s.session && r.notice_id === id)) s.nreads.push({ user_id: s.session, notice_id: id }); }); save(); },
+    async sendNotice(n){ (s.notices ||= []).push({ id: nextId(), created_at: new Date().toISOString(), audience: 'all', ...n }); save(); },
+    async deleteNotice(id){ s.notices = (s.notices ||= []).filter(n => n.id !== id); save(); },
+    async listJobs(){ const admin = meU()?.role === 'admin'; return (s.jobs ||= []).filter(j => admin || j.status === 'open').map(j => ({ ...j })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
+    async saveJob(j){ const n = { id: nextId(), status: 'open', created_at: new Date().toISOString(), ...j }; (s.jobs ||= []).push(n); save(); return n; },
+    async setJob(id, patch){ const j = (s.jobs ||= []).find(x => x.id === id); if (j){ Object.assign(j, patch); save(); } },
+    async myApplications(){ return (s.apps ||= []).filter(a => a.user_id === s.session); },
+    async applyJob(jid, note, phone){ s.apps ||= []; if (s.apps.some(a => a.job_id === jid && a.user_id === s.session)) throw new Error('You’ve already applied.'); s.apps.push({ id: nextId(), job_id: jid, user_id: s.session, note, phone, created_at: new Date().toISOString() }); save(); },
+    async withdrawApp(id){ s.apps = (s.apps ||= []).filter(a => a.id !== id); save(); },
+    async jobApplicants(jid){ return (s.apps ||= []).filter(a => a.job_id === jid).map(a => { const u = s.users.find(x => x.id === a.user_id) || {}; return { ...a, first_name: u.first_name, last_name: u.last_name, email: u.email, phone: a.phone || u.phone, membership_no: u.membership_no }; }); },
     async myInbox(){ return (s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => ({ ...m })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
     async sendDm(to, body){ const ok2 = (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)); if (!ok2) throw new Error('You can only message friends.');
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
@@ -2382,8 +2426,32 @@ const state = {
   rec: { shifts: [], notes: [], unavail: [] },
   sheet: null
 };
-const isAdmin = () => state.user?.role === 'admin';
-const isStaff = () => state.user?.role === 'staff';
+/* Roles. role = user / staff / admin (what the database allows). title + perms = which areas an admin uses.
+   'owner' (the app admin) sees everything and can view the app as any role. */
+const AREAS = ['bookings', 'rota', 'staff', 'tickets', 'whatson', 'messages', 'register', 'notices', 'jobs'];
+const ROLE_PRESETS = {
+  member:    { label: 'Member', role: 'user', title: '', perms: [] },
+  ent:       { label: 'Entertainments committee', role: 'user', title: 'Entertainments', perms: ['whatson'] },
+  staff:     { label: 'Bar / door staff', role: 'staff', title: '', perms: [] },
+  manager:   { label: 'Bar Manager', role: 'admin', title: 'Bar Manager', perms: ['bookings', 'rota', 'staff', 'tickets', 'messages', 'notices', 'jobs', 'whatson'] },
+  secretary: { label: 'Secretary', role: 'admin', title: 'Secretary', perms: [] },
+  owner:     { label: 'App admin', role: 'admin', title: 'App admin', perms: ['owner'] }
+};
+const VIEW_AS = [['owner', 'App admin'], ['secretary', 'Secretary'], ['manager', 'Bar Manager'], ['ent', 'Entertainments'], ['staff', 'Staff'], ['member', 'Member']];
+const isOwner = () => (state.user?.perms || []).includes('owner');
+const viewing = () => isOwner() && state.viewAs && state.viewAs !== 'owner' ? ROLE_PRESETS[state.viewAs] : null;
+const effRole = () => viewing()?.role || state.user?.role;
+const effPerms = () => viewing() ? viewing().perms : (state.user?.perms || []);
+const isAdmin = () => effRole() === 'admin';
+const isStaff = () => effRole() === 'staff';
+const isMember = () => effRole() === 'user';
+const isOwnerView = () => isOwner() && !viewing();
+function canArea(a){ const pm = effPerms(); if (pm.includes('owner')) return true;
+  if (!isAdmin()) return a === 'whatson' && pm.includes('whatson');
+  const areas = pm.filter(x => AREAS.includes(x)); return !areas.length || areas.includes(a); }
+const canWhatsOn = () => canArea('whatson');
+const presetOf = p => (p.perms || []).includes('owner') ? 'owner' : p.role === 'admin' ? (Object.entries(ROLE_PRESETS).find(([k, v]) => v.role === 'admin' && v.title === p.title)?.[0] || 'secretary')
+  : p.role === 'staff' ? 'staff' : (p.perms || []).includes('whatson') ? 'ent' : 'member';
 const ahead = n => ymd(addDays(new Date(), n));
 const WEEKS_BACK = 12;
 
@@ -2392,7 +2460,7 @@ async function go(view, params = {}){
   closeSheet();
   try { await load(view); } catch(e){ toast(e.message); }
   render(); window.scrollTo(0, 0);
-  if (view === 'hub' && state.user?.role === 'user' && state.user.prefs === null && !state.prefsShown){ state.prefsShown = true; openPrefs(true); }
+  if (view === 'hub' && isMember() && !viewing() && state.user.prefs === null && !state.prefsShown){ state.prefsShown = true; openPrefs(true); }
 }
 async function loadOps(from, to, summaries = false){
   const [bookings, shifts, unavail, staff, events, closed] = await Promise.all([
@@ -2466,6 +2534,9 @@ async function loadTickets(){
 /* League nights (darts, pool…) stay in the diary but not on What's On. Tournaments, competitions and cups still show. */
 const COMP_RE = /tournament|competition|\bcomp\b|cup|final|knock-?out|open\b|championship/i;
 const isLeagueNight = (name, b) => (/league/i.test(name || '') || !!b?.event_details?.sport) && !COMP_RE.test(name || '');
+async function loadNotices(){ if (!state.user) return; const [ns, rd, jobs] = await Promise.all([api.listNotices(), api.myNoticeReads(), api.listJobs()]); state.notices = ns; state.nRead = rd; state.jobs = jobs; }
+const visibleNotices = () => (state.notices || []).filter(n => isAdmin() || n.audience === 'all' || (n.audience === 'staff' ? isStaff() : isMember()));
+const unreadNotices = () => visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).length;
 async function loadWhatsOn(){
   let [ev, club] = await Promise.all([api.listEvents(), api.clubEvents(todayStr(), ahead(365))]);
   club = club.filter(b => !isLeagueNight(b.event_type, b)); ev = ev.filter(e => !isLeagueNight(e.title));
@@ -2484,14 +2555,14 @@ async function loadWhatsOn(){
   state.sportList = all.filter(e => !e.b && e.category === 'Sport').sort(byTime);
   state.events = all.filter(e => !isFootball(e)).sort(byTime);
   if (state.user){ const keys = state.events.map(evKey);
-    const [mine, counts, fr] = await Promise.all([state.user.role === 'user' ? api.myRsvps() : [], api.rsvpCounts(keys), state.user.role === 'user' ? api.friendsRsvps(todayStr()) : []]);
+    const [mine, counts, fr] = await Promise.all([isMember() ? api.myRsvps() : [], api.rsvpCounts(keys), isMember() ? api.friendsRsvps(todayStr()) : []]);
     state.rsvp = Object.fromEntries(mine.map(r => [r.event_key, r.status])); state.rsvpN = Object.fromEntries(counts.map(c => [c.event_key, c]));
     state.frGoing = {}; fr.forEach(r => (state.frGoing[r.event_key] ||= []).push(r)); }
 }
 async function load(view){
   if (view === 'hub'){
-    await loadWhatsOn();
-    if (state.user?.role === 'user'){ state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
+    await loadWhatsOn(); await loadNotices();
+    if (isMember()){ state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()) state.msgs = await api.listMessages();
     if (isStaff()){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
@@ -2516,6 +2587,9 @@ async function load(view){
   if (view === 'friends'){ await loadWhatsOn(); state.friends = await api.myFriends(); state.inbox = await api.myInbox(); state.frGoingById = {};
     (await api.friendsRsvps(todayStr())).forEach(r => (state.frGoingById[r.who] ||= {})[r.event_key] = r.status); return; }
   if (view === 'register'){ state.register = await api.listRegister(); state.profiles = await api.listProfiles(); return; }
+  if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
+  if (view === 'notices'){ await loadNotices(); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
+  if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
   if (view === 'messages'){ state.msgs = await api.listMessages(); if (isAdmin()){ state.profiles = await api.listProfiles(); await loadOps(ahead(-60), ahead(60)); } return; }
   if (view === 'rota' && isAdmin() && state.rotaTab === 'hours'){
     const st = state.hoursStart || periodStart(todayStr()); state.hoursStart = st;
@@ -2586,12 +2660,12 @@ const ICONS = {
   ticket: svg('<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v2M14 11v2M14 16v2"/>')
 };
 function navItems(){
-  if (isAdmin()) return [['hub','Home','home'],['bookings','Bookings','cal'],['rota','Rota','rota'],['staff','Staff','team'],['tickets','Tickets','ticket'],['whatson','What’s On','music']];
+  if (isAdmin()) return [['hub','Home','home'],['bookings','Bookings','cal'],['rota','Rota','rota'],['staff','Staff','team'],['tickets','Tickets','ticket'],['whatson','What’s On','music']].filter(([v]) => v === 'hub' || canArea(v));
   if (isStaff()) return [['hub','Home','home'],['myshifts','My shifts','check'],['swaps','Swaps','swap'],['rota','Rota','rota'],['whatson','What’s On','music']];
   return [['hub','Home','home'],['whatson','What’s On','music'],['friends','Friends','team'],['book','Book','hall'],['mine','My bookings','check']];
 }
 const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
-const navBadge = v => v === 'mine' && state.user?.role === 'user' ? memberDues().length : v === 'friends' ? unreadDms() : 0;
+const navBadge = v => v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : v === 'hub' && !isAdmin() ? unreadNotices() : 0;
 const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
   $('#demoBar').hidden = LIVE;
@@ -2611,19 +2685,19 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, friends: friendsView, register: registerView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
       <button class="btn ghost sm signout" data-action="signout">Sign out</button></div></header>
-    <main><div class="wrap">${(views[state.view] || homeView)()}</div></main>
+    <main><div class="wrap">${viewAsBar()}${(views[state.view] || homeView)()}</div></main>
     <nav class="tabbar" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, true)).join('')}</nav>`;
 }
 const page = (title, extra = '', back = null) => `${back ? `<button class="back" data-action="go" data-view="${back[0]}">← ${back[1]}</button>` : ''}<div class="head"><h1>${esc(title)}</h1>${extra}</div>`;
 const seg = (action, cur, opts, label) => `<div class="tabs" role="group" aria-label="${label}">${opts.map(([k, l]) => `<button data-action="${action}" data-val="${k}" aria-pressed="${k === cur}">${l}</button>`).join('')}</div>`;
 const stepper = (action, label, disablePrev = false) => `<div class="stepper"><button class="btn ghost sm" data-action="${action}" data-step="-1" aria-label="Previous" ${disablePrev ? 'disabled' : ''}>‹</button><b>${label}</b><button class="btn ghost sm" data-action="${action}" data-step="1" aria-label="Next">›</button></div>`;
 const dbox = ds => { const d = parseYmd(ds); return `<div class="dbox${ds === todayStr() ? ' today' : ''}"><span class="w">${d.toLocaleDateString('en-GB', { weekday:'short' })}</span><span class="n">${d.getDate()}</span><span class="w">${d.toLocaleDateString('en-GB', { month:'short' })}</span></div>`; };
-const tile = (ic, title, sub, view, n = 0, extra = '') => `<button class="tile" data-action="go" data-view="${view}" ${extra}><span class="ic">${ICONS[ic]}</span><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`;
+const tile = (ic, title, sub, view, n = 0, extra = '') => isAdmin() && AREAS.includes(view) && !canArea(view) ? '' : `<button class="tile" data-action="go" data-view="${view}" ${extra}><span class="ic">${ICONS[ic]}</span><b>${esc(title)}</b><span class="sub">${esc(sub)}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`;
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening'; };
 
 /* ---------- Login ---------- */
@@ -3004,6 +3078,7 @@ function homeView(){
     const gaps = week.reduce((a, x) => a + x.short, 0);
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today).length;
     const holReq = state.holidays.filter(x => x.status === 'pending').length;
+    h += isOwnerView() ? '' : '';
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
       ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
@@ -3013,28 +3088,35 @@ function homeView(){
       ${tile('mail', 'Messages from staff', (() => { const n = (state.msgs || []).filter(m => m.status === 'new').length; return n ? `${plural(n, 'new message')}` : 'Nothing new'; })(), 'messages', (state.msgs || []).filter(m => m.status === 'new').length)}
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
       ${tile('music', 'What’s On', nextTxt, 'whatson')}
+      ${tile('mail', 'Notices', 'Send a message to everyone on the app', 'notices')}
+      ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
+      ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
     </div>`;
     return h;
   }
   if (isStaff()){
     const me = state.user.id;
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-    h += myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    h += noticesHomeBox() + myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
       ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}
       ${tile('swap', 'Swaps', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} to pick from` : 'Swap a shift with someone'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
       <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
+      ${(state.jobs || []).some(j => j.status === 'open') ? tile('team', 'Jobs at the club', 'See what’s going', 'jobs') : ''}
       ${tile('help', 'How it works', 'Your diary, swaps, can’t work, holiday', 'staffhelp')}</div>`;
     return h;
   }
   if (next){ const d = new Date(next.starts_at);
     h += `<div class="spot"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${timeOf(next.starts_at)}</div></div>
       <div class="txt"><span class="muted">Next up</span><b>${esc(next.title)}</b>${next.description ? `<span class="muted">${esc(next.description)}</span>` : ''}</div></div>`; }
-  h += duesBanner();
+  h += noticesHomeBox() + duesBanner();
+  if (canWhatsOn()) h += `<button class="today" data-action="go" data-view="whatson"><span>🎤 Entertainments</span><span class="muted">Add and edit What’s On events</span></button>`;
   h += `<div class="tiles">${tile('music', 'What’s On', nextTxt, 'whatson')}
     ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
     ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
     ${tile('check', 'My bookings & tickets', 'Room hire, deposits and event tickets', 'mine')}
+    ${(state.jobs || []).some(j => j.status === 'open') ? tile('team', 'Work for us', `${plural((state.jobs || []).filter(j => j.status === 'open').length, 'job')} at the club`, 'jobs') : ''}
+    ${tile('mail', 'From the club', unreadNotices() ? `${plural(unreadNotices(), 'new notice')}` : 'Notices from the club', 'notices', unreadNotices())}
     ${tile('team', 'Friends & messages', unreadDms() ? `${plural(unreadDms(), 'new message')}` : 'Friends, and your message board', 'friends', unreadDms())}
     ${tile('star', 'My preferences', (myPrefs().cats || []).length ? `${(myPrefs().cats || []).map(c => BANNER_CATS[c]?.[2]).filter(Boolean).slice(0, 3).join(', ')}${(myPrefs().cats || []).length > 3 ? '…' : ''}` : 'Pick your favourite nights and drinks', 'prefs').replace('data-action="go" data-view="prefs"', 'data-action="openprefs"')}</div>`;
   const picks = (state.events || []).filter(likesEvent).slice(0, 3);
@@ -3607,7 +3689,7 @@ function openAddStaff(){
    WHAT'S ON
    ===================================================================== */
 function whatsOnView(){
-  const admin = isAdmin();
+  const admin = isAdmin() && canWhatsOn(); const editor = canWhatsOn();
   const tab = state.woTab === 'sport' ? 'sport' : 'events';
   const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
   const card = e => { const d = new Date(e.starts_at);
@@ -3626,10 +3708,10 @@ function whatsOnView(){
       return `<div class="sday" style="--ebg:url('img/banner-sport.webp')"><div class="when sm"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
         <ul>${evs.map(e => `<li class="${likesEvent(e) ? 'myteam' : ''}"><span class="st">${/TBC/.test(e.description || '') ? 'TBC' : timeOf(e.starts_at)}</span><b>${likesEvent(e) ? '★ ' : ''}${esc(e.title)}</b><small>${esc((e.description || '').replace(/ · kick-off TBC/, ''))}</small>${admin ? `<button class="linkbtn" data-action="delevent" data-id="${e.id}">Delete</button>` : ''}</li>`).join('')}</ul></div>`; }).join('');
   }
-  const member = state.user?.role === 'user'; const hasPrefs = (myPrefs().cats || []).length;
+  const member = isMember(); const hasPrefs = (myPrefs().cats || []).length;
   const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`
     + (member && tab === 'events' ? `<div class="bar">${hasPrefs ? seg('wofilter', fy ? 'mine' : 'all', [['all', 'Everything'], ['mine', '★ For you']], 'Filter') : ''}<button class="linkbtn" data-action="openprefs">${hasPrefs ? 'Edit my favourites' : '★ Pick your favourite nights'}</button></div>` : '');
-  return page('What’s On') + (admin ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
+  return page('What’s On') + (editor ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
@@ -3659,7 +3741,7 @@ const DRINKS = ['Lager', 'Bitter / real ale', 'Cider', 'Stout', 'Wine', 'Prosecc
 const myPrefs = () => state.user?.prefs || {};
 const likesCat = c => !!c && (myPrefs().cats || []).includes(c);
 const likesEvent = e => e.category === 'Sport' && !e.b ? (myPrefs().team ? (e.title || '').toLowerCase().includes(myPrefs().team.toLowerCase()) : false) : likesCat(catOf(e));
-const starBtn = e => { const c = e.category === 'Sport' && !e.b ? '' : catOf(e); if (!state.user || state.user.role !== 'user' || !c) return '';
+const starBtn = e => { const c = e.category === 'Sport' && !e.b ? '' : catOf(e); if (!state.user || !isMember() || !c) return '';
   const on = likesCat(c); return `<button class="star${on ? ' on' : ''}" data-action="starcat" data-cat="${c}" aria-pressed="${on}" aria-label="${on ? 'Remove from' : 'Add to'} your favourites: ${esc(BANNER_CATS[c]?.[2] || c)}">${on ? '★' : '☆'}</button>`; };
 function teamsList(){ const t = new Set(); (state.sportList || []).forEach(e => (e.title || '').split(/\s+v(?:s)?\.?\s+/i).forEach(x => x.trim() && t.add(x.trim()))); return [...t].sort(); }
 function openPrefs(first = false){
@@ -3678,7 +3760,7 @@ function rsvpHtml(e){
   if (!state.user) return ''; const k = evKey(e); const n = state.rsvpN?.[k] || { going: 0, interested: 0 }; const me = state.rsvp?.[k];
   const fr = (state.frGoing?.[k] || []); const frTxt = fr.length ? `<span class="frgo">👥 ${esc(fr.slice(0, 2).map(f => f.first_name).join(' & '))}${fr.length > 2 ? ` +${fr.length - 2}` : ''} ${fr.some(f => f.status === 'going') ? (fr.length > 1 ? 'are going' : 'is going') : 'interested'}</span>` : '';
   const cnt = n.going || n.interested ? `<span class="rcount">${n.going ? `${n.going} going` : ''}${n.going && n.interested ? ' · ' : ''}${n.interested ? `${n.interested} interested` : ''}</span>` : '';
-  if (state.user.role !== 'user') return cnt ? `<div class="rsvp">${cnt}</div>` : '';
+  if (!isMember()) return cnt ? `<div class="rsvp">${cnt}</div>` : '';
   const d = dayOf(e.starts_at);
   return `<div class="rsvp"><button class="rbtn${me === 'going' ? ' on' : ''}" data-action="rsvp" data-key="${k}" data-date="${d}" data-val="going" aria-pressed="${me === 'going'}">✓ Going</button><button class="rbtn${me === 'interested' ? ' on' : ''}" data-action="rsvp" data-key="${k}" data-date="${d}" data-val="interested" aria-pressed="${me === 'interested'}">☆ Interested</button>${cnt}${frTxt}</div>`;
 }
@@ -4211,6 +4293,63 @@ async function afterPayment(){
   if (q.get('demo')) return;
   for (let i = 0; i < 4; i++){ await new Promise(r => setTimeout(r, 2500)); await refresh(); }
 }
+/* View-as bar for the app admin */
+function viewAsBar(){
+  if (!isOwner()) return '';
+  return `<div class="viewas"><span>👁 View as</span>${VIEW_AS.map(([k, l]) => `<button data-action="viewas" data-val="${k}" aria-pressed="${(state.viewAs || 'owner') === k}">${l}</button>`).join('')}</div>`;
+}
+/* App admin: who has which role */
+function rolesView(){
+  const q = (state.roleQ || '').toLowerCase(); const ps = (state.profiles || []).filter(p => !q || `${p.first_name} ${p.last_name} ${p.email} ${p.membership_no}`.toLowerCase().includes(q))
+    .sort((a, b) => ['owner', 'secretary', 'manager', 'ent', 'staff', 'member'].indexOf(presetOf(a)) - ['owner', 'secretary', 'manager', 'ent', 'staff', 'member'].indexOf(presetOf(b)) || byName(a, b));
+  return page('Roles & access') + `<p class="muted" style="margin:-8px 0 14px">Who can do what. Only the app admin can change these.</p>
+    <div class="rolekey">${Object.entries(ROLE_PRESETS).map(([k, r]) => `<div><b>${r.label}</b><span>${{ member: 'Members’ app: What’s On, tickets, bookings, friends', ent: 'Members’ app plus adding and removing What’s On events', staff: 'Their shifts, swaps, holiday and the rota', manager: 'Rota, staff, bookings, tickets, staff messages, notices and jobs', secretary: 'Everything to run the club', owner: 'Everything, plus roles and viewing the app as anyone' }[k]}</span></div>`).join('')}</div>
+    <div class="bar" style="margin-top:14px"><input class="in" id="role-q" placeholder="Search by name, email or number" value="${esc(state.roleQ || '')}" data-rolesearch style="flex:1 1 240px"></div>
+    <div class="list">${ps.slice(0, 200).map(p => `<div class="row rolerow"><div class="row-main"><b>${esc(pname(p))}${p.title ? ` <span class="ftpt ft">${esc(p.title)}</span>` : ''}</b><span class="sub">${esc(p.email || '')}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</span></div>
+      <select data-roleset="${p.id}" aria-label="Role for ${esc(pname(p))}">${Object.entries(ROLE_PRESETS).map(([k, r]) => `<option value="${k}" ${presetOf(p) === k ? 'selected' : ''}>${r.label}</option>`).join('')}</select></div>`).join('')}</div>`;
+}
+/* Notices from the club */
+function noticeCard(n, admin){
+  return `<div class="ncard ${!admin && !(state.nRead || []).includes(n.id) ? 'new' : ''}"><div class="ntop"><b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${admin ? ` · to ${n.audience === 'all' ? 'everyone' : n.audience}` : ''}</small></div>
+    <p>${esc(n.body)}</p>${n.job_id ? `<button class="btn sm" data-action="go" data-view="jobs">See the job</button>` : ''}
+    ${admin ? `<div class="bar" style="margin:0"><span class="muted" style="font-size:12.5px">Read by ${state.nCounts?.[n.id] || 0}</span><span class="grow"></span><button class="linkbtn" data-action="delnotice" data-id="${n.id}">Delete</button></div>` : ''}</div>`;
+}
+function noticesView(){
+  if (isAdmin() && canArea('notices')) return page('Notices') + `<p class="muted" style="margin:-8px 0 14px">Send a message to everyone on the app. It shows on their Home screen.</p>
+    <form class="panel stack" data-form="sendnotice"><label class="f">Title<input class="in" name="title" maxlength="120" required placeholder="e.g. Christmas opening times"></label>
+      <label class="f">Message<textarea class="in" name="body" rows="4" maxlength="1500" required></textarea></label>
+      <div class="f">Send to<div class="tabs" role="group">${[['all', 'Everyone'], ['members', 'Members'], ['staff', 'Staff']].map(([k, l], i) => `<label class="pick"><input type="radio" name="audience" value="${k}" ${i ? '' : 'checked'}> ${l}</label>`).join('')}</div></div>
+      <div class="err"></div><button class="btn" type="submit">Send notice</button></form>
+    <div class="label" style="margin-top:20px">Sent</div><div class="stack" style="gap:10px">${(state.notices || []).map(n => noticeCard(n, true)).join('') || '<div class="empty">Nothing sent yet.</div>'}</div>`;
+  return page('From the club') + `<div class="stack" style="gap:10px">${visibleNotices().map(n => noticeCard(n, false)).join('') || '<div class="empty">No notices yet.</div>'}</div>`;
+}
+function noticesHomeBox(){
+  const un = visibleNotices().filter(n => !(state.nRead || []).includes(n.id));
+  if (!un.length) return '';
+  return `<div class="nbox"><div class="ntop"><b>📢 From the club</b><button class="linkbtn" data-action="go" data-view="notices">See all</button></div>${un.slice(0, 2).map(n => `<div class="nline"><b>${esc(n.title)}</b><span>${esc(n.body.slice(0, 140))}${n.body.length > 140 ? '…' : ''}</span></div>`).join('')}</div>`;
+}
+/* Jobs: staff wanted */
+function jobsView(){
+  const js = state.jobs || [];
+  if (isAdmin() && canArea('jobs')) return page('Jobs: staff wanted') + `<p class="muted" style="margin:-8px 0 14px">Advertise a job. Members and staff see it in the app and can say they’re interested.</p>
+    <form class="panel stack" data-form="savejob"><label class="f">Job title<input class="in" name="title" required maxlength="100" placeholder="e.g. Bar staff"></label>
+      <div class="grid2"><label class="f">Type<input class="in" name="job_type" placeholder="Part time"></label><label class="f">Hours<input class="in" name="hours" placeholder="Fri & Sat evenings"></label></div>
+      <div class="grid2"><label class="f">Pay<input class="in" name="pay" placeholder="£11.50 an hour"></label><label class="f">Closing date<input name="closes_on" type="date"></label></div>
+      <label class="f">About the job<textarea class="in" name="description" rows="4" placeholder="What the job involves and who you’re looking for"></textarea></label>
+      <label class="chk"><input type="checkbox" name="notify" checked> Also send it to everyone as a notice</label>
+      <div class="err"></div><button class="btn" type="submit">Post the job</button></form>
+    <div class="label" style="margin-top:20px">Jobs</div>${js.map(j => { const ap = state.jobApps?.[j.id] || []; return `<div class="jcard ${j.status}"><div class="ntop"><b>${esc(j.title)}</b><span class="pill ${j.status === 'open' ? 'approved' : 'cancelled'}">${j.status === 'open' ? 'Open' : 'Closed'}</span></div>
+      <span class="muted" style="font-size:13px">${[j.job_type, j.hours, j.pay, j.closes_on ? `Closes ${dShort(j.closes_on)}` : ''].filter(Boolean).map(esc).join(' · ')}</span>
+      <details><summary><b>${plural(ap.length, 'person', 'people')} interested</b></summary>${ap.map(a => `<div class="appl"><b>${esc([a.first_name, a.last_name].filter(Boolean).join(' '))}</b><span>${esc([a.phone, a.email, a.membership_no].filter(Boolean).join(' · '))}</span>${a.note ? `<span>“${esc(a.note)}”</span>` : ''}</div>`).join('') || '<p class="muted">No one yet.</p>'}</details>
+      <div class="bar" style="margin:0"><button class="btn ghost sm" data-action="jobstatus" data-id="${j.id}" data-val="${j.status === 'open' ? 'closed' : 'open'}">${j.status === 'open' ? 'Close the job' : 'Reopen'}</button></div></div>`; }).join('') || '<div class="empty">No jobs posted.</div>'}`;
+  const mine = Object.fromEntries((state.myApps || []).map(a => [a.job_id, a]));
+  return page('Work for us') + `<p class="muted" style="margin:-8px 0 14px">Jobs at the club. Tap “I’m interested” and the club will be in touch.</p>
+    ${js.filter(j => j.status === 'open').map(j => `<div class="jcard"><div class="ntop"><b style="font-size:18px">${esc(j.title)}</b>${mine[j.id] ? '<span class="pill approved">Applied</span>' : ''}</div>
+      <div class="jmeta">${[j.job_type, j.hours, j.pay].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</div>
+      ${j.description ? `<p style="margin:0;white-space:pre-wrap">${esc(j.description)}</p>` : ''}${j.closes_on ? `<span class="muted" style="font-size:13px">Closing date: ${dShort(j.closes_on)}</span>` : ''}
+      ${mine[j.id] ? `<span class="cwnote ok">✓ The club has your interest. They’ll be in touch.</span><button class="linkbtn" data-action="withdrawapp" data-id="${mine[j.id].id}">Withdraw</button>`
+        : `<form class="stack" data-form="applyjob" data-id="${j.id}" style="gap:8px"><input class="in" name="phone" placeholder="Best phone number" value="${esc(state.user.phone || '')}"><textarea class="in" name="note" rows="2" maxlength="600" placeholder="A little about you (optional)"></textarea><div class="err"></div><button class="btn" type="submit">I’m interested</button></form>`}</div>`).join('') || '<div class="empty">No jobs at the moment. Check back soon.</div>'}`;
+}
 function openCwSheet(id){
   const s = state.ops.shifts.find(x => x.id === id); if (!s) return;
   state.sheet = { type: 'cw', id };
@@ -4549,6 +4688,10 @@ const actions = {
   hourscsv: () => downloadHours(),
   showupdates: () => openUpdates(),
   myday: t => openDaySheet(t.dataset.date),
+  viewas: t => { state.viewAs = t.dataset.val === 'owner' ? null : t.dataset.val; state.prefsShown = true; toast(`Viewing the app as ${VIEW_AS.find(v => v[0] === t.dataset.val)[1]}`); go('hub'); },
+  delnotice: async t => { if (!armed(t)) return; await api.deleteNotice(Number(t.dataset.id)); toast('Deleted'); refresh(); },
+  jobstatus: async t => { await api.setJob(Number(t.dataset.id), { status: t.dataset.val }); toast(t.dataset.val === 'open' ? 'Job reopened' : 'Job closed'); refresh(); },
+  withdrawapp: async t => { if (!armed(t)) return; await api.withdrawApp(Number(t.dataset.id)); toast('Withdrawn'); refresh(); },
   tkrelease: async t => { if (!armed(t)) return; const b = state.tk.events.find(x => x.id === Number(t.dataset.id));
     const rs = state.tk.res.filter(r => r.booking_id === b.id && ticketHold(r, b.booking_date)?.expired);
     for (const r of rs) await api.updateTicket(r.id, { status: 'cancelled', note: `Not paid within ${TK_HOLD_DAYS} days` }); toast(`${plural(rs.length, 'reservation')} released`); refresh(); },
@@ -4713,6 +4856,9 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-rolesearch]')){ state.roleQ = el.value; render(); document.getElementById('role-q')?.focus(); return; }
+    if (el.matches('[data-roleset]')){ const pr = ROLE_PRESETS[el.value]; await api.setAccess(el.dataset.roleset, pr); const p = state.profiles.find(x => x.id === el.dataset.roleset); if (p) Object.assign(p, { role: pr.role, title: pr.title, perms: pr.perms });
+      if (el.dataset.roleset === state.user.id) Object.assign(state.user, { role: pr.role, title: pr.title, perms: pr.perms }); toast(`Now: ${pr.label}`); render(); return; }
     if (el.matches('[data-regsearch]')){ state.regQ = el.value; render(); document.getElementById('reg-q')?.focus(); return; }
     if (el.matches('[data-topicpick]')){ const h = el.form.querySelector('.topichelp'); if (h) h.hidden = el.value !== 'cant_work'; return; }
     if (el.matches('[data-avail]')){ const id = el.dataset.avail; const days = [...document.querySelectorAll(`[data-avail="${id}"]:checked`)].map(x => Number(x.value));
@@ -4801,6 +4947,12 @@ const forms = {
   async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
       team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };
     await api.savePrefs(pr); state.user.prefs = pr; closeSheet(); toast('Saved. Your favourite nights now have a ★'); render(); },
+  async sendnotice(f){ await api.sendNotice({ title: f.title.value.trim(), body: f.body.value.trim(), audience: f.querySelector('[name=audience]:checked').value }); toast('Notice sent'); refresh(); },
+  async savejob(f){ const j = { title: f.title.value.trim(), job_type: f.job_type.value.trim() || null, hours: f.hours.value.trim() || null, pay: f.pay.value.trim() || null, description: f.description.value.trim(), closes_on: f.closes_on.value || null };
+    const saved = await api.saveJob(j);
+    if (f.notify.checked) await api.sendNotice({ title: `Staff wanted: ${j.title}`, body: [[j.job_type, j.hours, j.pay].filter(Boolean).join(' · '), j.description].filter(Boolean).join('\n') + '\nInterested? Open “Work for us” in the app.', audience: 'all', job_id: saved?.id || null });
+    toast(f.notify.checked ? 'Job posted and sent to everyone' : 'Job posted'); refresh(); },
+  async applyjob(f){ await api.applyJob(Number(f.dataset.id), f.note.value.trim(), f.phone.value.trim()); toast('Thanks! The club will be in touch.'); refresh(); },
   async senddm(f){ const body = f.body.value.trim(); if (!body) return; await api.sendDm(f.dataset.to, body); state.inbox = await api.myInbox(); openDm(f.dataset.to); },
   async mynumber(f){ const no = f.no.value.trim().toUpperCase(); if (!/^[A-Z0-9-]{2,20}$/.test(no)) throw new Error('Check the number on your card.'); await api.setMyNumber(no); state.user.membership_no = no; toast('Saved'); render(); },
   async addfriend(f){ const no = f.no.value.trim(); if (!state.frFound || state.frFound.no !== no) return actions.fr_lookup(f.querySelector('[data-action=fr_lookup]'));

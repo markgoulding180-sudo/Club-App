@@ -8,10 +8,20 @@ It works in any phone, tablet or computer browser, and members can add it to the
 
 ---
 
-## Three types of account
+## Roles
 
-| Account | Who it's for | What they see |
-|---|---|---|
+| Role | What they see and do |
+|---|---|
+| **Member** | What's On, tickets, room bookings, friends and messages, notices, jobs |
+| **Entertainments committee** | The members' app, plus adding and removing What's On events |
+| **Bar / door staff** | Their shifts, swaps, holiday and the rota |
+| **Bar Manager** | Rota, staff, bookings, tickets, staff messages, notices and jobs |
+| **Secretary** | Everything needed to run the club |
+| **App admin** | Everything, plus giving out roles and **viewing the app as any role** |
+
+Each person signs in with an email and password and sees only what their role allows. More roles can be added as needed.
+
+---|---|---|
 | **Member** | Customers and club members | What's On, booking requests for the rooms, event tickets, and their own bookings and payments |
 | **Staff** | Bar and door staff | Their shifts, the rota, holiday requests, and the days they're unavailable |
 | **Admin** | Managers and committee | Everything: the bookings diary, rota, staff records, tickets and What's On |
@@ -47,6 +57,13 @@ Each person signs in with an email and password, and sees only what their accoun
 - Their team's matches are highlighted on Live Sport Shown.
 - Home shows **Picked for you**, their next few favourite events, and a **My preferences** tile so they can change these any time.
 - Drinks and likes are stored for tailored offers in future. Members can opt out with one tick box.
+
+---
+
+## Notices and jobs
+
+- **Notices:** the club sends a message to everyone, or just members or just staff. It appears in a **📢 From the club** box on their Home screen, with an unread count. The sender sees how many people have read it.
+- **Jobs (staff wanted):** the manager posts a job (type, hours, pay, closing date, description), and can send it to everyone as a notice at the same time. Members see it under **Work for us** and tap **I'm interested**. The manager sees who's interested, with their contact details.
 
 ---
 
