@@ -299,3 +299,11 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Bell popup: messages from the manager/club and shift updates, each with ✕ to clear it (or Clear all).
 - Messages popup: staff see their messages to the manager and replies (+ New message); members see their message board.
 - **My shifts**: List / Calendar switch. The list is grouped into This week, Next week, Week of…, with Today / Tomorrow tags and wider date boxes. A small Holiday strip with Book holiday underneath. Swaps and messages are no longer repeated here.
+
+## Bell and messages for the bosses and committee (Oct 2026)
+- Admins (App admin, Secretary, Bar Manager) now have the 🔔 and 💬 icons too.
+- **🔔 Waiting for you**: swaps to approve, holiday requests, can't-work shifts, bookings to approve (each limited to the areas that person looks after). Tap one to go straight to it; ✕ clears it.
+- **💬 Messages**: messages from staff (to deal with), plus conversations with the committee and members, and "Message someone".
+- **Committee** (Entertainments) can message the bosses: their 💬 popup has "Message a club officer" (Sam · Bar Manager, Stuart · Secretary…). Ordinary members still can't message the bosses first.
+- Admin Home shows a "🔄 swaps to approve" card when a swap is waiting.
+- SQL: `update-committee-messages.sql`.
