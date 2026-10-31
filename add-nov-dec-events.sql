@@ -10,7 +10,7 @@ insert into public.bookings (booking_kind, event_type, first_name, last_name, ro
 select 'club', t, 'Club', 'event', 'hall', d::date, s, st::time, en::time, tk, pm, pg, tt, bar, n, 'confirmed', null, 0,
        jsonb_build_object('cat', c, 'src', 'poster-2026')
 from (values
-  ('Race Night',            '2026-11-07', 'evening',   '20:00', '23:00', false, null::numeric, null::numeric, null::int, 1, 'Have a flutter on the horses. Everyone welcome.', 'none'),
+  ('Race Night',            '2026-11-07', 'evening',   '20:00', '23:00', false, null::numeric, null::numeric, null::int, 1, 'Have a flutter on the horses. Everyone welcome.', 'race'),
   ('Bingo',                 '2026-11-08', 'evening',   '20:00', '22:30', false, null, null, null, 1, 'Sunday bingo. Eyes down at 8pm.', 'bingo'),
   ('Grooveshack',           '2026-11-14', 'evening',   '20:00', '23:00', true,  5, 8, 100, 2, 'Grooveshack singing group. Ticket event.', 'music'),
   ('Hoy Bingo',             '2026-11-21', 'evening',   '20:00', '22:30', false, null, null, null, 1, 'Hoy bingo night.', 'bingo'),
