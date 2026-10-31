@@ -3,3 +3,6 @@
 verify_jwt = false
 [functions.create-checkout]
 verify_jwt = true
+# The database calls send-push every minute with its own key, so it must not require a login.
+[functions.send-push]
+verify_jwt = false

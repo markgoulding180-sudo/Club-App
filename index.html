@@ -7,6 +7,9 @@
 <meta name="theme-color" content="#070c1a">
 <link rel="icon" type="image/png" href="img/icon-96.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Railway Club">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -1530,6 +1533,13 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .nlrow{display:grid;gap:8px}
 .conv .av svg{width:20px;height:20px}
 @media (min-width:900px){.nlsec{display:grid;grid-template-columns:42% 1fr}.nlsec img{height:100%;aspect-ratio:auto;min-height:220px}}
+.pushcard{display:grid;gap:8px;border:1px solid rgba(46,230,200,.35);background:linear-gradient(140deg,rgba(46,230,200,.12),rgba(46,230,200,.03));border-radius:18px;padding:14px 16px;margin-bottom:14px}
+.pushcard .btn{justify-self:start}
+.pushstate.on{border-color:rgba(46,230,200,.45)}
+.iosteps{margin:0;padding-left:22px;display:grid;gap:8px;line-height:1.5}
+.pushpick{align-items:flex-start;gap:12px}
+.pushpick span{display:grid;gap:2px}
+.pushpick small{color:var(--muted);font-size:13px}
 </style>
 
 </head>
@@ -1928,6 +1938,10 @@ function makeSupabaseApi(){
     async markNoticesRead(ids){ if (!ids.length) return; const { data } = await sb.auth.getSession(); await sb.from('notice_reads').upsert(ids.map(id => ({ user_id: data.session.user.id, notice_id: id })), { ignoreDuplicates: true }); },
     async sendNotice(n){ const r = await sb.from('club_notices').insert(n); if (r.error && /club_notices/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); ok(r); },
     async deleteNotice(id){ ok(await sb.from('club_notices').delete().eq('id', id)); },
+    async pushKey(){ const r = await sb.rpc('push_public_key'); return r.error ? null : r.data; },
+    async savePushSub(endpoint, key, secret){ const r = await sb.rpc('save_push_sub', { p_endpoint: endpoint, p_key: key, p_secret: secret }); if (r.error && /save_push_sub/.test(r.error.message)) throw new Error('Run the notifications SQL in Supabase first.'); ok(r); },
+    async removePushSub(endpoint){ await sb.rpc('remove_push_sub', { p_endpoint: endpoint }); },
+    async setPushPrefs(p){ ok(await sb.rpc('set_push_prefs', { p })); },
     async listNewsletters(){ const r = await sb.from('newsletters').select('*').order('issue_date', { ascending: false }).order('id', { ascending: false }); return r.error ? [] : r.data; },
     async saveNewsletter(n){ const { id, ...x } = n; const r = id ? await sb.from('newsletters').update(x).eq('id', id).select().single() : await sb.from('newsletters').insert(x).select().single();
       if (r.error && /newsletters/.test(r.error.message)) throw new Error('Run the newsletter SQL in Supabase first.'); return ok(r); },
@@ -2243,6 +2257,9 @@ function makeDemoApi(){
     async markNoticesRead(ids){ s.nreads ||= []; ids.forEach(id => { if (!s.nreads.some(r => r.user_id === s.session && r.notice_id === id)) s.nreads.push({ user_id: s.session, notice_id: id }); }); save(); },
     async sendNotice(n){ (s.notices ||= []).push({ id: nextId(), created_at: new Date().toISOString(), audience: 'all', ...n }); save(); },
     async deleteNotice(id){ s.notices = (s.notices ||= []).filter(n => n.id !== id); save(); },
+    async pushKey(){ return null; },
+    async savePushSub(){}, async removePushSub(){},
+    async setPushPrefs(p){ const u = meU(); if (u){ u.push_prefs = p; save(); } },
     async listNewsletters(){ if (!s.newsletters){ s.newsletters = [{ id: nextId(), ...JSON.parse(JSON.stringify(NL_SEED)), published_at: new Date().toISOString(), created_at: new Date().toISOString() }]; save(); }
       const admin = meU()?.role === 'admin'; return s.newsletters.filter(n => admin || n.published_at).map(n => JSON.parse(JSON.stringify(n))).sort((a, b) => b.issue_date.localeCompare(a.issue_date) || b.id - a.id); },
     async saveNewsletter(n){ s.newsletters ||= []; let x = n.id && s.newsletters.find(y => y.id === n.id);
@@ -2612,7 +2629,7 @@ async function loadWhatsOn(){
 async function load(view){
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
-    state.news = await api.listNewsletters();
+    state.news = await api.listNewsletters(); if (!isAdmin()) await checkPush().catch(() => {});
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()) state.msgs = await api.listMessages();
@@ -2641,6 +2658,7 @@ async function load(view){
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
+  if (view === 'alerts'){ await checkPush(); return; }
   if (view === 'news' || view === 'newsedit'){ state.news = await api.listNewsletters(); if (view === 'newsedit' && !state.nlDraft) state.nlDraft = blankNl(); return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
   if (view === 'messages'){ state.msgs = await api.listMessages(); if (isAdmin()){ state.profiles = await api.listProfiles(); await loadOps(ahead(-60), ahead(60)); } return; }
@@ -2739,7 +2757,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3153,9 +3171,9 @@ function homeView(){
   if (isStaff()){
     const me = state.user.id;
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-    h += noticesHomeBox() + myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    h += pushHomeCard() + noticesHomeBox() + myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
-      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}${tile('news', 'Newsletter', latestNews()?.title || 'News from the club', 'news')}
+      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}${tile('news', 'Newsletter', latestNews()?.title || 'News from the club', 'news')}${tile('help', 'Notifications', state.push === 'on' ? 'On for this phone' : 'Alerts on your phone, free', 'alerts')}
       ${tile('swap', 'Swaps', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} to pick from` : 'Swap a shift with someone'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
       <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       ${(state.jobs || []).some(j => j.status === 'open') ? tile('team', 'Jobs at the club', 'See what’s going', 'jobs') : ''}
@@ -3165,7 +3183,7 @@ function homeView(){
   if (next){ const d = new Date(next.starts_at);
     h += `<div class="spot"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${timeOf(next.starts_at)}</div></div>
       <div class="txt"><span class="muted">Next up</span><b>${esc(next.title)}</b>${next.description ? `<span class="muted">${esc(next.description)}</span>` : ''}</div></div>`; }
-  h += noticesHomeBox() + duesBanner();
+  h += pushHomeCard() + noticesHomeBox() + duesBanner();
   if (canWhatsOn()) h += `<button class="today" data-action="go" data-view="whatson"><span>🎤 Entertainments</span><span class="muted">Add and edit What’s On events</span></button>`;
   h += `<div class="tiles">${tile('music', 'What’s On', nextTxt, 'whatson')}
     ${tile('hall', 'Book the Function Room', `Up to ${ROOMS.hall.capacity} guests`, 'book', 0, 'data-room="hall"')}
@@ -3175,6 +3193,7 @@ function homeView(){
     ${tile('news', 'Newsletter', latestNews() ? `${latestNews().title}${newNews() ? ' · new' : ''}` : 'News from the club', 'news', newNews())}
     ${tile('mail', 'From the club', unreadNotices() ? `${plural(unreadNotices(), 'new notice')}` : 'Notices from the club', 'notices', unreadNotices())}
     ${tile('team', 'Friends & messages', unreadDms() ? `${plural(unreadDms(), 'new message')}` : 'Friends, and your message board', 'friends', unreadDms())}
+    ${tile('help', 'Notifications', state.push === 'on' ? 'On for this phone' : 'Alerts on your phone, free', 'alerts')}
     ${tile('star', 'My preferences', (myPrefs().cats || []).length ? `${(myPrefs().cats || []).map(c => BANNER_CATS[c]?.[2]).filter(Boolean).slice(0, 3).join(', ')}${(myPrefs().cats || []).length > 3 ? '…' : ''}` : 'Pick your favourite nights and drinks', 'prefs').replace('data-action="go" data-view="prefs"', 'data-action="openprefs"')}</div>`;
   const picks = (state.events || []).filter(likesEvent).slice(0, 3);
   if (picks.length) h += `<div class="label" style="margin-top:24px">Picked for you</div><div class="list">${picks.map(e => { const d = new Date(e.starts_at);
@@ -4405,6 +4424,57 @@ function noticesHomeBox(){
   if (!un.length) return '';
   return `<div class="nbox"><div class="ntop"><b>📢 From the club</b><button class="linkbtn" data-action="go" data-view="notices">See all</button></div>${un.slice(0, 2).map(n => `<div class="nline"><b>${esc(n.title)}</b><span>${esc(n.body.slice(0, 140))}${n.body.length > 140 ? '…' : ''}</span></div>`).join('')}</div>`;
 }
+/* Phone notifications (Web Push, free) */
+const PUSH_KINDS = [['events', 'New events', 'When the club adds something to What’s On'], ['reminders', '1 hour before', 'Nights you’re going to, or the kind you like'],
+  ['news', 'Newsletter & notices', 'When the newsletter is out, and notices from the club'], ['messages', 'Messages', 'When someone messages you'], ['bookings', 'My bookings', 'When your booking is confirmed']];
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushPrefs = () => ({ events: true, news: true, bookings: true, messages: true, reminders: true, ...(state.user?.push_prefs || {}) });
+const b64ToBytes = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+async function pushSub(){ if (!pushSupported()) return null; const reg = await navigator.serviceWorker.getRegistration(); return reg ? reg.pushManager.getSubscription() : null; }
+/* 'on' | 'off' | 'denied' | 'install' (iPhone: add to home screen first) | 'unsupported' */
+async function checkPush(){
+  if (isIOS() && !isInstalled()) state.push = 'install';
+  else if (!pushSupported()) state.push = 'unsupported';
+  else if (Notification.permission === 'denied') state.push = 'denied';
+  else { const sub = Notification.permission === 'granted' ? await pushSub() : null; state.push = sub ? 'on' : 'off';
+    if (sub && !state.pushSynced && LIVE){ state.pushSynced = true; const j = sub.toJSON(); api.savePushSub(j.endpoint, j.keys.p256dh, j.keys.auth).catch(() => {}); } }
+  return state.push;
+}
+async function turnPushOn(){
+  const key = await api.pushKey();
+  if (!key) throw new Error(LIVE ? 'Notifications are still being set up at the club. Try again in a few minutes.' : 'Notifications work on the live app, not in demo mode.');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted'){ await checkPush(); throw new Error('Notifications weren’t allowed. You can turn them on in your phone’s settings for this app.'); }
+  const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+  const j = sub.toJSON(); await api.savePushSub(j.endpoint, j.keys.p256dh, j.keys.auth); state.push = 'on';
+}
+async function turnPushOff(){ const sub = await pushSub(); if (sub){ await api.removePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } state.push = 'off'; }
+const iosSteps = () => `<ol class="iosteps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span aria-hidden="true">⬆︎</span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open <b>Railway Club</b> from your home screen, sign in, and come back here to turn notifications on.</li></ol>`;
+function pushHomeCard(){
+  if (isAdmin() || !state.push || ['on', 'unsupported'].includes(state.push)) return '';
+  try { if (Number(localStorage.getItem('push-later') || 0) > Date.now()) return ''; } catch(e){}
+  return `<div class="pushcard"><div class="ntop"><b>🔔 Get alerts on your phone</b><button class="linkbtn" data-action="pushlater">Not now</button></div>
+    <span>New events, the newsletter, messages, your booking confirmed, and a reminder 1 hour before nights you’re going to. It’s free.</span>
+    <button class="btn sm" data-action="go" data-view="alerts">${state.push === 'install' ? 'Show me how' : state.push === 'denied' ? 'How to turn them on' : 'Turn on notifications'}</button></div>`;
+}
+function alertsView(){
+  const st = state.push; const pr = pushPrefs();
+  let h = page('Notifications') + `<p class="muted" style="margin:-8px 0 14px">Alerts on your phone’s lock screen, like a text message, but free.</p>`;
+  if (st === 'install') h += `<div class="panel stack"><b style="font-size:18px">On iPhone, add the app to your Home Screen first</b><span class="muted">Apple only allows notifications from apps on your Home Screen. It takes 20 seconds:</span>${iosSteps()}</div>`;
+  else if (st === 'unsupported') h += `<div class="panel stack"><b>This browser can’t show notifications</b><span class="muted">Try Chrome on Android, or Safari on iPhone (added to your Home Screen).</span></div>`;
+  else if (st === 'denied') h += `<div class="panel stack"><b>Notifications are blocked</b><span class="muted">You said no to notifications earlier. To change it:</span><ul class="iosteps"><li><b>iPhone:</b> Settings → Notifications → Railway Club → Allow Notifications.</li><li><b>Android:</b> tap the lock or settings icon by the web address (or long-press the app icon) → Notifications → Allow.</li></ul><span class="muted">Then come back here.</span></div>`;
+  else h += `<div class="panel stack pushstate ${st === 'on' ? 'on' : ''}"><div class="ntop"><b style="font-size:18px">${st === 'on' ? '✅ Notifications are on' : '🔕 Notifications are off'}</b></div>
+    <span class="muted">${st === 'on' ? 'This phone will get the alerts you pick below.' : 'Turn them on and your phone will ask you to allow them. Tap Allow.'}</span>
+    <div class="err"></div>
+    <button class="btn ${st === 'on' ? 'ghost' : ''}" data-action="${st === 'on' ? 'pushoff' : 'pushon'}">${st === 'on' ? 'Turn off on this phone' : 'Turn on notifications'}</button></div>`;
+  h += `<div class="label" style="margin-top:20px">What to tell me about</div><div class="panel stack">${PUSH_KINDS.filter(([k]) => isStaff() ? k === 'news' : true).map(([k, l, sub]) =>
+    `<label class="chk pushpick"><input type="checkbox" data-pushpref="${k}" ${pr[k] ? 'checked' : ''}><span><b>${l}</b><small>${sub}</small></span></label>`).join('')}</div>`;
+  return h;
+}
 /* Newsletter */
 const latestNews = () => (state.news || []).find(n => n.published_at);
 const nlSeen = () => { try { return Number(localStorage.getItem('nl-seen-' + (state.user?.id || '')) || 0); } catch(e){ return 0; } };
@@ -4786,6 +4856,9 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  pushon: async t => { const err = t.closest('.panel')?.querySelector('.err'); try { t.disabled = true; await turnPushOn(); toast('Notifications are on 🔔'); render(); } catch(e){ if (err) err.textContent = e.message; else toast(e.message); t.disabled = false; } },
+  pushoff: async () => { await turnPushOff(); toast('Notifications are off on this phone'); render(); },
+  pushlater: () => { try { localStorage.setItem('push-later', String(Date.now() + 7 * 864e5)); } catch(e){} render(); },
   nlview: t => { state.nlId = Number(t.dataset.id); render(); window.scrollTo(0, 0); },
   nlnew: () => { state.nlDraft = blankNl(); go('newsedit'); },
   nledit: t => { const n = (state.news || []).find(x => x.id === Number(t.dataset.id)); if (!n) return; state.nlDraft = JSON.parse(JSON.stringify(n)); if (!state.nlDraft.sections?.length) state.nlDraft.sections = [{ h: '', body: '', img: '' }]; go('newsedit'); },
@@ -4806,7 +4879,7 @@ const actions = {
   mpgo: t => mpGo(Number(t.dataset.to), true),
   openauth: t => openAuth(t.dataset.val),
   demologin: async t => { state.user = await api.signIn(t.dataset.email, 'demo'); go('hub'); },
-  signout: async () => { await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); loadPublicEvents(); },
+  signout: async () => { try { const sub = await pushSub(); if (sub){ await api.removePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } } catch(e){} state.push = null; state.pushSynced = false; await api.signOut(); state.user = null; state.view = 'login'; closeSheet(); render(); loadPublicEvents(); },
   setroom: t => go('book', { room: t.dataset.val }),
   bookmonth: t => go('book', { month: stepMonth(state.month, t.dataset.step) }),
   openday: t => openUserDay(t.dataset.date),
@@ -4985,6 +5058,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
+    if (el.matches('[data-pushpref]')){ const p = { ...pushPrefs(), [el.dataset.pushpref]: el.checked }; await api.setPushPrefs(p); state.user.push_prefs = p; toast('Saved'); return; }
     if (el.matches('[data-nlimg]') && el.files?.[0] && state.nlDraft){ const k = el.dataset.nlimg; toast('Adding picture…');
       const url = await api.uploadImage(await shrinkImage(el.files[0]));
       if (k === 'cover') state.nlDraft.cover_url = url; else state.nlDraft.sections[Number(k.slice(1))].img = url; render(); toast('Picture added'); return; }
@@ -5165,9 +5239,13 @@ document.addEventListener('submit', async e => {
 
 /* ---------- start ---------- */
 (async () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   try { state.user = await api.currentUser(); } catch(e) {}
   if (state.user && /[?&]paid=/.test(location.search)) return afterPayment();
-  if (state.user) go('hub'); else { render(); loadPublicEvents(); }
+  const want = new URLSearchParams(location.search).get('go');
+  if (want) history.replaceState(null, '', location.pathname);
+  const OK_GO = ['whatson', 'news', 'mine', 'friends', 'notices', 'alerts', 'myshifts', 'swaps', 'rota'];
+  if (state.user) go(OK_GO.includes(want) ? want : 'hub'); else { render(); loadPublicEvents(); }
 })();
 </script>
 </body>

@@ -268,3 +268,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Admins with the Notices area (App admin, Secretary, Bar Manager) get a **Newsletter** tile: write a new issue, add pictures from the phone or computer (shrunk automatically), save as a draft, preview, publish, unpublish, edit or delete. Publishing can also send a notice to members.
 - Pictures are stored in the Supabase storage folder `newsletter`.
 - SQL: `add-newsletter.sql` (table, permissions, picture folder, and the first issue: November 2026).
+
+## Phone notifications (free)
+- Web Push to members' phones: new events, 1 hour before events they're going to or like, newsletter, notices, messages, booking confirmed. League nights and football don't send.
+- Members turn it on from a card on Home or the **Notifications** page, and pick which kinds they want. iPhone users are shown how to add the app to the Home Screen first (Apple requires it).
+- The app is now installable (manifest + service worker). Tapping a notification opens the right page.
+- Server: `send-push` edge function (Verify JWT off) + `add-push-notifications.sql` (queue, triggers, pg_cron every minute). Setup steps in `PUSH-SETUP.md`.
