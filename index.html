@@ -1540,6 +1540,20 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .pushpick{align-items:flex-start;gap:12px}
 .pushpick span{display:grid;gap:2px}
 .pushpick small{color:var(--muted);font-size:13px}
+.qacts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qact{display:grid;gap:3px;text-align:left;padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:108px;align-content:start}
+.qact .qi{font-size:26px;line-height:1;margin-bottom:4px}
+.qact b{font-size:16px;line-height:1.2}
+.qact span:last-child{color:var(--muted);font-size:13px;line-height:1.3}
+.qact:active{transform:scale(.98)}
+.qlinks{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.qlinks button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:8px 13px;font-weight:700;font-size:13.5px;cursor:pointer}
+.helpask{display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;text-align:left;margin:12px 0 0;padding:13px 16px;border-radius:16px;border:1px solid rgba(255,180,70,.55);background:linear-gradient(140deg,rgba(255,170,60,.16),rgba(255,170,60,.04));color:var(--ink);cursor:pointer}
+.helpask.mine{border-color:rgba(46,230,200,.5);background:linear-gradient(140deg,rgba(46,230,200,.15),rgba(46,230,200,.03))}
+.helpask span{color:var(--muted);font-size:14px}.helpask i{grid-row:1/3;grid-column:2;align-self:center;font-style:normal;font-size:22px;color:var(--muted)}
+.qstart{border:1px solid rgba(46,230,200,.45);background:linear-gradient(140deg,rgba(46,230,200,.13),rgba(120,90,255,.06));border-radius:18px;padding:14px 16px;margin-bottom:14px}
+.qstart ol{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14.5px;line-height:1.45}
+.hsteps{margin:0;padding-left:22px;display:grid;gap:4px;font-size:15px;line-height:1.45}
 </style>
 
 </head>
@@ -2689,6 +2703,7 @@ async function load(view){
   if (view === 'holiday'){ const r = monthRange(state.holMonth); const from = ymd(r.start) > todayStr() ? ymd(r.start) : todayStr();
     await loadOps(from, ymd(r.end) > from ? ymd(r.end) : from, true); state.holidays = await api.listHolidays(); state.periods = await api.listPeriods(); }
   if (view === 'swaps'){ state.covers = await api.listCoverCalls(); state.offers = await api.listOffers(ahead(-14)); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); state.holidays = await api.listHolidays(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(70), true); }
+  if (view === 'myshifts' && !state.offMonthPicked){ const me = state.user.id; const n = (state.ops?.shifts || []).filter(x => x.staff_id === me && x.shift_date >= todayStr() && ACTIVE(x)).map(x => x.shift_date).sort()[0]; if (n) state.offMonth = startOfMonth(parseYmd(n)); }
   if (view === 'myshifts'){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); state.periods = await api.listPeriods(); state.offers = await api.listOffers(ahead(-14)); state.swaps = await api.listSwaps(); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], end, true); }
 }
 async function refresh(){
@@ -3172,7 +3187,22 @@ function homeView(){
   if (isStaff()){
     const me = state.user.id;
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-    h += pushHomeCard() + noticesHomeBox() + myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    const sc = swapCounts();
+    h += staffQuickStart() + pushHomeCard() + noticesHomeBox() + myStats() + nextShiftCard()
+      + (sc.help ? `<button class="helpask" data-action="go" data-view="swaps"><b>🙋 ${plural(sc.help, 'colleague needs', 'colleagues need')} a swap</b><span>Can you help? Tap to see the shift${sc.help > 1 ? 's' : ''}.</span><i aria-hidden="true">›</i></button>` : '')
+      + (sc.mine ? `<button class="helpask mine" data-action="go" data-view="swaps"><b>✅ ${plural(sc.mine, 'offer')} to swap your shift</b><span>Tap to pick who takes it.</span><i aria-hidden="true">›</i></button>` : '')
+      + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    h += `<div class="label" style="margin-top:22px">What do you need?</div>
+      <div class="qacts">
+        <button class="qact" data-action="pickshift"><span class="qi">🔄</span><b>Can’t make a shift</b><span>Swap it, or tell the manager</span></button>
+        <button class="qact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${holLeftTxt()}</span></button>
+        <button class="qact" data-action="go" data-view="rota"><span class="qi">👥</span><b>Who’s working</b><span>The rota for this week</span></button>
+        <button class="qact" data-action="msgstart"><span class="qi">✉️</span><b>Message the manager</b><span>Ill, a problem or anything else</span></button>
+      </div>
+      <div class="qlinks">${[['news', '📰 Newsletter'], ['alerts', state.push === 'on' ? '🔔 Notifications on' : '🔔 Turn on notifications'], ['staffhelp', '❓ How it works'], ...((state.jobs || []).some(j => j.status === 'open') ? [['jobs', '💼 Jobs']] : [])].map(([v, l]) => `<button data-action="go" data-view="${v}">${l}</button>`).join('')}</div>`;
+    return h;
+  }
+  if (false){ const me = state.user.id; const mine = [];
     h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
       ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}${tile('news', 'Newsletter', latestNews()?.title || 'News from the club', 'news')}${tile('help', 'Notifications', state.push === 'on' ? 'On for this phone' : 'Alerts on your phone, free', 'alerts')}
       ${tile('swap', 'Swaps', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} to pick from` : 'Swap a shift with someone'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
@@ -4208,6 +4238,25 @@ function dayTag(d){
 }
 function myNext(){ const me = state.user.id; const today = todayStr();
   return state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session))[0]; }
+/* Staff: quick start for new starters (until they tap Got it) */
+function staffQuickStart(){
+  try { if (localStorage.getItem('qs-staff-' + state.user.id)) return ''; } catch(e){ return ''; }
+  return `<div class="qstart"><div class="ntop"><b>👋 Welcome to the staff app</b><button class="linkbtn" data-action="qsdone">Got it</button></div>
+    <ol><li><b>Your shifts</b> are on <b>My shifts</b>. Your next one is always at the top of Home.</li>
+      <li><b>Can’t make a shift?</b> Tap it and press <b>Ask everyone to swap</b>. If no one can, message the manager.</li>
+      <li><b>Holiday:</b> tap <b>Book holiday</b>, pick your first and last day, then send it.</li>
+      <li>Turn on <b>notifications</b> so you hear when the rota is out or someone needs a swap.</li></ol></div>`;
+}
+const firstHolDay = () => { let d = todayStr(); for (let k = 0; k < 120 && isPublished(d); k++) d = ymd(addDays(parseYmd(d), 1)); return d; };
+function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
+function openPickShift(){
+  const me = state.user.id; const today = todayStr();
+  const list = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session)).slice(0, 12);
+  openSheet(`<div class="sheet-h"><div><h2>Which shift can’t you make?</h2><p class="muted">Tap it. Next you can ask everyone to swap, or tell the manager.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="clist">${list.map(s => `<button class="crow" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span></span><i aria-hidden="true">›</i></button>`).join('')
+      || '<div class="empty">You’ve no shifts coming up.</div>'}</div>
+    <p class="muted" style="font-size:13px;margin:12px 0 0">Ill today or something urgent? <button class="linkbtn" data-action="msgstart">Message the manager</button></p>`);
+}
 function nextShiftCard(){
   const nx = myNext();
   if (!nx) return '<div class="nextshift none"><span class="lbl">Next shift</span><b>Nothing booked yet</b><span class="muted">You’ll see your shifts here once the rota is out.</span></div>';
@@ -4240,12 +4289,15 @@ function myShiftsView(){
     if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
     return ''; };
   const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
+  const comingRows = `${coming.slice(0, state.allComing ? 999 : 6).map(s => `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
+        <span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`).join('') || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}${coming.length > 6 ? `<button class="btn ghost" data-action="allcoming">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}`;
   return `<div class="head myhead"><h1>My shifts</h1><div class="hbtns"><button class="btn sm" data-action="holnew">Request holiday</button><button class="btn ghost sm" data-action="msgstart">✉ Message the manager</button></div></div>
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp">? How it works</button>
-    <p class="muted myrota">Rota ${periodLabel(cur)}</p>${myStats()}
-    ${nextShiftCard()}
-    ${myUpdatesHtml(coming)}
-    <nav class="secnav" aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'Coming up', 'Coming up'], ['holiday', 'My holiday', 'Holiday'], ['swaps', 'Swaps', 'Swaps']].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
+    <p class="muted myrota">Rota ${periodLabel(cur)} · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
+    <section class="msec" id="sec-next"><div class="label">Coming up</div>
+    <p class="muted" style="font-size:14px;margin:-4px 0 10px">Tap a shift to swap it or say you can’t work it.</p>
+    <div class="clist">${comingRows}</div></section>
+    <nav class="secnav" hidden aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'Coming up', 'Coming up'], ['holiday', 'My holiday', 'Holiday'], ['swaps', 'Swaps', 'Swaps']].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
     <section class="msec" id="sec-diary"><div class="label">My diary</div>
     <div class="panel stack mydiary">
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to see it and to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
@@ -4253,9 +4305,7 @@ function myShiftsView(){
       ${cal}
       <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span></div>
     </div></section>
-    <section class="msec" id="sec-next"><div class="label">Coming up</div>
-    <div class="clist">${coming.slice(0, state.allComing ? 999 : 6).map(s => `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
-        <span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`).join('') || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}${coming.length > 6 ? `<button class="btn ghost" data-action="allcoming">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}</div></section>
+
     <section class="msec" id="sec-holiday"><div class="label">My holiday</div>${myHolidayCard(me, false)}</section>
     <section class="msec" id="sec-swaps"><div class="label">Swaps</div>${swapLinkCard()}</section>
     <section class="msec" id="sec-msgs"><div class="label">My messages</div>${myMessagesHtml()}</section>`;
@@ -4891,17 +4941,19 @@ function holidayView(){
   return page('Request holiday', '', ['myshifts', 'My shifts']) + `
     <div class="panel stack">
       <p class="hnote">You can ask for holiday on days whose rota <b>isn’t out yet</b>. Days marked <b>Out</b> are already on a published rota: to get one of those off, swap your shift instead.</p>
-      <p class="muted" style="font-size:14px">Tap your first day, then your last day to pick the days in between. Tap a day again to take it off. Picked days have a green border. The manager approves it.</p>
+      <p style="margin:0;font-weight:700">The first day you can book is ${fmtDate(firstHolDay(), { weekday: 'short', day: 'numeric', month: 'short' })}.</p>
+      <ol class="hsteps"><li>Tap your <b>first day</b> off.</li><li>Tap your <b>last day</b> off. The days in between are picked for you.</li><li>Press <b>Send to the manager</b> at the bottom.</li></ol>
+      <p class="muted" style="font-size:13px;margin:0">Tapped the wrong day? Tap it again to take it off.</p>
       <div class="bar" style="margin:0">${stepper('holmonth', fmtMonth(state.holMonth), state.holMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="legend" style="margin:0"><span style="color:var(--green)">Picked · Hol = holiday booked</span><span style="color:var(--teal)">Shift: you’re on the rota</span><span style="color:var(--amber)">Event on</span></div>
+      <div class="legend" style="margin:0"><span style="color:var(--green)">Green border = picked</span><span style="color:var(--green)">Hol = holiday already booked</span><span style="color:var(--amber)">Asked = waiting for the manager</span><span style="color:var(--teal)">Shift = you’re working</span><span style="color:var(--amber)">Event on</span></div>
     </div>
     <div class="panel stack" style="margin-top:14px">
       <b>${n ? `${plural(n, 'day')} picked` : 'No days picked yet'}</b>
       ${n ? `<p style="font-size:14px">${dayRanges(state.holSel)}</p>` : ''}
       <div class="holsum">${sums}</div>
       <input class="in" id="hol-note" placeholder="Note for the manager (optional)" aria-label="Note for the manager" value="${esc(state.holNote)}">
-      <div class="bar" style="margin:0"><button class="btn" data-action="holsubmit" ${!n || over ? 'disabled' : ''}>Submit request</button>${n ? '<button class="btn ghost" data-action="holclear">Clear</button>' : ''}</div>
+      <div class="bar" style="margin:0"><button class="btn" data-action="holsubmit" ${!n || over ? 'disabled' : ''}>Send to the manager</button>${n ? '<button class="btn ghost" data-action="holclear">Clear</button>' : ''}</div>
     </div>`;
 }
 
@@ -5046,6 +5098,8 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  pickshift: () => openPickShift(),
+  qsdone: () => { try { localStorage.setItem('qs-staff-' + state.user.id, '1'); } catch(e){} render(); },
   openposter: () => openPosterSheet(),
   pushon: async t => { const err = t.closest('.panel')?.querySelector('.err'); try { t.disabled = true; await turnPushOn(); toast('Notifications are on 🔔'); render(); } catch(e){ if (err) err.textContent = e.message; else toast(e.message); t.disabled = false; } },
   pushoff: async () => { await turnPushOff(); toast('Notifications are off on this phone'); render(); },
@@ -5179,7 +5233,7 @@ const actions = {
   // what's on
   delevent: async t => { if (!armed(t)) return; await api.deleteEvent(Number(t.dataset.id)); toast('Event removed'); refresh(); },
   // staff member
-  offmonth: t => go('myshifts', { offMonth: stepMonth(state.offMonth, t.dataset.step) }),
+  offmonth: t => go('myshifts', { offMonth: stepMonth(state.offMonth, t.dataset.step), offMonthPicked: true }),
   toggleoff: async t => {
     const ds = t.dataset.date; const me = state.user.id;
     const off = state.ops.unavail.find(u => u.staff_id === me && u.off_date === ds);
@@ -5208,7 +5262,7 @@ const actions = {
   tkexcel: async t => { t.disabled = true; try { await exportTickets(t.dataset.id ? Number(t.dataset.id) : null); } finally { if (t.isConnected) t.disabled = false; } },
   // holiday
   rotatab: t => go('rota', { rotaTab: t.dataset.val }),
-  holnew: () => go('holiday', { holSel: [], holNote: '', holMonth: startOfMonth(new Date()) }),
+  holnew: () => { const d = firstHolDay(); go('holiday', { holSel: [], holNote: '', holMonth: startOfMonth(parseYmd(Number(d.slice(8)) >= 24 ? ymd(addDays(parseYmd(d), 10)) : d)) }); },
   holmonth: t => { state.holNote = $('#hol-note')?.value ?? state.holNote; return go('holiday', { holMonth: stepMonth(state.holMonth, t.dataset.step) }); },
   holpick: t => {
     const ds = t.dataset.date; const taken = holTaken(state.user.id); const today = todayStr();

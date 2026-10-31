@@ -280,3 +280,10 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Pick the month (this month or the next three), choose whether to include league nights, and add an optional line for the bottom. It opens in a new tab and the print box appears (or Save as PDF).
 - The poster uses the **same event cards as the app's What's On**: same date box, title, times, room, description, banner picture, entry and ticket prices, in the app's colours and fonts, under the Railway Club header picture. One full-width row per event, shrunk automatically to fit one A4 page. Buttons (Going, stars, Reserve) are left off.
 - If there's room at the bottom, it adds a **Get the club app** panel: a picture of the app on a phone, what it does, the web address and a QR code (img/app-phone-whatson.webp, img/app-qr.svg).
+
+## Easier for staff (Oct 2026)
+- **Home** is now built around what staff need: next shift at the top, a highlighted card when a colleague needs a swap (or someone offered to take yours), then four big buttons: **Can't make a shift**, **Book holiday**, **Who's working**, **Message the manager**. Newsletter, notifications and How it works are small links underneath.
+- **Can't make a shift** lists your coming shifts; tap one to ask everyone to swap or tell the manager.
+- A **welcome box** explains the app in 4 steps for new staff until they tap Got it.
+- **My shifts** no longer repeats Home: "Coming up" is first, then the diary (which opens on the month of your next shift), holiday, swaps and messages.
+- **Book holiday** says the first day you can book, gives 3 numbered steps, opens on a month you can actually book, and the button says "Send to the manager".
