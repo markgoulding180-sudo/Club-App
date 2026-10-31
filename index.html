@@ -3769,14 +3769,7 @@ function whatsOnView(){
   const admin = isAdmin() && canWhatsOn(); const editor = canWhatsOn();
   const tab = state.woTab === 'sport' ? 'sport' : 'events';
   const clubList = state.events.filter(e => e.b || e.category !== 'Sport');
-  const card = e => { const d = new Date(e.starts_at);
-    if (e.b && !admin) return clubEventCard(e, d);
-    return `<div class="event${e.b ? ' club' : ''}${!admin && likesEvent(e) ? ' liked' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
-      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}${admin ? '' : starBtn(e)}
-      ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
-      ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
-      ${e.category === 'Sport' && !e.b ? '' : rsvpHtml(e)}
-      ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; };
+  const card = e => woCard(e, admin);
   let list;
   const fy = state.woFilter === 'mine' && !admin; if (tab === 'events') list = clubList.filter(e => !fy || likesEvent(e)).map(card).join('');
   else {
@@ -3796,6 +3789,14 @@ function whatsOnView(){
     + tabs + `<div class="list">${list || `<div class="empty">${tab === 'sport' ? 'No live sport listed yet.' : fy ? 'None of your favourite nights are on yet. Tap ☆ on any event to add that kind of night.' : 'Nothing on yet.'}</div>`}</div>`;
 }
 
+function woCard(e, admin){ const d = new Date(e.starts_at);
+    if (e.b && !admin) return clubEventCard(e, d);
+    return `<div class="event${e.b ? ' club' : ''}${!admin && likesEvent(e) ? ' liked' : ''}" style="${e.b ? evVars(e.b.event_type) : ''}${bannerBg(e)}"><div class="ehead"><div class="when"><div class="m">${d.toLocaleDateString('en-GB', { weekday:'short' })}</div><div class="d">${d.getDate()}</div><div class="m">${d.toLocaleDateString('en-GB', { month:'short' })}</div></div>
+      <div class="etitle"><b>${esc(e.title)}</b><span class="meta">${timeOf(e.starts_at)}${e.category ? ' · ' + esc(e.category) : ''}</span></div>${cardBanner(e)}${admin ? '' : starBtn(e)}
+      ${admin ? (e.bookingId ? `<button class="btn ghost sm" data-action="openbooking" data-id="${e.bookingId}">Open</button>` : `<button class="btn ghost sm" data-action="delevent" data-id="${e.id}">Delete</button>`) : ''}</div>
+      ${e.description ? `<p class="edesc">${esc(e.description)}</p>` : ''}
+      ${e.category === 'Sport' && !e.b ? '' : rsvpHtml(e)}
+      ${admin && e.b?.ticketed ? `<div class="tline"><span class="tk">${ICONS.ticket}${state.sold[e.b.id] || 0}${e.b.tickets_total ? ` of ${e.b.tickets_total}` : ''} reserved</span><span class="grow"></span><button class="btn ghost sm" data-action="tkevent" data-id="${e.b.id}">Tickets</button></div>` : ''}</div>`; }
 /* ---------- Printable monthly What's On poster (A4) ---------- */
 const POSTER_THEMES = {
   12: { line: '’Tis the season at the club!', a: '#b3121b', b: '#14532d', gold: '#e8b84a', bg: '#0f2a1b', tag: ['’Tis the season', 'at the club!'], tag2: ['Good friends', 'Great times', 'All welcome!'] },
@@ -3829,6 +3830,65 @@ async function posterRows(month, leagues){
       time: span ? `${span[1].replace(/\s/g, '')}–${span[2].replace(/\s/g, '')}` : timeOf(e.starts_at).replace(/^0/, ''), cat: open ? '' : catOf(e), icon: posterIcon(e.title, catOf(e)), dark: false });
   });
   return rows.sort((a, b) => a.date.localeCompare(b.date));
+}
+async function posterEvents(month, leagues){
+  const [y, m] = month.split('-').map(Number); const from = `${month}-01`; const to = ymd(new Date(y, m, 0));
+  const [club, ev] = await Promise.all([api.clubEvents(from, to), api.eventsBetween(from, to)]);
+  const cl = club.filter(b => b.status !== 'cancelled' && (leagues || !isLeagueNight(b.event_type, b)));
+  const fromClub = cl.map(b => ({ id: 'b' + b.id, bookingId: b.id, title: b.event_type, category: 'Club event', b,
+    starts_at: new Date(`${b.booking_date}T${hhmm(b.start_time) || '19:00'}`).toISOString() }));
+  return [...ev.filter(e => !isFootball(e) && (leagues || !isLeagueNight(e.title))), ...fromClub].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+}
+function posterCardsHtml(month, events, footer){
+  const [y, m] = month.split('-').map(Number); const O = location.origin + '/';
+  const mLabel = new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const clubName = (CONFIG.TOWN && !CONFIG.CLUB_NAME.includes(CONFIG.TOWN) ? CONFIG.TOWN + ' ' : '') + CONFIG.CLUB_NAME;
+  // draw the cards exactly as members see them, without the buttons
+  const keep = { user: state.user, myTk: state.myTk, sold: state.sold };
+  let cards;
+  try { state.user = null; state.myTk = []; state.sold = {}; cards = events.map(e => woCard(e, false).replace(' liked', '')).join(''); }
+  finally { Object.assign(state, keep); }
+  const css = [...document.querySelectorAll('style')].map(x => x.textContent).join('\n').replace(/url\((['"]?)(?!data:|https?:|\/)/g, `url($1${O}`);
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><base href="${O}"><title>What’s On ${mLabel} · ${esc(clubName)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>${css}
+@page{size:A4 portrait;margin:7mm}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{background:var(--bg)!important}
+body{padding:0;margin:0}
+body::before,body::after{display:none!important}
+.pposter{width:196mm;max-width:none;margin:0 auto;padding:0 0 6px;position:static}
+.pposter .list{display:block;column-count:2;column-gap:10px}
+.pposter .event{margin:0 0 10px;width:100%;break-inside:avoid;-webkit-column-break-inside:avoid}
+.pposter .ehead:has(.ebar){flex-wrap:wrap}
+.pposter .ehead .ebar{order:9 !important;flex:1 0 100%;width:100%;max-width:none;height:auto;object-fit:contain;object-position:center;margin:6px 0 0 !important}
+.pposter .etitle{min-width:0}
+.phero{display:block;width:100%;height:auto;aspect-ratio:3.9;object-fit:cover;object-position:50% 15%;border-radius:22px;border:2px solid rgba(255,200,90,.6);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.ptitle{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:14px 2px 12px}
+.ptitle h1{margin:0;font-size:34px}
+.ptitle span{color:var(--muted);font-weight:700;font-size:14px}
+.pposter .event{break-inside:avoid;page-break-inside:avoid}
+.pposter .star,.pposter .go,.pposter .btn,.pposter .mine,.pposter .left{display:none!important}
+.pfoot{margin:14px 2px 0;display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-weight:700;font-size:13px}
+.pfoot b{color:var(--teal,#2ee6c8)}
+.tip{font:14px/1.4 Arial,sans-serif;background:#ffd;color:#222;padding:10px 14px;text-align:center}
+@media print{.tip{display:none}}
+</style></head><body>
+<div class="tip">Printing… In the print box choose <b>A4</b> and turn on <b>Background graphics</b>. Choose <b>Save as PDF</b> to keep a copy or share it.</div>
+<div class="pposter">
+  <img class="phero" src="${O}img/hero-wide-2000.webp" alt="${esc(clubName)}">
+  <div class="ptitle"><div class="head" style="margin:0"><h1>What’s On in ${esc(mLabel.split(' ')[0])}</h1></div><span>${esc(clubName)} · ${esc(mLabel)}</span></div>
+  <div class="list">${cards || '<div class="empty">More events coming soon!</div>'}</div>
+  <div class="pfoot"><b>${esc(footer || 'Good times all month long!')}</b><span>Members, guests &amp; new faces always welcome · Book on the club app</span></div>
+</div>
+<script>(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })))).then(() => {
+  /* shrink to fit one A4 page (283mm of printable height) */
+  const el = document.querySelector('.pposter'); const mm = document.createElement('div'); mm.style.height = '283mm'; document.body.appendChild(mm); const pageH = mm.offsetHeight; mm.remove();
+  const h = el.offsetHeight;
+  if (h > pageH){ const sc = (pageH / h * 0.995).toFixed(4); el.style.transformOrigin = 'top center'; el.style.transform = 'scale(' + sc + ')'; document.body.style.height = pageH + 'px'; document.body.style.overflow = 'hidden'; }
+  setTimeout(() => window.print(), 500); });<\/script>
+</body></html>`;
 }
 function posterHtml(month, rows, footer){
   const [y, m] = month.split('-').map(Number); const T = POSTER_THEMES[m] || POSTER_THEMES.default;
@@ -5281,7 +5341,7 @@ const forms = {
   async printposter(f){
     const w = window.open('', '_blank'); if (!w) throw new Error('Your browser blocked the new tab. Allow pop-ups for this site and try again.');
     w.document.write('<p style="font:16px Arial;padding:20px">Making the poster…</p>');
-    try { const rows = await posterRows(f.month.value, f.leagues.checked); w.document.open(); w.document.write(posterHtml(f.month.value, rows, f.footer.value.trim())); w.document.close(); closeSheet(); }
+    try { const evs = await posterEvents(f.month.value, f.leagues.checked); w.document.open(); w.document.write(posterCardsHtml(f.month.value, evs, f.footer.value.trim())); w.document.close(); closeSheet(); }
     catch(e){ w.close(); throw e; }
   },
   async savenl(f, e){
