@@ -278,4 +278,5 @@ If no one can swap, the staff member can still tell the manager they can't work 
 ## Printable What's On poster
 - Admins with What's On access get **🖨 Print monthly poster** on the What's On page and a **Print What's On** tile on Home.
 - Pick the month (this month or the next three), choose whether to include league nights, and add an optional line for the bottom. It opens in a new tab and the print box appears (or Save as PDF).
-- The poster uses the **same event cards as the app's What's On**: same date box, title, times, room, description, banner picture, entry and ticket prices, in the app's colours and fonts, under the Railway Club header picture. Two columns, shrunk automatically to fit one A4 page. Buttons (Going, stars, Reserve) are left off.
+- The poster uses the **same event cards as the app's What's On**: same date box, title, times, room, description, banner picture, entry and ticket prices, in the app's colours and fonts, under the Railway Club header picture. One full-width row per event, shrunk automatically to fit one A4 page. Buttons (Going, stars, Reserve) are left off.
+- If there's room at the bottom, it adds a **Get the club app** panel: a picture of the app on a phone, what it does, the web address and a QR code (img/app-phone-whatson.webp, img/app-qr.svg).

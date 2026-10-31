@@ -3859,12 +3859,26 @@ html,body{background:var(--bg)!important}
 body{padding:0;margin:0}
 body::before,body::after{display:none!important}
 .pposter{width:196mm;max-width:none;margin:0 auto;padding:0 0 6px;position:static}
-.pposter .list{display:block;column-count:2;column-gap:10px}
-.pposter .event{margin:0 0 10px;width:100%;break-inside:avoid;-webkit-column-break-inside:avoid}
-.pposter .ehead:has(.ebar){flex-wrap:wrap}
-.pposter .ehead .ebar{order:9 !important;flex:1 0 100%;width:100%;max-width:none;height:auto;object-fit:contain;object-position:center;margin:6px 0 0 !important}
+.pposter .list{display:grid;gap:9px}
+.pposter .event{margin:0;gap:4px 16px;padding:10px 16px 10px 20px;break-inside:avoid;grid-template-columns:1fr auto;align-items:center}
+.pposter .event>.ehead{grid-column:1/-1}
+.pposter .event>.tline{grid-column:2;grid-row:2;margin:0}
+.pposter .event>.edesc{grid-column:1;grid-row:2}
+.pposter .ehead{flex-wrap:nowrap}
+.pposter .ehead .ebar{order:0 !important;flex:0 0 52%;width:52%;max-width:none;height:auto;object-fit:contain;object-position:center;margin:0 0 0 auto !important;border:1px solid rgba(120,170,255,.35) !important;border-radius:12px}
+.pposter .edesc{margin:0}
+.promo{display:flex;align-items:center;gap:26px;margin:16px 0 0;padding:16px 22px;border-radius:20px;border:1px solid var(--line);background:linear-gradient(135deg,rgba(46,230,200,.12),rgba(120,90,255,.10)),var(--surface)}
+.promo[hidden]{display:none}
+.promo .ph{height:250px;width:auto;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5))}
+.promo .tx{flex:1;display:grid;gap:8px}
+.promo h2{margin:0;font-size:30px;line-height:1.1}
+.promo p{margin:0;color:var(--muted);font-size:16px;line-height:1.45}
+.promo ul{margin:2px 0 0;padding-left:20px;color:var(--ink);font-weight:600;font-size:15px;line-height:1.6}
+.promo .url{font:800 22px/1.2 var(--display,inherit);color:var(--teal,#2ee6c8);word-break:break-all}
+.promo .qr{width:130px;height:130px;background:#fff;border-radius:14px;padding:8px}
+.promo .qrw{display:grid;justify-items:center;gap:6px;color:var(--muted);font-weight:700;font-size:13px}
 .pposter .etitle{min-width:0}
-.phero{display:block;width:100%;height:auto;aspect-ratio:3.9;object-fit:cover;object-position:50% 15%;border-radius:22px;border:2px solid rgba(255,200,90,.6);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.phero{display:block;width:100%;height:auto;aspect-ratio:4.4;object-fit:cover;object-position:50% 15%;border-radius:22px;border:2px solid rgba(255,200,90,.6);box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .ptitle{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:14px 2px 12px}
 .ptitle h1{margin:0;font-size:34px}
 .ptitle span{color:var(--muted);font-weight:700;font-size:14px}
@@ -3880,11 +3894,18 @@ body::before,body::after{display:none!important}
   <img class="phero" src="${O}img/hero-wide-2000.webp" alt="${esc(clubName)}">
   <div class="ptitle"><div class="head" style="margin:0"><h1>What’s On in ${esc(mLabel.split(' ')[0])}</h1></div><span>${esc(clubName)} · ${esc(mLabel)}</span></div>
   <div class="list">${cards || '<div class="empty">More events coming soon!</div>'}</div>
+  <div class="promo" hidden><img class="ph" src="${O}img/app-phone-whatson.webp" alt="The club app on a phone">
+    <div class="tx"><h2>Get the club app</h2><p>Everything on this poster, and more, on your phone:</p>
+      <ul><li>What’s On, and a reminder before your favourite nights</li><li>Reserve event tickets and book the Function Room</li><li>The monthly newsletter and news from the club</li></ul>
+      <div class="url">${esc(location.host)}</div><p>Open it on your phone, sign in, then tap <b>Add to Home Screen</b>.</p></div>
+    ${location.host === 'club-app-zeta.vercel.app' ? `<div class="qrw"><img class="qr" src="${O}img/app-qr.svg" alt="QR code for the club app">Scan me</div>` : ''}</div>
   <div class="pfoot"><b>${esc(footer || 'Good times all month long!')}</b><span>Members, guests &amp; new faces always welcome · Book on the club app</span></div>
 </div>
 <script>(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })))).then(() => {
   /* shrink to fit one A4 page (283mm of printable height) */
   const el = document.querySelector('.pposter'); const mm = document.createElement('div'); mm.style.height = '283mm'; document.body.appendChild(mm); const pageH = mm.offsetHeight; mm.remove();
+  const promo = el.querySelector('.promo'); promo.hidden = false;
+  if (el.offsetHeight > pageH) promo.hidden = true;
   const h = el.offsetHeight;
   if (h > pageH){ const sc = (pageH / h * 0.995).toFixed(4); el.style.transformOrigin = 'top center'; el.style.transform = 'scale(' + sc + ')'; document.body.style.height = pageH + 'px'; document.body.style.overflow = 'hidden'; }
   setTimeout(() => window.print(), 500); });<\/script>
