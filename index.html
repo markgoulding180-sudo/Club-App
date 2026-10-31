@@ -3798,9 +3798,9 @@ function whatsOnView(){
 
 /* ---------- Printable monthly What's On poster (A4) ---------- */
 const POSTER_THEMES = {
-  12: { a: '#b3121b', b: '#14532d', gold: '#e8b84a', bg: '#0f2a1b', tag: ['’Tis the season', 'at the club!'], tag2: ['Good friends', 'Great times', 'All welcome!'] },
-  11: { a: '#7a1f1f', b: '#1f4d2b', gold: '#d9a441', bg: '#2a1d12', tag: ['More than', 'just a club'], tag2: ['All aboard', 'for a great', 'month!'] },
-  10: { a: '#c2410c', b: '#3b0764', gold: '#f59e0b', bg: '#1c1208', tag: ['Spooky fun', 'at the club'], tag2: ['Good friends', 'Great times'] },
+  12: { line: '’Tis the season at the club!', a: '#b3121b', b: '#14532d', gold: '#e8b84a', bg: '#0f2a1b', tag: ['’Tis the season', 'at the club!'], tag2: ['Good friends', 'Great times', 'All welcome!'] },
+  11: { line: 'Great events · Good company · Everyone welcome', a: '#7a1f1f', b: '#1f4d2b', gold: '#d9a441', bg: '#2a1d12', tag: ['More than', 'just a club'], tag2: ['All aboard', 'for a great', 'month!'] },
+  10: { line: 'Spooky fun at the club', a: '#c2410c', b: '#3b0764', gold: '#f59e0b', bg: '#1c1208', tag: ['Spooky fun', 'at the club'], tag2: ['Good friends', 'Great times'] },
   default: { a: '#8b1d2c', b: '#1d3b6e', gold: '#e2b04a', bg: '#0e1a33', tag: ['More than', 'just a club'], tag2: ['Good friends', 'Great times', 'All welcome!'] }
 };
 const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
@@ -3819,77 +3819,77 @@ async function posterRows(month, leagues){
   const rows = club.filter(b => b.status !== 'cancelled' && (leagues || !isLeagueNight(b.event_type, b))).map(b => {
     const cat = b.event_details?.cat && b.event_details.cat !== 'none' ? b.event_details.cat : guessCat(b.event_type);
     return { date: b.booking_date, name: b.event_type, sub: b.ticketed ? `Ticket event${b.price_member ? ` · £${Number(b.price_member)} members, £${Number(b.price_guest || b.price_member)} guests` : ''}` : '',
-      time: pRange(b.start_time, b.end_time), icon: posterIcon(b.event_type, cat), dark: /new year/i.test(b.event_type) }; });
+      time: pRange(b.start_time, b.end_time), cat, icon: posterIcon(b.event_type, cat), dark: /new year/i.test(b.event_type) }; });
   ev.filter(e => !isFootball(e) && (leagues || !isLeagueNight(e.title))).forEach(e => {
     const d = new Date(e.starts_at); const desc = e.description || '';
     const open = /opening/i.test(e.title) || /opening/i.test(desc);
     const span = desc.match(/(\d{1,2}(?::\d\d)?\s?[ap]m)\s*[–-]\s*(\d{1,2}(?::\d\d)?\s?[ap]m)/i);
     const extra = (desc.match(/with an? ([^.(]+?)\s*\d/i) || [])[1];
     rows.push({ date: ymd(d), name: open ? e.title.replace(/\s*opening( times)?/i, '') : e.title, sub: open ? `Opening times${extra ? ' · ' + extra : ''}` : '',
-      time: span ? `${span[1].replace(/\s/g, '')}–${span[2].replace(/\s/g, '')}` : timeOf(e.starts_at).replace(/^0/, ''), icon: posterIcon(e.title, catOf(e)), dark: false });
+      time: span ? `${span[1].replace(/\s/g, '')}–${span[2].replace(/\s/g, '')}` : timeOf(e.starts_at).replace(/^0/, ''), cat: open ? '' : catOf(e), icon: posterIcon(e.title, catOf(e)), dark: false });
   });
   return rows.sort((a, b) => a.date.localeCompare(b.date));
 }
 function posterHtml(month, rows, footer){
   const [y, m] = month.split('-').map(Number); const T = POSTER_THEMES[m] || POSTER_THEMES.default;
+  const O = location.origin + '/';
   const mName = new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long' }).toUpperCase();
-  const n = Math.max(rows.length, 1); const two = n > 13; const per = two ? Math.ceil(n / 2) : n;
-  const rowH = Math.min(two ? 24 : 32, Math.max(two ? 14 : 12, 208 / per - 2.4));
-  const nameSize = Math.min(12, rowH * 0.42), dateSize = Math.min(7, rowH * 0.27);
+  const n = Math.max(rows.length, 1); const two = n > 12; const per = two ? Math.ceil(n / 2) : n;
+  const rowH = Math.min(two ? 22 : 28, Math.max(two ? 13 : 11.5, 183 / per - 2.2));
+  const nameSize = Math.min(two ? 6.5 : 10.5, rowH * 0.4), dateSize = Math.min(6.5, rowH * 0.27);
+  const tSize = Math.min(two ? 4.4 : 7, rowH * 0.3);
   const clubName = (CONFIG.TOWN && !CONFIG.CLUB_NAME.includes(CONFIG.TOWN) ? CONFIG.TOWN + ' ' : '') + CONFIG.CLUB_NAME;
-  const row = (r, i) => { const d = parseYmd(r.date); const alt = i % 2 ? T.b : T.a;
+  const row = (r, i) => { const d = parseYmd(r.date); const alt = i % 2 ? T.b : T.a; const pic = BANNER_CATS[r.cat] ? `img/poster-${r.cat}.webp` : '';
     return `<div class="r${r.dark ? ' dark' : ''}"><div class="d" style="background:${alt}"><span>${d.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()}</span><b>${d.getDate()}<sup>${ordinal(d.getDate()).slice(-2).toUpperCase()}</sup></b>${d.getFullYear() !== y ? `<span>${d.getFullYear()}</span>` : ''}</div>
-      <div class="n"><i>${r.icon}</i><div><b style="color:${r.dark ? T.gold : alt}">${esc(r.name)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</div><i>${r.icon}</i></div><div class="t" style="font-size:${(Math.min(two ? 4.6 : 7.5, rowH * 0.3) * (r.time.length > 8 ? 0.8 : 1)).toFixed(2)}mm">${esc(r.time)}</div></div>`; };
+      <div class="n">${pic ? '' : `<i>${r.icon}</i>`}<div class="nt"><b>${esc(r.name)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</div>${pic ? `<img class="pic" src="${O}${pic}" alt="">` : `<i>${r.icon}</i>`}</div>
+      <div class="t" style="font-size:${(tSize * (r.time.length > 8 ? 0.8 : 1)).toFixed(2)}mm">${esc(r.time)}</div></div>`; };
   const half = two ? [rows.slice(0, per), rows.slice(per)] : [rows];
-  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>What’s On ${mName[0] + mName.slice(1).toLowerCase()} ${y} · ${esc(CONFIG.CLUB_NAME)}</title>
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>What’s On ${mName[0] + mName.slice(1).toLowerCase()} ${y} · ${esc(clubName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rye&family=Lobster&family=Oswald:wght@500;700&family=Kalam:wght@700&display=swap" rel="stylesheet">
 <style>
 @page{size:A4 portrait;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 html,body{margin:0;background:#666}
-.pg{width:210mm;height:297mm;margin:0 auto;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,${T.bg}dd,${T.bg} 60%);color:#222;font-family:Oswald,Arial,sans-serif;padding:9mm 9mm 0}
-.pg:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 14mm,rgba(255,255,255,.025) 14mm 28mm);pointer-events:none}
-.hd{position:relative;text-align:center;border:1.2mm solid ${T.gold};border-radius:5mm;background:linear-gradient(180deg,${T.b},${T.bg});padding:4mm 6mm 4.5mm;box-shadow:0 0 0 .6mm ${T.bg},0 0 0 1.2mm ${T.gold}55}
-.hd img{position:absolute;left:5mm;top:50%;transform:translateY(-50%);width:27mm;height:27mm;border-radius:50%;border:.8mm solid ${T.gold}}
-.hd .rt{position:absolute;right:5mm;top:50%;transform:translateY(-50%);width:30mm;font:700 4.4mm/1.15 Kalam,cursive;color:${T.gold};transform:translateY(-50%) rotate(-6deg)}
-.hd .k1{font:400 9mm/1 Lobster,cursive;color:#fff8e7}
-.hd .mo{font:400 ${mName.length > 7 ? 19 : 22}mm/1 Rye,serif;color:${T.gold};letter-spacing:1mm;text-shadow:.6mm .6mm 0 ${T.a},1.2mm 1.2mm 0 rgba(0,0,0,.5);margin:1mm 0}
-.hd .k2{font:700 5.5mm/1 Oswald,sans-serif;color:#fff8e7;letter-spacing:.4mm}
-.lt{position:absolute;left:11mm;top:46mm;font:700 4.6mm/1.1 Kalam,cursive;color:${T.gold};transform:rotate(-8deg);display:none}
-.cols{display:grid;grid-template-columns:${two ? '1fr 1fr' : '1fr'};gap:3mm;margin-top:5mm;position:relative}
+.pg{width:210mm;height:297mm;margin:0 auto;position:relative;overflow:hidden;color:#fff;font-family:Oswald,Arial,sans-serif;padding:7mm 8mm 0;
+  background:linear-gradient(180deg,rgba(6,12,30,.35),rgba(6,12,30,.7)),url('${O}img/sec-bg.webp') center/cover #0b1d44}
+.hero{position:relative;border-radius:4mm;overflow:hidden;border:.9mm solid ${T.gold};box-shadow:0 1.2mm 3mm rgba(0,0,0,.6)}
+.hero img{display:block;width:100%;height:50mm;object-fit:cover;object-position:50% 12%}
+.ttl{position:relative;margin:-7mm auto 0;width:84%;text-align:center;background:linear-gradient(180deg,#0e1f4a,#08132e);border:.8mm solid ${T.gold};border-radius:3mm;padding:2mm 4mm 2.6mm;box-shadow:0 1mm 3mm rgba(0,0,0,.6)}
+.ttl .k1{font:400 6.2mm/1 Lobster,cursive;color:#fff}
+.ttl .mo{font:400 ${mName.length > 7 ? 14 : 16}mm/1 Rye,serif;color:${T.gold};letter-spacing:.8mm;text-shadow:.5mm .5mm 0 ${T.a},1mm 1mm 1mm rgba(0,0,0,.6);margin:.6mm 0 .4mm}
+.ttl .k2{font:500 3.6mm/1 Oswald,sans-serif;letter-spacing:.5mm;color:#e9eefc}
+.cols{display:grid;grid-template-columns:${two ? '1fr 1fr' : '1fr'};gap:2.5mm;margin-top:4.5mm}
 .list{display:grid;gap:2.2mm;align-content:start}
-.r{display:grid;grid-template-columns:${two ? '22mm 1fr 22mm' : '32mm 1fr 40mm'};height:${rowH}mm;border-radius:2.2mm;overflow:hidden;background:#fffaf0;border:.5mm solid ${T.gold};box-shadow:0 .8mm 1.6mm rgba(0,0,0,.45)}
-.r .d{color:#fff;display:grid;place-content:center;text-align:center;line-height:1;padding:0 1mm}
-.r .d span{font:700 ${dateSize * 0.62}mm/1.1 Oswald,sans-serif;letter-spacing:.2mm}
-.r .d b{font:700 ${dateSize * 1.15}mm/1.05 Oswald,sans-serif}
+.r{display:grid;grid-template-columns:${two ? '19mm 1fr 19mm' : '29mm 1fr 33mm'};height:${rowH}mm;border-radius:2.4mm;overflow:hidden;
+  background:linear-gradient(90deg,#0c1a3f,#14306b);border:.45mm solid ${T.gold}cc;box-shadow:0 .8mm 1.8mm rgba(0,0,0,.55)}
+.r .d{color:#fff;display:grid;place-content:center;text-align:center;line-height:1;padding:0 1mm;border-right:.45mm solid ${T.gold}cc}
+.r .d span{font:700 ${(dateSize * 0.56).toFixed(2)}mm/1.1 Oswald,sans-serif;letter-spacing:.2mm}
+.r .d b{font:700 ${(dateSize * 1.12).toFixed(2)}mm/1.05 Oswald,sans-serif}
 .r .d sup{font-size:.5em}
-.r .n{display:flex;align-items:center;justify-content:center;gap:3mm;padding:0 2mm;text-align:center;border-right:.4mm dashed ${T.gold}}
-.r .n>div{display:grid;min-width:0}
-.r .n i{font-style:normal;font-size:${Math.min(9, rowH * 0.42)}mm;line-height:1}
-.r .n b{font:400 ${nameSize}mm/1.05 Lobster,cursive;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.r .n small{font:500 ${Math.min(3.6, rowH * 0.17)}mm/1.2 Oswald,sans-serif;color:#333;margin-top:.6mm}
-.r .t{display:grid;place-content:center;text-align:center;white-space:nowrap;font:700 ${Math.min(two ? 4.6 : 7.5, rowH * 0.3)}mm/1.1 Oswald,sans-serif;color:#1a1a1a;padding:0 1.5mm}
-.r.dark{background:#141414}.r.dark .n small{color:#ddd}.r.dark .t{color:#fff}
-.empty{background:#fffaf0;border-radius:3mm;padding:14mm;text-align:center;font:400 9mm Lobster,cursive;color:${T.a}}
-.ft{position:absolute;left:0;right:0;bottom:0;height:24mm;background:linear-gradient(180deg,transparent,rgba(0,0,0,.55));display:flex;align-items:flex-end;justify-content:space-between;padding:0 10mm 7mm;color:#fff8e7}
+.r .n{display:flex;align-items:stretch;min-width:0;position:relative}
+.r .n i{font-style:normal;font-size:${Math.min(8, rowH * 0.4).toFixed(2)}mm;display:grid;place-items:center;padding:0 2.5mm}
+.r .nt{flex:1;display:grid;align-content:center;justify-items:center;text-align:center;min-width:0;padding:0 2mm;z-index:1}
+.r .nt b{font:400 ${nameSize.toFixed(2)}mm/1.05 Lobster,cursive;color:${T.gold};text-shadow:.3mm .3mm 0 rgba(0,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.r .nt small{font:500 ${Math.min(3.4, rowH * 0.16).toFixed(2)}mm/1.2 Oswald,sans-serif;color:#dfe6fb;margin-top:.5mm}
+.r .pic{width:${two ? 0 : 62}mm;height:100%;object-fit:cover;object-position:center;-webkit-mask-image:linear-gradient(90deg,transparent,#000 30%);mask-image:linear-gradient(90deg,transparent,#000 30%);${two ? 'display:none;' : ''}}
+.r .t{display:grid;place-content:center;text-align:center;white-space:nowrap;font-weight:700;font-family:Oswald,sans-serif;color:#fff;padding:0 1.5mm;border-left:.45mm solid ${T.gold}cc;background:rgba(0,0,0,.25)}
+.r.dark{background:linear-gradient(90deg,#050505,#1d1a12)}
+.empty{background:rgba(8,19,46,.85);border:.6mm solid ${T.gold};border-radius:3mm;padding:14mm;text-align:center;font:400 9mm Lobster,cursive;color:${T.gold}}
+.ft{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(180deg,transparent,rgba(0,0,0,.6));display:flex;align-items:center;justify-content:space-between;padding:0 10mm 1mm}
 .ft .sl{font:400 6mm/1 Lobster,cursive;color:${T.gold}}
-.ft .sign{background:#5b3a1e;border:.7mm solid ${T.gold};border-radius:1.5mm;padding:2mm 4mm;text-align:center;font:700 4.2mm/1.1 Oswald,sans-serif;letter-spacing:.3mm}
-.ft .sign small{display:block;font:400 3.6mm Kalam,cursive;color:${T.gold};letter-spacing:0}
-.ft .app{font:500 3.3mm/1.3 Oswald,sans-serif;text-align:right;opacity:.9}
+.ft .rt{font:700 4.2mm/1.2 Kalam,cursive;color:#fff;text-align:right}
 .tip{font:14px/1.4 Arial,sans-serif;background:#ffd;color:#222;padding:10px 14px;text-align:center}
 @media print{html,body{background:none}.tip{display:none}}
 </style></head><body>
-<div class="tip">Printing… In the print box, choose <b>A4</b>, turn <b>Background graphics</b> on, and set margins to <b>None</b>. Choose <b>Save as PDF</b> to keep a copy.</div>
+<div class="tip">Printing… In the print box choose <b>A4</b>, margins <b>None</b>, and turn on <b>Background graphics</b>. Choose <b>Save as PDF</b> to keep a copy or share it.</div>
 <div class="pg">
-  <div class="hd"><img src="${location.origin}/${LOGO}" alt=""><div class="k1">What’s Coming Up in</div><div class="mo">${mName}</div><div class="k2">AT ${esc(clubName.toUpperCase())}</div>
-    <div class="rt">${T.tag2.map(esc).join('<br>')}</div></div>
+  <div class="hero"><img src="${O}img/hero-wide-2000.webp" alt="${esc(clubName)}"></div>
+  <div class="ttl"><div class="k1">What’s Coming Up in</div><div class="mo">${mName}</div><div class="k2">${esc((T.line || 'Good friends · Great times · All welcome!').toUpperCase())}</div></div>
   <div class="cols">${rows.length ? half.map((h, k) => `<div class="list">${h.map((r, i) => row(r, i + (k ? per : 0))).join('')}</div>`).join('') : `<div class="empty">More events coming soon!</div>`}</div>
-  <div class="ft"><div class="sl">${esc(footer || 'Good times all month long!')}</div>
-    <div class="sign">${esc(clubName.toUpperCase())}<small>More than just a club</small></div>
-    <div class="app">Members, guests &amp; new faces<br>always welcome!<br>Book &amp; see more on the club app</div></div>
+  <div class="ft"><div class="sl">${esc(footer || 'Good times all month long!')}</div><div class="rt">Members, guests &amp; new faces always welcome!<br>See more and book on the club app</div></div>
 </div>
-<script>(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { const imgs = [...document.images]; return Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); }).then(() => setTimeout(() => window.print(), 400));<\/script>
+<script>(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => Promise.all([...document.images].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })))).then(() => setTimeout(() => window.print(), 400));<\/script>
 </body></html>`;
 }
 function openPosterSheet(){

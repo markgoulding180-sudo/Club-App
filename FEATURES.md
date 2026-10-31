@@ -278,4 +278,4 @@ If no one can swap, the staff member can still tell the manager they can't work 
 ## Printable What's On poster
 - Admins with What's On access get **🖨 Print monthly poster** on the What's On page and a **Print What's On** tile on Home.
 - Pick the month (this month or the next three), choose whether to include league nights, and add an optional line for the bottom. It opens an A4 poster in a new tab and the print box appears (or Save as PDF).
-- Built from the month's club events and What's On items: dates in alternating coloured blocks, event names with an icon, times, ticket prices, festive opening times. Christmas colours for December, autumn colours for November. Rows resize to fill the page; more than 13 events go into two columns.
+- Built from the month's club events and What's On items. Uses the club's own artwork (the Railway Club header picture and the blue What's On background), with each event's What's On banner picture beside its name (img/poster-*.webp crops). Dates in alternating coloured blocks (red/green for December), times, ticket prices and festive opening times. Rows resize to fill the page; more than 13 events go into two columns.
