@@ -1577,6 +1577,29 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .audpick input{width:18px!important;height:18px!important;min-height:0!important;flex:0 0 18px;margin:0;padding:0;accent-color:#2ee6c8}
 .audpick label{justify-content:flex-start;font-size:14.5px;color:var(--ink)}
 .audpick label:has(input:checked){border-color:var(--teal,#2ee6c8);background:rgba(46,230,200,.12)}
+.hicons{display:flex;gap:6px;margin-left:auto;margin-right:8px}
+.hicons+.signout{margin-left:0}
+.hicon{position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--edge,var(--line));background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;padding:0}
+.hicon svg{width:21px;height:21px}
+.hicon.on{color:#f6c850;border-color:rgba(246,200,80,.7);background:rgba(246,200,80,.14)}
+.hicon.on svg{fill:rgba(246,200,80,.35)}
+.hicon .hnum{position:absolute;top:-5px;right:-5px;min-width:20px;height:20px;border-radius:10px;background:#f6c850;color:#1a1300;font:900 11.5px/20px var(--body);text-align:center;padding:0 5px;box-shadow:0 0 0 2px var(--bg)}
+.sheet .isub,.isub{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 8px}
+.nitem{position:relative;border:1px solid var(--line);border-radius:14px;padding:11px 40px 11px 13px;margin-bottom:8px;background:rgba(255,255,255,.03)}
+.nitem.new{border-color:rgba(246,200,80,.65);background:rgba(246,200,80,.07)}
+.nitem p{margin:4px 0 0;white-space:pre-wrap;font-size:14.5px}.nitem small{color:var(--muted)}
+.nitem.upd{padding:4px 40px 4px 4px}.nitem.upd .upd{border:0;background:none;margin:0;width:100%}
+.nitem .nx{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--muted);cursor:pointer;font-size:13px;display:grid;place-items:center;padding:0}
+@media (max-width:420px){ .hicon{width:38px;height:38px} .hicons{margin-right:6px;gap:5px} .band .bname small{display:none} }
+.clist .wkhead{border:0!important;background:none!important;padding:0!important;box-shadow:none!important;min-height:0!important}
+.dtag.now{color:#1a1300!important}
+.wkhead{font-size:12.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--teal,#2ee6c8);margin:12px 2px 2px}
+.wkhead:first-child{margin-top:0}
+.crow .dbox{min-width:58px;padding:6px 8px}.crow .dbox .n{font-size:22px}
+.dtag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:800;background:rgba(255,255,255,.08);color:var(--ink);vertical-align:2px}
+.dtag.now{background:#f6c850;color:#1a1300}
+.holmini{display:flex;align-items:center;gap:12px;margin-top:18px;padding:13px 16px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.holmini div{flex:1;display:grid;gap:2px}.holmini span{color:var(--muted);font-size:13.5px}
 </style>
 
 </head>
@@ -2767,6 +2790,7 @@ const ICONS = {
   pin: svg('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
   phone: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
   news: svg('<path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v10a2 2 0 0 1-4 0"/><path d="M7 9h7M7 13h7M7 17h4"/>'),
+  chat: svg('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/>'),
   bell: svg('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'),
   mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
   ticket: svg('<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v2M14 11v2M14 16v2"/>')
@@ -2777,7 +2801,7 @@ function navItems(){
   return [['hub','Home','home'],['whatson','What’s On','music'],['news','News','news'],['friends','Friends','team'],['book','Book','hall'],['mine','Bookings','check']];
 }
 const isCurrent = v => state.view === v || (v === 'news' && state.view === 'newsedit') || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
-const navBadge = v => v === 'news' ? newNews() : v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : v === 'hub' && !isAdmin() ? unreadNotices() : 0;
+const navBadge = v => v === 'news' ? newNews() : v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : 0;
 const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
   $('#demoBar').hidden = LIVE;
@@ -2801,7 +2825,7 @@ function render(){
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
-      <button class="btn ghost sm signout" data-action="signout">Sign out</button></div></header>
+      ${headIcons()}<button class="btn ghost sm signout" data-action="signout">Sign out</button></div></header>
     <main><div class="wrap">${viewAsBar()}${(views[state.view] || homeView)()}</div></main>
     <nav class="tabbar" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, true)).join('')}</nav>`;
 }
@@ -3215,7 +3239,7 @@ function homeView(){
     myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += staffQuickStart() + pushHomeCard()
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
-      + nextRotaHtml() + staffInboxHtml() + nextShiftCard();
+      + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">What do you need?</div>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · your diary`, 'myshifts')}
@@ -4279,6 +4303,52 @@ function myMonthStats(){
   const hrs = on.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
   return `<div class="mypills center"><span class="mpill"><b>${on.length}</b> shift${on.length === 1 ? '' : 's'}</span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours</span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>`;
 }
+/* ---------- Bell + messages icons at the top (staff and members) ---------- */
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){ return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const hashTxt = t => { let h = 0; for (const c of t.replace(/<[^>]+>/g, '')) h = (h * 31 + c.charCodeAt(0)) | 0; return 'u' + (h >>> 0).toString(36); };
+function notifItems(){
+  const uid = state.user?.id; if (!uid) return [];
+  const cleared = new Set(lsGet('ncleared-' + uid) || []); const seen = new Set(lsGet('nseen-' + uid) || []); const read = new Set(state.nRead || []);
+  const items = [];
+  visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
+    items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop"><b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
+  if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
+    (state.myUpdates || []).forEach(h => { const key = hashTxt(h); if (cleared.has(key)) return; items.push({ key, unseen: !seen.has(key), upd: true, html: h }); }); }
+  return items;
+}
+function msgItems(){
+  const uid = state.user?.id; const since = lsGet('mseen-' + uid) || '';
+  if (isStaff()) return (state.msgs || []).filter(m => m.staff_id === uid && m.reply).map(m => ({ unseen: (m.replied_at || m.created_at || '') > since }));
+  return (state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }));
+}
+function headIcons(){
+  if (!state.user || isAdmin()) return '';
+  const n = notifItems().filter(x => x.unseen).length, m = msgItems().filter(x => x.unseen).length;
+  const btn = (act, ic, c, label) => `<button class="hicon${c ? ' on' : ''}" data-action="${act}" aria-label="${label}${c ? `, ${c} new` : ''}">${ICONS[ic]}${c ? `<span class="hnum">${c}</span>` : ''}</button>`;
+  return `<div class="hicons">${btn('opennotif', 'bell', n, 'Notifications')}${btn('openmsgs', 'chat', m, 'Messages')}</div>`;
+}
+async function openNotif(){
+  const uid = state.user.id; const items = notifItems();
+  const unreadIds = visibleNotices().filter(x => !(state.nRead || []).includes(x.id)).map(x => x.id);
+  if (unreadIds.length && !viewing()){ try { await api.markNoticesRead(unreadIds); } catch(e){} (state.nRead ||= []).push(...unreadIds); }
+  lsSet('nseen-' + uid, [...new Set([...(lsGet('nseen-' + uid) || []), ...items.filter(x => x.upd).map(x => x.key)])]);
+  state.sheet = { type: 'notif' };
+  const ns = items.filter(x => !x.upd), us = items.filter(x => x.upd);
+  openSheet(`<div class="sheet-h"><div><h2>🔔 Notifications</h2><p class="muted">${items.length ? 'Tap ✕ to clear one.' : 'You’re all caught up.'}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    ${ns.length ? `<div class="isub">${isStaff() ? 'From the manager' : 'From the club'}</div>${ns.map(x => `<div class="nitem${x.unseen ? ' new' : ''}">${x.html}<button class="nx" data-action="nclear" data-key="${x.key}" aria-label="Clear">✕</button></div>`).join('')}` : ''}
+    ${us.length ? `<div class="isub">Your shifts</div>${us.map(x => `<div class="nitem upd${x.unseen ? ' new' : ''}">${x.html}<button class="nx" data-action="nclear" data-key="${x.key}" aria-label="Clear">✕</button></div>`).join('')}` : ''}
+    ${!items.length ? '<div class="empty">No notifications. When the club or the manager sends you something, it shows here.</div>' : `<button class="linkbtn" data-action="nclearall" style="margin-top:6px">Clear all</button>`}`);
+  render();
+}
+function openMsgs(){
+  const uid = state.user.id; lsSet('mseen-' + uid, new Date().toISOString()); state.sheet = { type: 'msgs' };
+  if (isStaff()) openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">Your messages to the manager, and their replies.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <button class="btn" data-action="msgstart" style="width:100%;margin-bottom:12px">✉ New message to the manager</button>${myMessagesHtml().replace('Use “Message the manager” at the top of this page.', 'Tap the button above to send one.')}`);
+  else openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">From your friends and the club.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    ${boardHtml()}<button class="btn ghost" data-action="openboard" style="width:100%;margin-top:12px">Open the message board</button>`);
+  render();
+}
 /* Staff: one bell for messages from the bosses and shift updates. Collapsed until tapped. */
 function staffInboxHtml(){
   const ns = visibleNotices(); const unread = ns.filter(n => !(state.nRead || []).includes(n.id));
@@ -4333,26 +4403,29 @@ function myShiftsView(){
     if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
     return ''; };
   const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
-  const comingRows = `${coming.slice(0, state.allComing ? 999 : 6).map(s => `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
-        <span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`).join('') || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}${coming.length > 6 ? `<button class="btn ghost" data-action="allcoming">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}`;
-  return `<div class="head myhead"><h1>My shifts</h1><div class="hbtns"><button class="btn sm" data-action="holnew">Request holiday</button><button class="btn ghost sm" data-action="msgstart">✉ Message the manager</button></div></div>
-    <button class="linkbtn howlink" data-action="go" data-view="staffhelp">? How it works</button>
+  const wk0 = ymd(startOfWeek(new Date()));
+  const wkLabel = ds => { const w = ymd(startOfWeek(parseYmd(ds))); const k = Math.round((parseYmd(w) - parseYmd(wk0)) / 6048e5);
+    return k === 0 ? 'This week' : k === 1 ? 'Next week' : `Week of ${fmtDate(w, { day: 'numeric', month: 'short' })}`; };
+  const tagFor = ds => { const k = Math.round((parseYmd(ds) - parseYmd(today)) / 864e5); return k === 0 ? '<span class="dtag now">Today</span>' : k === 1 ? '<span class="dtag">Tomorrow</span>' : ''; };
+  const shown = coming.slice(0, state.allComing ? 999 : 10); let lastWk = '';
+  const rows = shown.map(s => { const w = wkLabel(s.shift_date); const hd = w !== lastWk ? `<div class="wkhead">${w}</div>` : ''; lastWk = w;
+    return hd + `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
+      <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
+  const view = state.myView === 'cal' ? 'cal' : 'list'; const hs = holStats(me);
+  return `<div class="head"><h1>My shifts</h1></div>
     <p class="muted myrota">Rota ${periodLabel(cur)} · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
-    <section class="msec" id="sec-next"><div class="label">Coming up</div>
-    <p class="muted" style="font-size:14px;margin:-4px 0 10px">Tap a shift to swap it or say you can’t work it.</p>
-    <div class="clist">${comingRows}</div></section>
-    <nav class="secnav" hidden aria-label="Sections">${[['diary', 'My diary', 'Diary'], ['next', 'Coming up', 'Coming up'], ['holiday', 'My holiday', 'Holiday'], ['swaps', 'Swaps', 'Swaps']].map(([k, l, sh]) => `<button data-action="secjump" data-to="sec-${k}"><span class="full">${l}</span><span class="short">${sh}</span></button>`).join('')}</nav>
-    <section class="msec" id="sec-diary"><div class="label">My diary</div>
-    <div class="panel stack mydiary">
-      <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to see it and to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
+    <div class="bar">${seg('myview', view, [['list', '☰ List'], ['cal', '📅 Calendar']], 'Show')}</div>
+    ${view === 'list' ? `<p class="muted" style="font-size:14px;margin:0 0 10px">Tap a shift to swap it or say you can’t work it.</p>
+      <div class="clist">${rows || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}</div>
+      ${coming.length > 10 ? `<button class="btn ghost" data-action="allcoming" style="width:100%;margin-top:10px">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}`
+    : `<div class="panel stack mydiary">
+      <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
       <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span></div>
-    </div></section>
-
-    <section class="msec" id="sec-holiday"><div class="label">My holiday</div>${myHolidayCard(me, false)}</section>
-    <section class="msec" id="sec-swaps"><div class="label">Swaps</div>${swapLinkCard()}</section>
-    <section class="msec" id="sec-msgs"><div class="label">My messages</div>${myMessagesHtml()}</section>`;
+    </div>`}
+    <div class="holmini"><div><b>🌴 Holiday</b><span>${hs.left} of ${HOLIDAY_DAYS} days left${hs.pending ? ` · ${hs.pending} waiting for approval` : ''}</span></div><button class="btn sm" data-action="holnew">Book holiday</button></div>
+    <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
 /* ---------- Staff: how it all works ---------- */
 function staffHelpView(){
@@ -5143,6 +5216,12 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  myview: t => { state.myView = t.dataset.val; render(); },
+  opennotif: () => openNotif(),
+  openmsgs: () => openMsgs(),
+  openboard: () => go('friends', { frTab: 'board' }),
+  nclear: t => { const uid = state.user.id; lsSet('ncleared-' + uid, [...new Set([...(lsGet('ncleared-' + uid) || []), t.dataset.key])]); t.closest('.nitem')?.remove(); render(); if (!document.querySelector('.nitem')) openNotif(); },
+  nclearall: () => { const uid = state.user.id; lsSet('ncleared-' + uid, [...new Set([...(lsGet('ncleared-' + uid) || []), ...notifItems().map(x => x.key)])]); openNotif(); },
   inboxtoggle: async () => { state.inboxOpen = !state.inboxOpen;
     if (state.inboxOpen){ const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id); state.inboxFresh = ids;
       if (ids.length && !viewing()){ try { await api.markNoticesRead(ids); } catch(e){} (state.nRead ||= []).push(...ids); } }

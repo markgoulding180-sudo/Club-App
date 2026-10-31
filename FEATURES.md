@@ -293,3 +293,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Only the bosses message staff. Job adverts and newsletter notices go to members only, so they no longer appear for staff.
 - **Notices** (App admin, Secretary, Bar Manager) can now send to Everyone, Members, All staff, or **One staff member** (pick a name). Only that person sees it, and only their phone gets the notification.
 - SQL: `update-staff-messages.sql`.
+
+## Bell and messages icons, simpler My shifts (Oct 2026)
+- Staff and members have a **🔔 bell** and a **💬 messages** icon at the top of every page. They turn yellow with a number when there's something new; the number goes when the popup is opened.
+- Bell popup: messages from the manager/club and shift updates, each with ✕ to clear it (or Clear all).
+- Messages popup: staff see their messages to the manager and replies (+ New message); members see their message board.
+- **My shifts**: List / Calendar switch. The list is grouped into This week, Next week, Week of…, with Today / Tomorrow tags and wider date boxes. A small Holiday strip with Book holiday underneath. Swaps and messages are no longer repeated here.
