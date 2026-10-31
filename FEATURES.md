@@ -261,3 +261,10 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Search any member by name, email or membership number and send them a private message. It lands on the member's **Friends → Message board**, shown as "Railway Club · Secretary".
 - The member can reply; members still can't message strangers, only friends and the club.
 - SQL: `update-club-to-member-messages.sql`.
+
+## Newsletter
+- Members have a **News** tab (with a badge when a new issue is out) and a Newsletter tile on Home. Staff see it from a Home tile.
+- Each issue has a title, date, cover picture, introduction, and any number of sections, each with a heading, picture and text. Past issues are listed underneath.
+- Admins with the Notices area (App admin, Secretary, Bar Manager) get a **Newsletter** tile: write a new issue, add pictures from the phone or computer (shrunk automatically), save as a draft, preview, publish, unpublish, edit or delete. Publishing can also send a notice to members.
+- Pictures are stored in the Supabase storage folder `newsletter`.
+- SQL: `add-newsletter.sql` (table, permissions, picture folder, and the first issue: November 2026).

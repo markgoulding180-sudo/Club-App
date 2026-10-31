@@ -1509,6 +1509,27 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .jcard.closed{opacity:.6}.jcard details summary{cursor:pointer;font-size:14px}.appl{display:grid;gap:2px;padding:8px 0;border-top:1px solid var(--edge);font-size:13.5px}.appl span{color:var(--muted)}
 .rolerow{flex-wrap:wrap}.rolerow .row-main{flex:1 1 220px}.rolerow .csel{width:230px;flex:none}@media (max-width:560px){ .rolerow .csel{width:100%} }
 .conv.club .av{background:linear-gradient(140deg,#2ee6c8,#1b8f7d);font-size:20px}
+.nl{display:grid;gap:18px}
+.nlcover{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--line)}
+.nlcover img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover}
+.nlcap{position:absolute;left:0;right:0;bottom:0;padding:28px 18px 16px;background:linear-gradient(180deg,transparent,rgba(8,12,28,.92))}
+.nlcap.plain{position:static;border-radius:20px;background:var(--grad-teal,linear-gradient(140deg,#2ee6c8,#1b8f7d));padding:20px 18px}
+.nlcap span{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--gold,#f5c56b)}
+.nlcap h2{margin:4px 0 0;font-size:30px;line-height:1.1}
+.nldate{margin:-6px 0 0;color:var(--muted);font-size:14px}
+.nlintro{margin:0;font-size:18px;line-height:1.55}
+.nlsec{background:var(--panel,rgba(255,255,255,.04));border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.nlsec img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.nltxt{padding:16px 18px 18px}
+.nltxt h3{margin:0 0 8px;font-size:21px}
+.nltxt p{margin:0;white-space:pre-wrap;line-height:1.6;font-size:16px}
+.nlimg{display:grid;gap:8px;margin-top:6px}
+.nlimg img{width:100%;max-height:220px;object-fit:cover;border-radius:12px;border:1px solid var(--line)}
+.nlimg-empty{border:1px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-size:14px}
+.nlup{cursor:pointer}
+.nlrow{display:grid;gap:8px}
+.conv .av svg{width:20px;height:20px}
+@media (min-width:900px){.nlsec{display:grid;grid-template-columns:42% 1fr}.nlsec img{height:100%;aspect-ratio:auto;min-height:220px}}
 </style>
 
 </head>
@@ -1907,6 +1928,14 @@ function makeSupabaseApi(){
     async markNoticesRead(ids){ if (!ids.length) return; const { data } = await sb.auth.getSession(); await sb.from('notice_reads').upsert(ids.map(id => ({ user_id: data.session.user.id, notice_id: id })), { ignoreDuplicates: true }); },
     async sendNotice(n){ const r = await sb.from('club_notices').insert(n); if (r.error && /club_notices/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); ok(r); },
     async deleteNotice(id){ ok(await sb.from('club_notices').delete().eq('id', id)); },
+    async listNewsletters(){ const r = await sb.from('newsletters').select('*').order('issue_date', { ascending: false }).order('id', { ascending: false }); return r.error ? [] : r.data; },
+    async saveNewsletter(n){ const { id, ...x } = n; const r = id ? await sb.from('newsletters').update(x).eq('id', id).select().single() : await sb.from('newsletters').insert(x).select().single();
+      if (r.error && /newsletters/.test(r.error.message)) throw new Error('Run the newsletter SQL in Supabase first.'); return ok(r); },
+    async deleteNewsletter(id){ ok(await sb.from('newsletters').delete().eq('id', id)); },
+    async uploadImage(blob){ const path = `${new Date().toISOString().slice(0, 7)}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const r = await sb.storage.from('newsletter').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (r.error) throw new Error(/bucket/i.test(r.error.message) ? 'Run the newsletter SQL in Supabase first.' : r.error.message);
+      return sb.storage.from('newsletter').getPublicUrl(path).data.publicUrl; },
     async listJobs(){ const r = await sb.from('jobs').select('*').order('created_at', { ascending: false }); return r.error ? [] : r.data; },
     async saveJob(j){ const r = await sb.from('jobs').insert(j).select().single(); if (r.error && /jobs/.test(r.error.message)) throw new Error('Run the roles SQL in Supabase first.'); return ok(r); },
     async setJob(id, patch){ ok(await sb.from('jobs').update(patch).eq('id', id)); },
@@ -2214,6 +2243,12 @@ function makeDemoApi(){
     async markNoticesRead(ids){ s.nreads ||= []; ids.forEach(id => { if (!s.nreads.some(r => r.user_id === s.session && r.notice_id === id)) s.nreads.push({ user_id: s.session, notice_id: id }); }); save(); },
     async sendNotice(n){ (s.notices ||= []).push({ id: nextId(), created_at: new Date().toISOString(), audience: 'all', ...n }); save(); },
     async deleteNotice(id){ s.notices = (s.notices ||= []).filter(n => n.id !== id); save(); },
+    async listNewsletters(){ if (!s.newsletters){ s.newsletters = [{ id: nextId(), ...JSON.parse(JSON.stringify(NL_SEED)), published_at: new Date().toISOString(), created_at: new Date().toISOString() }]; save(); }
+      const admin = meU()?.role === 'admin'; return s.newsletters.filter(n => admin || n.published_at).map(n => JSON.parse(JSON.stringify(n))).sort((a, b) => b.issue_date.localeCompare(a.issue_date) || b.id - a.id); },
+    async saveNewsletter(n){ s.newsletters ||= []; let x = n.id && s.newsletters.find(y => y.id === n.id);
+      if (x) Object.assign(x, n); else { x = { ...n, id: nextId(), created_at: new Date().toISOString() }; s.newsletters.push(x); } save(); return JSON.parse(JSON.stringify(x)); },
+    async deleteNewsletter(id){ s.newsletters = (s.newsletters || []).filter(n => n.id !== id); save(); },
+    async uploadImage(blob){ return await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); },
     async listJobs(){ const admin = meU()?.role === 'admin'; return (s.jobs ||= []).filter(j => admin || j.status === 'open').map(j => ({ ...j })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
     async saveJob(j){ const n = { id: nextId(), status: 'open', created_at: new Date().toISOString(), ...j }; (s.jobs ||= []).push(n); save(); return n; },
     async setJob(id, patch){ const j = (s.jobs ||= []).find(x => x.id === id); if (j){ Object.assign(j, patch); save(); } },
@@ -2432,6 +2467,17 @@ const state = {
 };
 /* Roles. role = user / staff / admin (what the database allows). title + perms = which areas an admin uses.
    'owner' (the app admin) sees everything and can view the app as any role. */
+/* Newsletter: the first issue (also added by add-newsletter.sql) */
+const NL_SEED = { title: 'November 2026', issue_date: '2026-11-01', cover_url: 'img/slide-hall3-1400.webp',
+  intro: 'Welcome to the first Railway Club newsletter on the new club app. Every month we’ll put the club’s news, dates and events here, so you never miss a night.',
+  sections: [
+    { h: 'A word from the Secretary', img: 'img/slide-bar-800.webp', body: 'Hello everyone.\n\nThe nights are drawing in and the club is busier than ever. This month we’ve moved bookings, tickets and What’s On onto the club app, so you can see what’s on, reserve tickets and book a room from your phone.\n\nIf you’d like a hand getting set up, just ask any of the bar staff.\n\nThank you for your support.\nStuart Fraser, Club Secretary' },
+    { h: 'Coming up in November', img: 'img/slide-band-800.webp', body: 'Sat 7 Nov · Race Night, 8pm. Have a flutter on the horses.\nSun 8 Nov · Bingo, eyes down 8pm\nSat 14 Nov · Grooveshack singing group, 8pm. Tickets £5 members, £8 guests.\nSat 21 Nov · Hoy Bingo, 8pm\nSun 22 Nov · Bingo, eyes down 8pm\nSat 28 Nov · Live music from Abi Nash, 8pm\n\nTap Going or Interested on What’s On so your friends can see you’ll be there.' },
+    { h: 'Christmas at the club', img: 'img/slide-party-800.webp', body: 'Sat 5 Dec · Christmas Karaoke. Christmas jumpers welcome!\nSun 13 Dec · Kids Christmas Party, 12pm to 4pm, with games, party food and a visit from Santa.\nThu 31 Dec · New Year’s Eve Party, 7pm to 1am. Ticket only: £10 members, £15 guests. Reserve yours in the app.\n\nFestive opening\nChristmas Day: 12pm to 2pm\nBoxing Day: 10am to 4pm, with a disco 12pm to 4pm\nNew Year’s Day: 12pm to 2pm' },
+    { h: 'Darts and pool leagues', img: 'img/slide-pool-800.webp', body: 'Our teams are in full swing:\nTuesday · Ladies Darts League\nWednesday · Darts League\nThursday · Pool League\nFriday · Ashford Darts League\n\nHome matches start at 8pm in the Lounge Bar. Come along and cheer them on. The leagues break for Christmas from 21 December.\n\nFancy playing? New players are always welcome. Ask at the bar.' },
+    { h: 'Book your Christmas do', img: 'img/slide-hall1-800.webp', body: 'The Function Room holds up to 120 guests, with a stage, dance floor and its own bar. The Lounge Bar suits smaller parties of up to 60.\n\nDecember evenings are filling up fast. Book in the app under Book, and pay your £100 deposit within 7 days to keep your date.' },
+    { h: 'Meet the bar team', img: 'img/slide-hall2-800.webp', body: 'Say hello to the team behind the bar: Adam, Luis, Yannika and Heather, with Joe, Jamie and Larry helping out through the week. Sam Ashman is our Bar Manager.\n\nGot a suggestion for the club? Message the club from the app. We’d love to hear from you.' }
+  ] };
 const AREAS = ['bookings', 'rota', 'staff', 'tickets', 'whatson', 'messages', 'register', 'notices', 'jobs'];
 const ROLE_PRESETS = {
   member:    { label: 'Member', role: 'user', title: '', perms: [] },
@@ -2566,6 +2612,7 @@ async function loadWhatsOn(){
 async function load(view){
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
+    state.news = await api.listNewsletters();
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()) state.msgs = await api.listMessages();
@@ -2594,6 +2641,7 @@ async function load(view){
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
+  if (view === 'news' || view === 'newsedit'){ state.news = await api.listNewsletters(); if (view === 'newsedit' && !state.nlDraft) state.nlDraft = blankNl(); return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
   if (view === 'messages'){ state.msgs = await api.listMessages(); if (isAdmin()){ state.profiles = await api.listProfiles(); await loadOps(ahead(-60), ahead(60)); } return; }
   if (view === 'rota' && isAdmin() && state.rotaTab === 'hours'){
@@ -2661,16 +2709,17 @@ const ICONS = {
   check: svg('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'),
   pin: svg('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
   phone: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
+  news: svg('<path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v10a2 2 0 0 1-4 0"/><path d="M7 9h7M7 13h7M7 17h4"/>'),
   mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
   ticket: svg('<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v2M14 11v2M14 16v2"/>')
 };
 function navItems(){
   if (isAdmin()) return [['hub','Home','home'],['bookings','Bookings','cal'],['rota','Rota','rota'],['staff','Staff','team'],['tickets','Tickets','ticket'],['whatson','What’s On','music']].filter(([v]) => v === 'hub' || canArea(v));
   if (isStaff()) return [['hub','Home','home'],['myshifts','My shifts','check'],['swaps','Swaps','swap'],['rota','Rota','rota'],['whatson','What’s On','music']];
-  return [['hub','Home','home'],['whatson','What’s On','music'],['friends','Friends','team'],['book','Book','hall'],['mine','My bookings','check']];
+  return [['hub','Home','home'],['whatson','What’s On','music'],['news','News','news'],['friends','Friends','team'],['book','Book','hall'],['mine','Bookings','check']];
 }
-const isCurrent = v => state.view === v || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
-const navBadge = v => v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : v === 'hub' && !isAdmin() ? unreadNotices() : 0;
+const isCurrent = v => state.view === v || (v === 'news' && state.view === 'newsedit') || (v === 'bookings' && (state.view === 'booking' || state.view === 'newbooking')) || (v === 'myshifts' && (state.view === 'holiday' || state.view === 'staffhelp')) || (v === 'tickets' && state.view === 'tkevent');
+const navBadge = v => v === 'news' ? newNews() : v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : v === 'hub' && !isAdmin() ? unreadNotices() : 0;
 const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
   $('#demoBar').hidden = LIVE;
@@ -2690,7 +2739,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3094,6 +3143,7 @@ function homeView(){
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
       ${tile('music', 'What’s On', nextTxt, 'whatson')}
       ${tile('mail', 'Notices', 'Send a message to everyone on the app', 'notices')}
+      ${canArea('notices') ? `<button class="tile" data-action="go" data-view="news"><span class="ic">${ICONS.news}</span><b>Newsletter</b><span class="sub">${(state.news || []).some(n => !n.published_at) ? 'A draft is waiting' : 'Write the monthly newsletter'}</span></button>` : ''}
       ${canArea('register') || canArea('notices') ? `<button class="tile" data-action="go" data-view="clubmsg"><span class="ic">${ICONS.mail}</span><b>Message a member</b><span class="sub">Private message to one member</span></button>` : ''}
       ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
       ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
@@ -3105,7 +3155,7 @@ function homeView(){
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
     h += noticesHomeBox() + myStats() + nextShiftCard() + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += `<div class="tiles">${tile('check', 'My shifts', `My diary, swaps and holiday · ${plural(mine.length, 'shift')} coming up`, 'myshifts')}
-      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}
+      ${tile('rota', 'Rota', 'Who’s working this week', 'rota')}${tile('music', 'What’s On', nextTxt, 'whatson')}${tile('news', 'Newsletter', latestNews()?.title || 'News from the club', 'news')}
       ${tile('swap', 'Swaps', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} to pick from` : 'Swap a shift with someone'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
       <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       ${(state.jobs || []).some(j => j.status === 'open') ? tile('team', 'Jobs at the club', 'See what’s going', 'jobs') : ''}
@@ -3122,6 +3172,7 @@ function homeView(){
     ${tile('lounge', 'Hire the Lounge Bar', `Up to ${ROOMS.lounge.capacity} guests`, 'book', 0, 'data-room="lounge"')}
     ${tile('check', 'My bookings & tickets', 'Room hire, deposits and event tickets', 'mine')}
     ${(state.jobs || []).some(j => j.status === 'open') ? tile('team', 'Work for us', `${plural((state.jobs || []).filter(j => j.status === 'open').length, 'job')} at the club`, 'jobs') : ''}
+    ${tile('news', 'Newsletter', latestNews() ? `${latestNews().title}${newNews() ? ' · new' : ''}` : 'News from the club', 'news', newNews())}
     ${tile('mail', 'From the club', unreadNotices() ? `${plural(unreadNotices(), 'new notice')}` : 'Notices from the club', 'notices', unreadNotices())}
     ${tile('team', 'Friends & messages', unreadDms() ? `${plural(unreadDms(), 'new message')}` : 'Friends, and your message board', 'friends', unreadDms())}
     ${tile('star', 'My preferences', (myPrefs().cats || []).length ? `${(myPrefs().cats || []).map(c => BANNER_CATS[c]?.[2]).filter(Boolean).slice(0, 3).join(', ')}${(myPrefs().cats || []).length > 3 ? '…' : ''}` : 'Pick your favourite nights and drinks', 'prefs').replace('data-action="go" data-view="prefs"', 'data-action="openprefs"')}</div>`;
@@ -4354,6 +4405,62 @@ function noticesHomeBox(){
   if (!un.length) return '';
   return `<div class="nbox"><div class="ntop"><b>📢 From the club</b><button class="linkbtn" data-action="go" data-view="notices">See all</button></div>${un.slice(0, 2).map(n => `<div class="nline"><b>${esc(n.title)}</b><span>${esc(n.body.slice(0, 140))}${n.body.length > 140 ? '…' : ''}</span></div>`).join('')}</div>`;
 }
+/* Newsletter */
+const latestNews = () => (state.news || []).find(n => n.published_at);
+const nlSeen = () => { try { return Number(localStorage.getItem('nl-seen-' + (state.user?.id || '')) || 0); } catch(e){ return 0; } };
+const newNews = () => { const l = latestNews(); return l && !isAdmin() && l.id !== nlSeen() && (Date.now() - new Date(l.published_at)) < 30 * 864e5 ? 1 : 0; };
+const blankNl = () => ({ title: new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), issue_date: todayStr(), intro: '', cover_url: '', sections: [{ h: '', body: '', img: '' }, { h: '', body: '', img: '' }] });
+const nlDate = d => fmtDate(d, { day: 'numeric', month: 'long', year: 'numeric' });
+function nlIssueHtml(n){
+  return `<article class="nl">
+    ${n.cover_url ? `<div class="nlcover"><img src="${esc(n.cover_url)}" alt="" loading="lazy"><div class="nlcap"><span>${esc(CONFIG.CLUB_NAME)} newsletter</span><h2>${esc(n.title)}</h2></div></div>` : `<div class="nlcap plain"><span>${esc(CONFIG.CLUB_NAME)} newsletter</span><h2>${esc(n.title)}</h2></div>`}
+    <p class="nldate">${nlDate(n.issue_date)}</p>
+    ${n.intro ? `<p class="nlintro">${esc(n.intro)}</p>` : ''}
+    ${(n.sections || []).filter(x => x.h || x.body || x.img).map(x => `<section class="nlsec">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy">` : ''}<div class="nltxt">${x.h ? `<h3>${esc(x.h)}</h3>` : ''}${x.body ? `<p>${esc(x.body)}</p>` : ''}</div></section>`).join('')}
+  </article>`;
+}
+function newsView(){
+  const all = state.news || []; const pub = all.filter(n => n.published_at);
+  const cur = all.find(n => n.id === state.nlId) || pub[0];
+  if (cur && !isAdmin() && cur.id === pub[0]?.id){ try { localStorage.setItem('nl-seen-' + state.user.id, String(cur.id)); } catch(e){} }
+  let h = page('Newsletter');
+  if (isAdmin() && canArea('notices')){
+    h += `<div class="bar"><button class="btn sm" data-action="nlnew">+ New newsletter</button><span class="muted" style="font-size:13px">Members see it under News once you publish it.</span></div>
+      <div class="list" style="margin-bottom:18px">${all.map(n => `<div class="row nlrow"><div class="row-main"><b>${esc(n.title)}</b><span class="muted">${nlDate(n.issue_date)} · ${n.published_at ? 'Published' : 'Draft, members can’t see it yet'}</span></div>
+        <div class="bar" style="margin:0"><button class="btn ghost sm" data-action="nlview" data-id="${n.id}">View</button><button class="btn ghost sm" data-action="nledit" data-id="${n.id}">Edit</button>
+        <button class="btn ghost sm" data-action="nlpub" data-id="${n.id}" data-val="${n.published_at ? '0' : '1'}">${n.published_at ? 'Unpublish' : 'Publish'}</button><button class="btn ghost sm" data-action="nldel" data-id="${n.id}">Delete</button></div></div>`).join('') || '<div class="empty">No newsletters yet.</div>'}</div>`;
+  }
+  if (!cur) return h + (isAdmin() ? '' : '<div class="empty">No newsletter yet. Check back soon.</div>');
+  h += (isAdmin() && !cur.published_at ? '<div class="note" style="display:block">Draft preview. Members can’t see this until you publish it.</div>' : '') + nlIssueHtml(cur);
+  const past = pub.filter(n => n.id !== cur.id);
+  if (past.length) h += `<div class="label" style="margin-top:26px">Past issues</div><div class="list">${past.map(n => `<button class="conv" data-action="nlview" data-id="${n.id}"><span class="av">${ICONS.news}</span><span class="ctxt"><b>${esc(n.title)}</b><span>${esc((n.intro || '').slice(0, 80))}</span></span><i aria-hidden="true">›</i></button>`).join('')}</div>`;
+  return h;
+}
+function newsEditView(){
+  const d = state.nlDraft || blankNl();
+  const imgPick = (key, url, label) => `<div class="nlimg">${url ? `<img src="${esc(url)}" alt="">` : '<div class="nlimg-empty">No picture</div>'}
+    <div class="bar" style="margin:0"><label class="btn ghost sm nlup">${url ? 'Change' : label}<input type="file" accept="image/*" data-nlimg="${key}" hidden></label>${url ? `<button type="button" class="btn ghost sm" data-action="nlimgx" data-key="${key}">Remove</button>` : ''}</div></div>`;
+  return page(d.id ? 'Edit newsletter' : 'New newsletter', '', ['news', 'Newsletter']) + `<form class="stack" data-form="savenl">
+    <div class="panel stack"><div class="grid2"><label class="f">Title<input class="in" data-nl="title" value="${esc(d.title)}" maxlength="120" required placeholder="e.g. December 2026"></label>
+      <label class="f">Date<input type="date" data-nl="issue_date" value="${esc(d.issue_date)}" required></label></div>
+      <div class="f">Cover picture${imgPick('cover', d.cover_url, 'Add a cover picture')}</div>
+      <label class="f">Introduction<textarea class="in" data-nl="intro" rows="3" maxlength="1000" placeholder="A few lines to start the newsletter">${esc(d.intro)}</textarea></label></div>
+    ${d.sections.map((x, i) => `<div class="panel stack nled"><div class="ntop"><b>Section ${i + 1}</b><span class="bar" style="margin:0">${i ? `<button type="button" class="btn ghost sm" data-action="nlmove" data-i="${i}" aria-label="Move up">↑</button>` : ''}<button type="button" class="btn ghost sm" data-action="nlsecx" data-i="${i}">Remove</button></span></div>
+      <label class="f">Heading<input class="in" data-nl="h" data-i="${i}" value="${esc(x.h)}" maxlength="120" placeholder="e.g. Christmas at the club"></label>
+      <div class="f">Picture${imgPick('s' + i, x.img, 'Add a picture')}</div>
+      <label class="f">Text<textarea class="in" data-nl="body" data-i="${i}" rows="6" maxlength="4000" placeholder="Write the news here. Press Enter for a new line.">${esc(x.body)}</textarea></label></div>`).join('')}
+    <button type="button" class="btn ghost" data-action="nlsecadd">+ Add a section</button>
+    <label class="chk"><input type="checkbox" name="notify" ${d.published_at ? '' : 'checked'}> When published, also tell members with a notice</label>
+    <div class="err"></div>
+    <div class="bar"><button class="btn" type="submit" name="publish" value="1">${d.published_at ? 'Save changes' : 'Publish'}</button>${d.published_at ? '' : '<button class="btn ghost" type="submit" name="publish" value="0">Save as draft</button>'}</div></form>`;
+}
+async function shrinkImage(file, max = 1400){
+  const url = URL.createObjectURL(file);
+  try { const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('That file isn’t a picture we can use.')); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.82)); }
+  finally { URL.revokeObjectURL(url); }
+}
 /* Jobs: staff wanted */
 function jobsView(){
   const js = state.jobs || [];
@@ -4679,6 +4786,16 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  nlview: t => { state.nlId = Number(t.dataset.id); render(); window.scrollTo(0, 0); },
+  nlnew: () => { state.nlDraft = blankNl(); go('newsedit'); },
+  nledit: t => { const n = (state.news || []).find(x => x.id === Number(t.dataset.id)); if (!n) return; state.nlDraft = JSON.parse(JSON.stringify(n)); if (!state.nlDraft.sections?.length) state.nlDraft.sections = [{ h: '', body: '', img: '' }]; go('newsedit'); },
+  nlpub: async t => { const n = (state.news || []).find(x => x.id === Number(t.dataset.id)); if (!n) return; const on = t.dataset.val === '1';
+    await api.saveNewsletter({ id: n.id, published_at: on ? new Date().toISOString() : null }); toast(on ? 'Published. Members can see it under News.' : 'Unpublished'); refresh(); },
+  nldel: async t => { if (!confirm('Delete this newsletter? This can’t be undone.')) return; await api.deleteNewsletter(Number(t.dataset.id)); state.nlId = null; toast('Deleted'); refresh(); },
+  nlsecadd: () => { state.nlDraft.sections.push({ h: '', body: '', img: '' }); render(); },
+  nlsecx: t => { state.nlDraft.sections.splice(Number(t.dataset.i), 1); render(); },
+  nlmove: t => { const i = Number(t.dataset.i), a = state.nlDraft.sections; [a[i - 1], a[i]] = [a[i], a[i - 1]]; render(); },
+  nlimgx: t => { const k = t.dataset.key; if (k === 'cover') state.nlDraft.cover_url = ''; else state.nlDraft.sections[Number(k.slice(1))].img = ''; render(); },
   go: t => go(t.dataset.view, t.dataset.room ? { room: t.dataset.room, month: startOfMonth(new Date()) } : t.dataset.view === 'swaps' ? { swTab: null } : {}),
   pubnav: t => { const sec = document.getElementById('sec-' + t.dataset.to); if (!sec) return;
     window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - (document.querySelector('.pubnav')?.offsetHeight || 0) - 10, behavior: 'smooth' }); state.navClick = Date.now(); navOn(t.dataset.to); },
@@ -4868,6 +4985,9 @@ document.addEventListener('keydown', e => {
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
+    if (el.matches('[data-nlimg]') && el.files?.[0] && state.nlDraft){ const k = el.dataset.nlimg; toast('Adding picture…');
+      const url = await api.uploadImage(await shrinkImage(el.files[0]));
+      if (k === 'cover') state.nlDraft.cover_url = url; else state.nlDraft.sections[Number(k.slice(1))].img = url; render(); toast('Picture added'); return; }
     if (el.matches('[data-reprice]')){ const f = el.form; if (f.booking_date.value && f.price.hasAttribute('data-autoprice')) f.price.value = priceFor(f.room.value, f.slot.value, f.booking_date.value); }
     if (el.matches('[data-newname]')){ const inp = el.parentElement.parentElement.querySelector('.newname') || el.closest('label')?.querySelector('.newname'); const isNew = el.value === '__new'; if (inp){ inp.hidden = !isNew; inp.required = isNew; if (isNew) inp.focus(); } }
     if (el.matches('[data-newname], .newname') && el.form?.cat){ const g = guessCat(el.value === '__new' ? '' : el.value); if (g){ el.form.cat.value = g; el.form.cat._sync?.(); } }
@@ -4974,6 +5094,18 @@ const forms = {
   async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
       team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };
     await api.savePrefs(pr); state.user.prefs = pr; closeSheet(); toast('Saved. Your favourite nights now have a ★'); render(); },
+  async savenl(f, e){
+    const d = state.nlDraft; const publish = (e?.submitter?.value ?? '1') === '1';
+    if (!d.title.trim()) throw new Error('Give the newsletter a title.');
+    const wasPub = !!d.published_at;
+    const n = { title: d.title.trim(), issue_date: d.issue_date || todayStr(), intro: d.intro.trim(), cover_url: d.cover_url || null,
+      sections: d.sections.map(x => ({ h: x.h.trim(), body: x.body.trim(), img: x.img || '' })).filter(x => x.h || x.body || x.img),
+      published_at: publish ? (d.published_at || new Date().toISOString()) : null };
+    if (d.id) n.id = d.id;
+    const saved = await api.saveNewsletter(n);
+    if (publish && !wasPub && f.notify?.checked) await api.sendNotice({ title: `Newsletter: ${n.title}`, body: n.intro ? n.intro.slice(0, 300) + ' Read it under News.' : 'The new club newsletter is out. Read it under News.', audience: 'all' });
+    state.nlDraft = null; state.nlId = saved?.id || null; toast(publish ? 'Published. Members can see it under News.' : 'Draft saved'); go('news');
+  },
   async sendnotice(f){ await api.sendNotice({ title: f.title.value.trim(), body: f.body.value.trim(), audience: f.querySelector('[name=audience]:checked').value }); toast('Notice sent'); refresh(); },
   async savejob(f){ const j = { title: f.title.value.trim(), job_type: f.job_type.value.trim() || null, hours: f.hours.value.trim() || null, pay: f.pay.value.trim() || null, description: f.description.value.trim(), closes_on: f.closes_on.value || null };
     const saved = await api.saveJob(j);
@@ -5020,13 +5152,13 @@ const forms = {
   },
   async markoff(f){ await api.markUnavailable(f.date.value, f.reason.value.trim()); toast('Marked as unavailable'); refresh(); }
 };
-document.addEventListener('input', e => { const el = e.target; if (el.matches?.('[data-cmsearch]')){ clearTimeout(window._cmT); window._cmT = setTimeout(() => { state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); } if (el.matches?.('[data-wordcount]')){ const n = words(el.value); const p = el.form?.querySelector('.wc'); if (p){ p.textContent = `${n} of ${MSG_WORDS} words`; p.style.color = n > MSG_WORDS ? 'var(--red)' : ''; } } });
+document.addEventListener('input', e => { const el = e.target; if (el.matches?.('[data-nl]') && state.nlDraft){ const i = el.dataset.i; if (i !== undefined) state.nlDraft.sections[Number(i)][el.dataset.nl] = el.value; else state.nlDraft[el.dataset.nl] = el.value; } if (el.matches?.('[data-cmsearch]')){ clearTimeout(window._cmT); window._cmT = setTimeout(() => { state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); } if (el.matches?.('[data-wordcount]')){ const n = words(el.value); const p = el.form?.querySelector('.wc'); if (p){ p.textContent = `${n} of ${MSG_WORDS} words`; p.style.color = n > MSG_WORDS ? 'var(--red)' : ''; } } });
 document.addEventListener('submit', async e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   e.preventDefault();
   const errEl = f.querySelector('.err'); if (errEl) errEl.textContent = '';
   const btn = f.querySelector('[type=submit]'); if (btn) btn.disabled = true;
-  try { await forms[f.dataset.form](f); }
+  try { await forms[f.dataset.form](f, e); }
   catch(err){ if (errEl && errEl.isConnected) errEl.textContent = err.message; else toast(err.message); }
   finally { if (btn && btn.isConnected) btn.disabled = false; }
 });
