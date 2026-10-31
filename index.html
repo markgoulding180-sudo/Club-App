@@ -2693,7 +2693,7 @@ async function load(view){
     state.news = await api.listNewsletters(); if (!isAdmin()) await checkPush().catch(() => {});
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
-    if (isAdmin()) state.msgs = await api.listMessages();
+    if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); }
     if (isStaff()){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
   }
@@ -3215,10 +3215,12 @@ function homeView(){
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today).length;
     const holReq = state.holidays.filter(x => x.status === 'pending').length;
     h += isOwnerView() ? '' : '';
+    const swOk = (state.swaps || []).filter(w => w.status === 'accepted').length;
+    if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
       ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
-      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill this week` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq)}
+      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill this week` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
       ${tile('team', 'Membership register', 'Every member and their number', 'register')}
       ${tile('mail', 'Messages from staff', (() => { const n = (state.msgs || []).filter(m => m.status === 'new').length; return n ? `${plural(n, 'new message')}` : 'Nothing new'; })(), 'messages', (state.msgs || []).filter(m => m.status === 'new').length)}
