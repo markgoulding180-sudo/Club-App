@@ -1554,6 +1554,29 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .qstart{border:1px solid rgba(46,230,200,.45);background:linear-gradient(140deg,rgba(46,230,200,.13),rgba(120,90,255,.06));border-radius:18px;padding:14px 16px;margin-bottom:14px}
 .qstart ol{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14.5px;line-height:1.45}
 .hsteps{margin:0;padding-left:22px;display:grid;gap:4px;font-size:15px;line-height:1.45}
+.label.center{justify-content:center;text-align:center}
+.mypills.center{justify-content:center}
+.inbox{border:1px solid var(--edge,var(--line));border-radius:16px;background:rgba(255,255,255,.03);margin:12px 0}
+.inbox .ihead{display:flex;align-items:center;gap:10px;width:100%;padding:13px 16px;background:none;border:0;color:var(--ink);cursor:pointer;text-align:left;font-size:15.5px}
+.inbox .ihead b{flex:1}
+.inbox .bell svg{width:22px;height:22px;color:var(--muted)}
+.inbox.has{border-color:rgba(246,200,80,.7);background:linear-gradient(140deg,rgba(246,200,80,.14),rgba(20,30,62,.55))}
+.inbox.has .bell svg{color:#f6c850;fill:#f6c850}
+.inbox .icount{min-width:24px;height:24px;border-radius:12px;background:#f6c850;color:#1a1300;font-weight:900;font-size:13px;display:grid;place-items:center;padding:0 7px}
+.inbox .ihead i{font-style:normal;color:var(--muted)}
+.inbox .ibody{display:grid;gap:10px;padding:0 14px 14px}
+.inbox .isub{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.inbox .imsg{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.03)}
+.inbox .imsg.new{border-color:rgba(246,200,80,.6)}
+.inbox .imsg p{margin:4px 0 0;white-space:pre-wrap;font-size:14.5px}
+.inbox .imsg small{color:var(--muted)}
+.inbox .upds{display:grid;gap:8px}
+.nextshift .dbox{min-width:64px;padding:8px 10px}.nextshift .dbox .n{font-size:28px}.nextshift .dbox .w{font-size:12.5px}
+.audpick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.audpick label{display:flex;align-items:center;gap:8px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-weight:700;cursor:pointer}
+.audpick input{width:18px!important;height:18px!important;min-height:0!important;flex:0 0 18px;margin:0;padding:0;accent-color:#2ee6c8}
+.audpick label{justify-content:flex-start;font-size:14.5px;color:var(--ink)}
+.audpick label:has(input:checked){border-color:var(--teal,#2ee6c8);background:rgba(46,230,200,.12)}
 </style>
 
 </head>
@@ -2616,7 +2639,8 @@ async function loadTickets(){
 const COMP_RE = /tournament|competition|\bcomp\b|cup|final|knock-?out|open\b|championship/i;
 const isLeagueNight = (name, b) => (/league/i.test(name || '') || !!b?.event_details?.sport) && !COMP_RE.test(name || '');
 async function loadNotices(){ if (!state.user) return; const [ns, rd, jobs] = await Promise.all([api.listNotices(), api.myNoticeReads(), api.listJobs()]); state.notices = ns; state.nRead = rd; state.jobs = jobs; }
-const visibleNotices = () => (state.notices || []).filter(n => isAdmin() || n.audience === 'all' || (n.audience === 'staff' ? isStaff() : isMember()));
+const forStaff = n => n.audience === 'staff' || (n.audience === 'all' && !n.job_id && !/^(Newsletter|Staff wanted):/.test(n.title || ''));
+const visibleNotices = () => (state.notices || []).filter(n => (!n.to_user || n.to_user === state.user?.id || isAdmin()) && (isAdmin() || (isStaff() ? forStaff(n) : n.audience !== 'staff')));
 const unreadNotices = () => visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).length;
 async function loadWhatsOn(){
   let [ev, club] = await Promise.all([api.listEvents(), api.clubEvents(todayStr(), ahead(365))]);
@@ -2671,7 +2695,7 @@ async function load(view){
   if (view === 'register'){ state.register = await api.listRegister(); state.profiles = await api.listProfiles(); return; }
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
-  if (view === 'notices'){ await loadNotices(); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
+  if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
   if (view === 'news' || view === 'newsedit'){ state.news = await api.listNewsletters(); if (view === 'newsedit' && !state.nlDraft) state.nlDraft = blankNl(); return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
@@ -2743,6 +2767,7 @@ const ICONS = {
   pin: svg('<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
   phone: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
   news: svg('<path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v10a2 2 0 0 1-4 0"/><path d="M7 9h7M7 13h7M7 17h4"/>'),
+  bell: svg('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'),
   mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
   ticket: svg('<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v2M14 11v2M14 16v2"/>')
 };
@@ -3187,17 +3212,16 @@ function homeView(){
   if (isStaff()){
     const me = state.user.id;
     const mine = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
-    const sc = swapCounts();
-    h += staffQuickStart() + pushHomeCard() + noticesHomeBox() + myStats() + nextShiftCard()
-      + (sc.help ? `<button class="helpask" data-action="go" data-view="swaps"><b>🙋 ${plural(sc.help, 'colleague needs', 'colleagues need')} a swap</b><span>Can you help? Tap to see the shift${sc.help > 1 ? 's' : ''}.</span><i aria-hidden="true">›</i></button>` : '')
-      + (sc.mine ? `<button class="helpask mine" data-action="go" data-view="swaps"><b>✅ ${plural(sc.mine, 'offer')} to swap your shift</b><span>Tap to pick who takes it.</span><i aria-hidden="true">›</i></button>` : '')
-      + myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
-    h += `<div class="label" style="margin-top:22px">What do you need?</div>
-      <div class="qacts">
-        <button class="qact" data-action="pickshift"><span class="qi">🔄</span><b>Can’t make a shift</b><span>Swap it, or tell the manager</span></button>
-        <button class="qact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${holLeftTxt()}</span></button>
-        <button class="qact" data-action="go" data-view="rota"><span class="qi">👥</span><b>Who’s working</b><span>The rota for this week</span></button>
-        <button class="qact" data-action="msgstart"><span class="qi">✉️</span><b>Message the manager</b><span>Ill, a problem or anything else</span></button>
+    myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
+    h += staffQuickStart() + pushHomeCard()
+      + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
+      + nextRotaHtml() + staffInboxHtml() + nextShiftCard();
+    h += `<div class="label" style="margin-top:20px">What do you need?</div>
+      <div class="tiles">
+        ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · your diary`, 'myshifts')}
+        ${tile('swap', 'Swap shifts', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'colleague needs', 'colleagues need')} a swap` : c.mine ? `${plural(c.mine, 'offer')} for your shift` : 'Can’t make a shift? Swap it'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
+        <button class="tile" data-action="holnew"><span class="ic">${ICONS.cal}</span><b>Book holiday</b><span class="sub">${holLeftTxt()}</span></button>
+        <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       </div>
       <div class="qlinks">${[['news', '📰 Newsletter'], ['alerts', state.push === 'on' ? '🔔 Notifications on' : '🔔 Turn on notifications'], ['staffhelp', '❓ How it works'], ...((state.jobs || []).some(j => j.status === 'open') ? [['jobs', '💼 Jobs']] : [])].map(([v, l]) => `<button data-action="go" data-view="${v}">${l}</button>`).join('')}</div>`;
     return h;
@@ -4248,6 +4272,26 @@ function staffQuickStart(){
       <li>Turn on <b>notifications</b> so you hear when the rota is out or someone needs a swap.</li></ol></div>`;
 }
 const firstHolDay = () => { let d = todayStr(); for (let k = 0; k < 120 && isPublished(d); k++) d = ymd(addDays(parseYmd(d), 1)); return d; };
+/* Staff: this calendar month's shifts and hours */
+function myMonthStats(){
+  const me = state.user.id; const m = todayStr().slice(0, 7);
+  const on = state.ops.shifts.filter(s => s.staff_id === me && ACTIVE(s) && s.shift_date.slice(0, 7) === m);
+  const hrs = on.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  return `<div class="mypills center"><span class="mpill"><b>${on.length}</b> shift${on.length === 1 ? '' : 's'}</span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours</span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>`;
+}
+/* Staff: one bell for messages from the bosses and shift updates. Collapsed until tapped. */
+function staffInboxHtml(){
+  const ns = visibleNotices(); const unread = ns.filter(n => !(state.nRead || []).includes(n.id));
+  const upd = state.myUpdates || []; const act = upd.filter(x => /class="upd act"/.test(x)).length;
+  const n = unread.length + act; const open = !!state.inboxOpen;
+  return `<div class="inbox${n ? ' has' : ''}${open ? ' open' : ''}"><button class="ihead" data-action="inboxtoggle" aria-expanded="${open}">
+      <span class="bell" aria-hidden="true">${ICONS.bell}</span><b>Notifications &amp; Messages</b>${n ? `<span class="icount">${n}</span>` : '<span class="muted" style="font-size:13px">Nothing new</span>'}<i aria-hidden="true">${open ? '▴' : '▾'}</i></button>
+    ${open ? `<div class="ibody">
+      ${ns.length ? `<div class="isub">From the manager</div>${ns.slice(0, 8).map(x => `<div class="imsg${(state.nRead || []).includes(x.id) && !state.inboxFresh?.includes(x.id) ? '' : ' new'}"><div class="ntop"><b>${esc(x.title)}</b><small>${fmtWhen(x.created_at)}${x.to_user ? ' · just to you' : ''}</small></div><p>${esc(x.body)}</p></div>`).join('')}` : ''}
+      ${upd.length ? `<div class="isub">Your shifts</div><div class="upds">${upd.join('')}</div>` : ''}
+      ${!ns.length && !upd.length ? '<p class="muted" style="margin:0">No messages yet. When the manager or secretary messages you, it shows here.</p>' : ''}
+    </div>` : ''}</div>`;
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
@@ -4646,15 +4690,16 @@ function rolesView(){
 }
 /* Notices from the club */
 function noticeCard(n, admin){
-  return `<div class="ncard ${!admin && !(state.nRead || []).includes(n.id) ? 'new' : ''}"><div class="ntop"><b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${admin ? ` · to ${n.audience === 'all' ? 'everyone' : n.audience}` : ''}</small></div>
+  return `<div class="ncard ${!admin && !(state.nRead || []).includes(n.id) ? 'new' : ''}"><div class="ntop"><b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${admin ? ` · to ${n.to_user ? esc(pname((state.staffList || []).find(p => p.id === n.to_user) || { first_name: 'one person' })) + ' only' : n.audience === 'all' ? 'everyone' : n.audience === 'staff' ? 'all staff' : n.audience}` : ''}</small></div>
     <p>${esc(n.body)}</p>${n.job_id ? `<button class="btn sm" data-action="go" data-view="jobs">See the job</button>` : ''}
     ${admin ? `<div class="bar" style="margin:0"><span class="muted" style="font-size:12.5px">Read by ${state.nCounts?.[n.id] || 0}</span><span class="grow"></span><button class="linkbtn" data-action="delnotice" data-id="${n.id}">Delete</button></div>` : ''}</div>`;
 }
 function noticesView(){
-  if (isAdmin() && canArea('notices')) return page('Notices') + `<p class="muted" style="margin:-8px 0 14px">Send a message to everyone on the app. It shows on their Home screen.</p>
+  if (isAdmin() && canArea('notices')) return page('Notices') + `<p class="muted" style="margin:-8px 0 14px">Send a message to everyone, to members, to all staff, or to one member of staff. It shows on their Home screen and pops up on their phone.</p>
     <form class="panel stack" data-form="sendnotice"><label class="f">Title<input class="in" name="title" maxlength="120" required placeholder="e.g. Christmas opening times"></label>
       <label class="f">Message<textarea class="in" name="body" rows="4" maxlength="1500" required></textarea></label>
-      <div class="f">Send to<div class="tabs" role="group">${[['all', 'Everyone'], ['members', 'Members'], ['staff', 'Staff']].map(([k, l], i) => `<label class="pick"><input type="radio" name="audience" value="${k}" ${i ? '' : 'checked'}> ${l}</label>`).join('')}</div></div>
+      <div class="f">Send to<div class="audpick" role="group">${[['all', 'Everyone'], ['members', 'Members'], ['staff', 'All staff'], ['one', 'One staff member']].map(([k, l], i) => `<label class="pick"><input type="radio" name="audience" value="${k}" data-ntarget ${(state.nAud || 'all') === k ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
+      <label class="f" ${state.nAud === 'one' ? '' : 'hidden'} id="n-one">Which staff member?<select name="to_user"><option value="">Pick a name…</option>${(state.staffList || []).map(p => `<option value="${p.id}">${esc(pname(p))}</option>`).join('')}</select></label>
       <div class="err"></div><button class="btn" type="submit">Send notice</button></form>
     <div class="label" style="margin-top:20px">Sent</div><div class="stack" style="gap:10px">${(state.notices || []).map(n => noticeCard(n, true)).join('') || '<div class="empty">Nothing sent yet.</div>'}</div>`;
   return page('From the club') + `<div class="stack" style="gap:10px">${visibleNotices().map(n => noticeCard(n, false)).join('') || '<div class="empty">No notices yet.</div>'}</div>`;
@@ -4779,7 +4824,7 @@ function jobsView(){
       <div class="grid2"><label class="f">Type<input class="in" name="job_type" placeholder="Part time"></label><label class="f">Hours<input class="in" name="hours" placeholder="Fri & Sat evenings"></label></div>
       <div class="grid2"><label class="f">Pay<input class="in" name="pay" placeholder="£11.50 an hour"></label><label class="f">Closing date<input name="closes_on" type="date"></label></div>
       <label class="f">About the job<textarea class="in" name="description" rows="4" placeholder="What the job involves and who you’re looking for"></textarea></label>
-      <label class="chk"><input type="checkbox" name="notify" checked> Also send it to everyone as a notice</label>
+      <label class="chk"><input type="checkbox" name="notify" checked> Also send it to members as a notice</label>
       <div class="err"></div><button class="btn" type="submit">Post the job</button></form>
     <div class="label" style="margin-top:20px">Jobs</div>${js.map(j => { const ap = state.jobApps?.[j.id] || []; return `<div class="jcard ${j.status}"><div class="ntop"><b>${esc(j.title)}</b><span class="pill ${j.status === 'open' ? 'approved' : 'cancelled'}">${j.status === 'open' ? 'Open' : 'Closed'}</span></div>
       <span class="muted" style="font-size:13px">${[j.job_type, j.hours, j.pay, j.closes_on ? `Closes ${dShort(j.closes_on)}` : ''].filter(Boolean).map(esc).join(' · ')}</span>
@@ -5098,6 +5143,10 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  inboxtoggle: async () => { state.inboxOpen = !state.inboxOpen;
+    if (state.inboxOpen){ const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id); state.inboxFresh = ids;
+      if (ids.length && !viewing()){ try { await api.markNoticesRead(ids); } catch(e){} (state.nRead ||= []).push(...ids); } }
+    render(); },
   pickshift: () => openPickShift(),
   qsdone: () => { try { localStorage.setItem('qs-staff-' + state.user.id, '1'); } catch(e){} render(); },
   openposter: () => openPosterSheet(),
@@ -5321,6 +5370,7 @@ document.addEventListener('change', async e => {
       if (p){ f.first_name.value = p.first_name || ''; f.last_name.value = p.last_name || ''; f.customer_phone.value = p.phone || ''; f.customer_email.value = p.email || ''; f.membership_no.value = p.membership_no || ''; } }
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
+    if (el.matches('[data-ntarget]')){ state.nAud = el.value; const o = document.getElementById('n-one'); if (o) o.hidden = el.value !== 'one'; return; }
     if (el.matches('[data-cmsearch]')){ state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
     if (el.matches('[data-rolesearch]')){ state.roleQ = el.value; render(); document.getElementById('role-q')?.focus(); return; }
     if (el.matches('[data-roleset]')){ const pr = ROLE_PRESETS[el.value]; await api.setAccess(el.dataset.roleset, pr); const p = state.profiles.find(x => x.id === el.dataset.roleset); if (p) Object.assign(p, { role: pr.role, title: pr.title, perms: pr.perms });
@@ -5428,14 +5478,18 @@ const forms = {
       published_at: publish ? (d.published_at || new Date().toISOString()) : null };
     if (d.id) n.id = d.id;
     const saved = await api.saveNewsletter(n);
-    if (publish && !wasPub && f.notify?.checked) await api.sendNotice({ title: `Newsletter: ${n.title}`, body: n.intro ? n.intro.slice(0, 300) + ' Read it under News.' : 'The new club newsletter is out. Read it under News.', audience: 'all' });
+    if (publish && !wasPub && f.notify?.checked) await api.sendNotice({ title: `Newsletter: ${n.title}`, body: n.intro ? n.intro.slice(0, 300) + ' Read it under News.' : 'The new club newsletter is out. Read it under News.', audience: 'members' });
     state.nlDraft = null; state.nlId = saved?.id || null; toast(publish ? 'Published. Members can see it under News.' : 'Draft saved'); go('news');
   },
-  async sendnotice(f){ await api.sendNotice({ title: f.title.value.trim(), body: f.body.value.trim(), audience: f.querySelector('[name=audience]:checked').value }); toast('Notice sent'); refresh(); },
+  async sendnotice(f){ const a = f.querySelector('[name=audience]:checked').value; const to = a === 'one' ? f.to_user.value : null;
+    if (a === 'one' && !to) throw new Error('Pick the staff member to send it to.');
+    await api.sendNotice({ title: f.title.value.trim(), body: f.body.value.trim(), audience: a === 'one' ? 'staff' : a, ...(to ? { to_user: to } : {}) });
+    const who = to ? pname((state.staffList || []).find(p => p.id === to) || {}) : '';
+    state.nAud = 'all'; toast(to ? `Sent to ${who} only` : 'Notice sent'); refresh(); },
   async savejob(f){ const j = { title: f.title.value.trim(), job_type: f.job_type.value.trim() || null, hours: f.hours.value.trim() || null, pay: f.pay.value.trim() || null, description: f.description.value.trim(), closes_on: f.closes_on.value || null };
     const saved = await api.saveJob(j);
-    if (f.notify.checked) await api.sendNotice({ title: `Staff wanted: ${j.title}`, body: [[j.job_type, j.hours, j.pay].filter(Boolean).join(' · '), j.description].filter(Boolean).join('\n') + '\nInterested? Open “Work for us” in the app.', audience: 'all', job_id: saved?.id || null });
-    toast(f.notify.checked ? 'Job posted and sent to everyone' : 'Job posted'); refresh(); },
+    if (f.notify.checked) await api.sendNotice({ title: `Staff wanted: ${j.title}`, body: [[j.job_type, j.hours, j.pay].filter(Boolean).join(' · '), j.description].filter(Boolean).join('\n') + '\nInterested? Open “Work for us” in the app.', audience: 'members', job_id: saved?.id || null });
+    toast(f.notify.checked ? 'Job posted and sent to members' : 'Job posted'); refresh(); },
   async applyjob(f){ await api.applyJob(Number(f.dataset.id), f.note.value.trim(), f.phone.value.trim()); toast('Thanks! The club will be in touch.'); refresh(); },
   async senddm(f){ const body = f.body.value.trim(); if (!body) return; await api.sendDm(f.dataset.to, body); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); openDm(f.dataset.to); },
   async mynumber(f){ const no = f.no.value.trim().toUpperCase(); if (!/^[A-Z0-9-]{2,20}$/.test(no)) throw new Error('Check the number on your card.'); await api.setMyNumber(no); state.user.membership_no = no; toast('Saved'); render(); },

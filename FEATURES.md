@@ -287,3 +287,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - A **welcome box** explains the app in 4 steps for new staff until they tap Got it.
 - **My shifts** no longer repeats Home: "Coming up" is first, then the diary (which opens on the month of your next shift), holiday, swaps and messages.
 - **Book holiday** says the first day you can book, gives 3 numbered steps, opens on a month you can actually book, and the button says "Send to the manager".
+
+## Staff Home and messages from the bosses (Oct 2026)
+- Staff Home order: Hello → **This month** (shifts, hours, holiday days left, centred) → next rota notice → **🔔 Notifications & Messages** (collapsed; bell turns yellow with a count when there's something new; opens to show messages from the manager and shift updates) → next shift (bigger date) → **What do you need?** tiles: My shifts, Swap shifts, Book holiday, Message the manager.
+- Only the bosses message staff. Job adverts and newsletter notices go to members only, so they no longer appear for staff.
+- **Notices** (App admin, Secretary, Bar Manager) can now send to Everyone, Members, All staff, or **One staff member** (pick a name). Only that person sees it, and only their phone gets the notification.
+- SQL: `update-staff-messages.sql`.
