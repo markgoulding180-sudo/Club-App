@@ -3160,6 +3160,7 @@ function homeView(){
       ${tile('mail', 'Messages from staff', (() => { const n = (state.msgs || []).filter(m => m.status === 'new').length; return n ? `${plural(n, 'new message')}` : 'Nothing new'; })(), 'messages', (state.msgs || []).filter(m => m.status === 'new').length)}
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
       ${tile('music', 'What’s On', nextTxt, 'whatson')}
+      ${canArea('whatson') ? `<button class="tile" data-action="openposter"><span class="ic">${ICONS.cal}</span><b>Print What’s On</b><span class="sub">A4 poster of the month for the noticeboard</span></button>` : ''}
       ${tile('mail', 'Notices', 'Send a message to everyone on the app', 'notices')}
       ${canArea('notices') ? `<button class="tile" data-action="go" data-view="news"><span class="ic">${ICONS.news}</span><b>Newsletter</b><span class="sub">${(state.news || []).some(n => !n.published_at) ? 'A draft is waiting' : 'Write the monthly newsletter'}</span></button>` : ''}
       ${canArea('register') || canArea('notices') ? `<button class="tile" data-action="go" data-view="clubmsg"><span class="ic">${ICONS.mail}</span><b>Message a member</b><span class="sub">Private message to one member</span></button>` : ''}
@@ -3787,12 +3788,120 @@ function whatsOnView(){
   const member = isMember(); const hasPrefs = (myPrefs().cats || []).length;
   const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`
     + (member && tab === 'events' ? `<div class="bar">${hasPrefs ? seg('wofilter', fy ? 'mine' : 'all', [['all', 'Everything'], ['mine', '★ For you']], 'Filter') : ''}<button class="linkbtn" data-action="openprefs">${hasPrefs ? 'Edit my favourites' : '★ Pick your favourite nights'}</button></div>` : '');
-  return page('What’s On') + (editor ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
+  return page('What’s On', isAdmin() ? `<button class="btn ghost sm" data-action="openposter">🖨 Print monthly poster</button>` : '') + (editor ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
       <input class="in" id="ev-desc" name="description" placeholder="Details (optional)" aria-label="Details"><button class="btn" type="submit">Add to What’s On</button></form>` : '')
     + tabs + `<div class="list">${list || `<div class="empty">${tab === 'sport' ? 'No live sport listed yet.' : fy ? 'None of your favourite nights are on yet. Tap ☆ on any event to add that kind of night.' : 'Nothing on yet.'}</div>`}</div>`;
+}
+
+/* ---------- Printable monthly What's On poster (A4) ---------- */
+const POSTER_THEMES = {
+  12: { a: '#b3121b', b: '#14532d', gold: '#e8b84a', bg: '#0f2a1b', tag: ['’Tis the season', 'at the club!'], tag2: ['Good friends', 'Great times', 'All welcome!'] },
+  11: { a: '#7a1f1f', b: '#1f4d2b', gold: '#d9a441', bg: '#2a1d12', tag: ['More than', 'just a club'], tag2: ['All aboard', 'for a great', 'month!'] },
+  10: { a: '#c2410c', b: '#3b0764', gold: '#f59e0b', bg: '#1c1208', tag: ['Spooky fun', 'at the club'], tag2: ['Good friends', 'Great times'] },
+  default: { a: '#8b1d2c', b: '#1d3b6e', gold: '#e2b04a', bg: '#0e1a33', tag: ['More than', 'just a club'], tag2: ['Good friends', 'Great times', 'All welcome!'] }
+};
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+const pTime = t => { if (!t) return ''; let [h, m] = t.slice(0, 5).split(':').map(Number); const ap = h >= 12 && h < 24 ? 'pm' : 'am'; h = h % 12 || 12; return h + (m ? ':' + String(m).padStart(2, '0') : '') + ap; };
+const pRange = (a, b) => { if (!a) return ''; if (!b) return pTime(a); const x = pTime(a), y = pTime(b); return x.slice(-2) === y.slice(-2) && tmin(b) > tmin(a) ? `${x.slice(0, -2)}–${y}` : `${x}–${y}`; };
+function posterIcon(name, cat){
+  const n = (name || '').toLowerCase();
+  if (/new year/.test(n)) return '🥂'; if (/christmas day/.test(n)) return '🎄'; if (/boxing/.test(n)) return '🎁'; if (/kids|santa/.test(n)) return '🎅';
+  const fixed = { race: '🏇', karaoke: '🎤', quiz: '❓', darts: '🎯', dond: '💼' }[cat]; if (fixed) return fixed;
+  if (/christmas|xmas/.test(n)) return '🎄'; if (/halloween/.test(n)) return '🎃'; if (/disco/.test(n)) return '🪩';
+  return { race: '🏇', bingo: '🎱', karaoke: '🎤', music: '🎵', quiz: '❓', darts: '🎯', pool: '🎱', dond: '💼', sport: '📺' }[cat] || (/opening/.test(n) ? '🕛' : '⭐');
+}
+async function posterRows(month, leagues){
+  const [y, m] = month.split('-').map(Number); const from = `${month}-01`; const to = ymd(new Date(y, m, 0));
+  const [club, ev] = await Promise.all([api.clubEvents(from, to), api.eventsBetween(from, to)]);
+  const rows = club.filter(b => b.status !== 'cancelled' && (leagues || !isLeagueNight(b.event_type, b))).map(b => {
+    const cat = b.event_details?.cat && b.event_details.cat !== 'none' ? b.event_details.cat : guessCat(b.event_type);
+    return { date: b.booking_date, name: b.event_type, sub: b.ticketed ? `Ticket event${b.price_member ? ` · £${Number(b.price_member)} members, £${Number(b.price_guest || b.price_member)} guests` : ''}` : '',
+      time: pRange(b.start_time, b.end_time), icon: posterIcon(b.event_type, cat), dark: /new year/i.test(b.event_type) }; });
+  ev.filter(e => !isFootball(e) && (leagues || !isLeagueNight(e.title))).forEach(e => {
+    const d = new Date(e.starts_at); const desc = e.description || '';
+    const open = /opening/i.test(e.title) || /opening/i.test(desc);
+    const span = desc.match(/(\d{1,2}(?::\d\d)?\s?[ap]m)\s*[–-]\s*(\d{1,2}(?::\d\d)?\s?[ap]m)/i);
+    const extra = (desc.match(/with an? ([^.(]+?)\s*\d/i) || [])[1];
+    rows.push({ date: ymd(d), name: open ? e.title.replace(/\s*opening( times)?/i, '') : e.title, sub: open ? `Opening times${extra ? ' · ' + extra : ''}` : '',
+      time: span ? `${span[1].replace(/\s/g, '')}–${span[2].replace(/\s/g, '')}` : timeOf(e.starts_at).replace(/^0/, ''), icon: posterIcon(e.title, catOf(e)), dark: false });
+  });
+  return rows.sort((a, b) => a.date.localeCompare(b.date));
+}
+function posterHtml(month, rows, footer){
+  const [y, m] = month.split('-').map(Number); const T = POSTER_THEMES[m] || POSTER_THEMES.default;
+  const mName = new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long' }).toUpperCase();
+  const n = Math.max(rows.length, 1); const two = n > 13; const per = two ? Math.ceil(n / 2) : n;
+  const rowH = Math.min(two ? 24 : 32, Math.max(two ? 14 : 12, 208 / per - 2.4));
+  const nameSize = Math.min(12, rowH * 0.42), dateSize = Math.min(7, rowH * 0.27);
+  const clubName = (CONFIG.TOWN && !CONFIG.CLUB_NAME.includes(CONFIG.TOWN) ? CONFIG.TOWN + ' ' : '') + CONFIG.CLUB_NAME;
+  const row = (r, i) => { const d = parseYmd(r.date); const alt = i % 2 ? T.b : T.a;
+    return `<div class="r${r.dark ? ' dark' : ''}"><div class="d" style="background:${alt}"><span>${d.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase()}</span><b>${d.getDate()}<sup>${ordinal(d.getDate()).slice(-2).toUpperCase()}</sup></b>${d.getFullYear() !== y ? `<span>${d.getFullYear()}</span>` : ''}</div>
+      <div class="n"><i>${r.icon}</i><div><b style="color:${r.dark ? T.gold : alt}">${esc(r.name)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</div><i>${r.icon}</i></div><div class="t" style="font-size:${(Math.min(two ? 4.6 : 7.5, rowH * 0.3) * (r.time.length > 8 ? 0.8 : 1)).toFixed(2)}mm">${esc(r.time)}</div></div>`; };
+  const half = two ? [rows.slice(0, per), rows.slice(per)] : [rows];
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>What’s On ${mName[0] + mName.slice(1).toLowerCase()} ${y} · ${esc(CONFIG.CLUB_NAME)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Lobster&family=Oswald:wght@500;700&family=Kalam:wght@700&display=swap" rel="stylesheet">
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{margin:0;background:#666}
+.pg{width:210mm;height:297mm;margin:0 auto;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,${T.bg}dd,${T.bg} 60%);color:#222;font-family:Oswald,Arial,sans-serif;padding:9mm 9mm 0}
+.pg:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 14mm,rgba(255,255,255,.025) 14mm 28mm);pointer-events:none}
+.hd{position:relative;text-align:center;border:1.2mm solid ${T.gold};border-radius:5mm;background:linear-gradient(180deg,${T.b},${T.bg});padding:4mm 6mm 4.5mm;box-shadow:0 0 0 .6mm ${T.bg},0 0 0 1.2mm ${T.gold}55}
+.hd img{position:absolute;left:5mm;top:50%;transform:translateY(-50%);width:27mm;height:27mm;border-radius:50%;border:.8mm solid ${T.gold}}
+.hd .rt{position:absolute;right:5mm;top:50%;transform:translateY(-50%);width:30mm;font:700 4.4mm/1.15 Kalam,cursive;color:${T.gold};transform:translateY(-50%) rotate(-6deg)}
+.hd .k1{font:400 9mm/1 Lobster,cursive;color:#fff8e7}
+.hd .mo{font:400 ${mName.length > 7 ? 19 : 22}mm/1 Rye,serif;color:${T.gold};letter-spacing:1mm;text-shadow:.6mm .6mm 0 ${T.a},1.2mm 1.2mm 0 rgba(0,0,0,.5);margin:1mm 0}
+.hd .k2{font:700 5.5mm/1 Oswald,sans-serif;color:#fff8e7;letter-spacing:.4mm}
+.lt{position:absolute;left:11mm;top:46mm;font:700 4.6mm/1.1 Kalam,cursive;color:${T.gold};transform:rotate(-8deg);display:none}
+.cols{display:grid;grid-template-columns:${two ? '1fr 1fr' : '1fr'};gap:3mm;margin-top:5mm;position:relative}
+.list{display:grid;gap:2.2mm;align-content:start}
+.r{display:grid;grid-template-columns:${two ? '22mm 1fr 22mm' : '32mm 1fr 40mm'};height:${rowH}mm;border-radius:2.2mm;overflow:hidden;background:#fffaf0;border:.5mm solid ${T.gold};box-shadow:0 .8mm 1.6mm rgba(0,0,0,.45)}
+.r .d{color:#fff;display:grid;place-content:center;text-align:center;line-height:1;padding:0 1mm}
+.r .d span{font:700 ${dateSize * 0.62}mm/1.1 Oswald,sans-serif;letter-spacing:.2mm}
+.r .d b{font:700 ${dateSize * 1.15}mm/1.05 Oswald,sans-serif}
+.r .d sup{font-size:.5em}
+.r .n{display:flex;align-items:center;justify-content:center;gap:3mm;padding:0 2mm;text-align:center;border-right:.4mm dashed ${T.gold}}
+.r .n>div{display:grid;min-width:0}
+.r .n i{font-style:normal;font-size:${Math.min(9, rowH * 0.42)}mm;line-height:1}
+.r .n b{font:400 ${nameSize}mm/1.05 Lobster,cursive;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .n small{font:500 ${Math.min(3.6, rowH * 0.17)}mm/1.2 Oswald,sans-serif;color:#333;margin-top:.6mm}
+.r .t{display:grid;place-content:center;text-align:center;white-space:nowrap;font:700 ${Math.min(two ? 4.6 : 7.5, rowH * 0.3)}mm/1.1 Oswald,sans-serif;color:#1a1a1a;padding:0 1.5mm}
+.r.dark{background:#141414}.r.dark .n small{color:#ddd}.r.dark .t{color:#fff}
+.empty{background:#fffaf0;border-radius:3mm;padding:14mm;text-align:center;font:400 9mm Lobster,cursive;color:${T.a}}
+.ft{position:absolute;left:0;right:0;bottom:0;height:24mm;background:linear-gradient(180deg,transparent,rgba(0,0,0,.55));display:flex;align-items:flex-end;justify-content:space-between;padding:0 10mm 7mm;color:#fff8e7}
+.ft .sl{font:400 6mm/1 Lobster,cursive;color:${T.gold}}
+.ft .sign{background:#5b3a1e;border:.7mm solid ${T.gold};border-radius:1.5mm;padding:2mm 4mm;text-align:center;font:700 4.2mm/1.1 Oswald,sans-serif;letter-spacing:.3mm}
+.ft .sign small{display:block;font:400 3.6mm Kalam,cursive;color:${T.gold};letter-spacing:0}
+.ft .app{font:500 3.3mm/1.3 Oswald,sans-serif;text-align:right;opacity:.9}
+.tip{font:14px/1.4 Arial,sans-serif;background:#ffd;color:#222;padding:10px 14px;text-align:center}
+@media print{html,body{background:none}.tip{display:none}}
+</style></head><body>
+<div class="tip">Printing… In the print box, choose <b>A4</b>, turn <b>Background graphics</b> on, and set margins to <b>None</b>. Choose <b>Save as PDF</b> to keep a copy.</div>
+<div class="pg">
+  <div class="hd"><img src="${location.origin}/${LOGO}" alt=""><div class="k1">What’s Coming Up in</div><div class="mo">${mName}</div><div class="k2">AT ${esc(clubName.toUpperCase())}</div>
+    <div class="rt">${T.tag2.map(esc).join('<br>')}</div></div>
+  <div class="cols">${rows.length ? half.map((h, k) => `<div class="list">${h.map((r, i) => row(r, i + (k ? per : 0))).join('')}</div>`).join('') : `<div class="empty">More events coming soon!</div>`}</div>
+  <div class="ft"><div class="sl">${esc(footer || 'Good times all month long!')}</div>
+    <div class="sign">${esc(clubName.toUpperCase())}<small>More than just a club</small></div>
+    <div class="app">Members, guests &amp; new faces<br>always welcome!<br>Book &amp; see more on the club app</div></div>
+</div>
+<script>(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { const imgs = [...document.images]; return Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); }).then(() => setTimeout(() => window.print(), 400));<\/script>
+</body></html>`;
+}
+function openPosterSheet(){
+  const now = new Date(); const months = [0, 1, 2, 3].map(k => { const d = new Date(now.getFullYear(), now.getMonth() + k, 1); return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })]; });
+  const def = now.getDate() >= 20 ? months[1][0] : months[0][0];
+  openSheet(`<div class="sheet-h"><div><h2>Print What’s On</h2><p class="muted">An A4 poster of the month’s events, ready to print or save as a PDF.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="printposter">
+      <label class="f">Month<select name="month">${months.map(([v, l]) => `<option value="${v}" ${v === def ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="chk"><input type="checkbox" name="leagues"> Include league nights (darts, pool)</label>
+      <label class="f">Line at the bottom (optional)<input class="in" name="footer" maxlength="60" placeholder="Good times all month long!"></label>
+      <div class="err"></div><button class="btn" type="submit">🖨 Make the poster</button>
+      <p class="muted" style="font-size:13px;margin:0">It opens in a new tab and the print box appears. Choose A4, margins None, and turn on Background graphics. Events come from Bookings and What’s On, so add or change them there first.</p></form>`);
 }
 
 /* ---------- Club events: card, banner, ticket sheet ---------- */
@@ -4856,6 +4965,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  openposter: () => openPosterSheet(),
   pushon: async t => { const err = t.closest('.panel')?.querySelector('.err'); try { t.disabled = true; await turnPushOn(); toast('Notifications are on 🔔'); render(); } catch(e){ if (err) err.textContent = e.message; else toast(e.message); t.disabled = false; } },
   pushoff: async () => { await turnPushOff(); toast('Notifications are off on this phone'); render(); },
   pushlater: () => { try { localStorage.setItem('push-later', String(Date.now() + 7 * 864e5)); } catch(e){} render(); },
@@ -5168,6 +5278,12 @@ const forms = {
   async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
       team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };
     await api.savePrefs(pr); state.user.prefs = pr; closeSheet(); toast('Saved. Your favourite nights now have a ★'); render(); },
+  async printposter(f){
+    const w = window.open('', '_blank'); if (!w) throw new Error('Your browser blocked the new tab. Allow pop-ups for this site and try again.');
+    w.document.write('<p style="font:16px Arial;padding:20px">Making the poster…</p>');
+    try { const rows = await posterRows(f.month.value, f.leagues.checked); w.document.open(); w.document.write(posterHtml(f.month.value, rows, f.footer.value.trim())); w.document.close(); closeSheet(); }
+    catch(e){ w.close(); throw e; }
+  },
   async savenl(f, e){
     const d = state.nlDraft; const publish = (e?.submitter?.value ?? '1') === '1';
     if (!d.title.trim()) throw new Error('Give the newsletter a title.');
