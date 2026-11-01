@@ -57,8 +57,8 @@ begin
     perform public.push_to(new.to_staff, '🔄 ' || public.push_first(new.from_staff) || ' wants to swap with you', public.push_shift_txt(new.from_shift) || '. Tap to answer.', '/?go=swaps');
   elsif tg_op = 'UPDATE' and new.status is distinct from old.status then
     if new.status = 'approved' then
-      perform public.push_to(new.from_staff, '✅ Swap approved', 'You now work ' || public.push_shift_txt(new.to_shift) || ' instead.', '/?go=myshifts');
-      perform public.push_to(new.to_staff, '✅ Swap approved', 'You now work ' || public.push_shift_txt(new.from_shift) || ' instead.', '/?go=myshifts');
+      perform public.push_to(new.from_staff, '✅ Swapped', 'You now work ' || public.push_shift_txt(new.to_shift) || ' instead.', '/?go=myshifts');
+      perform public.push_to(new.to_staff, '✅ Swapped', 'You now work ' || public.push_shift_txt(new.from_shift) || ' instead.', '/?go=myshifts');
     elsif new.status = 'refused' then
       perform public.push_to(new.from_staff, '❌ Swap not approved', 'The manager said no to your swap with ' || public.push_first(new.to_staff) || '.', '/?go=swaps');
       perform public.push_to(new.to_staff, '❌ Swap not approved', 'The manager said no to the swap with ' || public.push_first(new.from_staff) || '.', '/?go=swaps');

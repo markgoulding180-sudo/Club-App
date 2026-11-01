@@ -2399,7 +2399,10 @@ function makeDemoApi(){
     async acceptSwapOffer(id){ const o = (s.soffers ||= []).find(o => o.id === id && o.status === 'offered'); const r = o && s.sreqs.find(r => r.id === o.request_id && r.staff_id === s.session && r.status === 'open');
       if (!r) throw new Error('That offer is no longer open.');
       s.swaps.push({ id: nextId(), from_shift: r.shift_id, to_shift: o.shift_id, from_staff: r.staff_id, to_staff: o.staff_id, note: r.note, status: 'accepted', created_at: new Date().toISOString(), decided_at: null });
-      s.soffers.filter(x => x.request_id === r.id && x.status === 'offered').forEach(x => x.status = x.id === o.id ? 'accepted' : 'declined'); r.status = 'matched'; save(); },
+      s.soffers.filter(x => x.request_id === r.id && x.status === 'offered').forEach(x => x.status = x.id === o.id ? 'accepted' : 'declined'); r.status = 'matched'; save(); await this.doSwap(s.swaps[s.swaps.length - 1].id); },
+    async doSwap(id){ const w = s.swaps.find(w => w.id === id); const a = s.shifts.find(x => x.id === w.from_shift), b = s.shifts.find(x => x.id === w.to_shift);
+      if (!a || !b || a.staff_id !== w.from_staff || b.staff_id !== w.to_staff){ w.status = 'cancelled'; save(); throw new Error('The rota has changed, so this swap can’t go ahead.'); }
+      a.staff_id = w.to_staff; b.staff_id = w.from_staff; w.status = 'approved'; w.decided_at = new Date().toISOString(); save(); },
     async listOffers(from){ const me = meU(); return (s.offers ||= []).filter(o => o.shift_date >= from && (me?.role === 'admin' || o.staff_id === s.session)).map(o => ({ ...o })); },
     async offerShift(d, sess, job){ const me = meU(); s.offers ||= [];
       if (!isPublished(d, s.periods)) throw new Error('That rota isn’t published yet.');
@@ -2427,7 +2430,7 @@ function makeDemoApi(){
       if (busy({ shift_date: a.shift_date, staff_id: b.staff_id })) throw new Error('They’re already working on your day.');
       if (s.swaps.some(w => ['asked', 'accepted'].includes(w.status) && [w.from_shift, w.to_shift].some(i => i === a.id || i === b.id))) throw new Error('One of those shifts already has a swap waiting.');
       s.swaps.push({ id: nextId(), from_shift: a.id, to_shift: b.id, from_staff: a.staff_id, to_staff: b.staff_id, note: note || null, status: 'asked', created_at: new Date().toISOString(), decided_at: null }); save(); },
-    async answerSwap(id, yes){ const w = s.swaps.find(w => w.id === id && w.to_staff === s.session && w.status === 'asked'); if (!w) throw new Error('That swap has already been dealt with.'); w.status = yes ? 'accepted' : 'declined'; if (!yes) w.decided_at = new Date().toISOString(); save(); },
+    async answerSwap(id, yes){ const w = s.swaps.find(w => w.id === id && w.to_staff === s.session && w.status === 'asked'); if (!w) throw new Error('That swap has already been dealt with.'); w.status = yes ? 'accepted' : 'declined'; if (!yes) w.decided_at = new Date().toISOString(); save(); if (yes) await this.doSwap(w.id); },
     async cancelSwap(id){ const w = s.swaps.find(w => w.id === id && w.from_staff === s.session && ['asked', 'accepted'].includes(w.status)); if (!w) throw new Error('That swap has already been dealt with.'); w.status = 'cancelled'; w.decided_at = new Date().toISOString(); save(); },
     async decideSwap(id, yes){ const w = s.swaps.find(w => w.id === id && w.status === 'accepted'); if (!w) throw new Error('That swap isn’t waiting for you.');
       w.decided_at = new Date().toISOString(); if (!yes){ w.status = 'refused'; save(); return; }
@@ -4445,7 +4448,7 @@ function myShiftsView(){
   const status = s => { const d = myDay(s.shift_date);
     if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
     if (d.req) return `<span class="st swap">Swap asked · ${plural((state.soffers || []).filter(o => o.request_id === d.req.id && o.status === 'offered').length, 'offer')}</span>`;
-    if (d.swap) return `<span class="st swap">Swap ${d.swap.status === 'accepted' ? '· with manager' : d.swap.to_staff === me ? '· asked you' : '· waiting'}</span>`;
+    if (d.swap) return `<span class="st swap">Swap ${d.swap.status === 'accepted' ? '· done' : d.swap.to_staff === me ? '· asked you' : '· waiting'}</span>`;
     if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
     return ''; };
   const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
@@ -4493,7 +4496,7 @@ function staffHelpView(){
     <ol><li>Open <b>Swaps</b> at the bottom of the screen and tap <b>Ask to swap one of my shifts</b>, or tap the shift in your diary. Add a message if you like.</li>
     <li>Everyone who could work that shift is asked. They offer one of their shifts back, or say no thanks.</li>
     <li>Offers show on the Swaps page under <b>My requests</b>, with steps showing where it’s up to. <b>Pick the one you want.</b> The first good offer is fine.</li>
-    <li>The manager approves it and the rota changes. You stay on your shift until then.</li></ol>
+    <li>As soon as you pick one, you’re swapped and the rota changes. No need to wait for the manager.</li></ol>
     <p><b>Someone else needs a swap?</b> It shows on the Swaps page under <b>Asked of me</b>, with your shifts they could take. Tap one to offer it, or tap <b>No thanks</b>. You only see requests you could actually help with.</p>`)}
   ${sec('🙋', 'No one can swap?', `<p>Tap the shift, then <b>No one can swap? Message the manager</b>. Choose the shift and say why. <b>You must give a reason.</b></p><p>The manager decides. If they allow it, it goes on your record as an <b>unplanned absence</b>, unless they agree it’s <b>special circumstances</b>. Swaps and holiday booked before the rota never go on your record.</p>
     <ul><li>You stay on the shift until the manager approves it. When they do, your diary changes to <b>Off ✓</b>.</li>
@@ -4513,7 +4516,7 @@ function staffHelpView(){
   </div>
   <div class="panel" style="margin-top:18px;font-size:14px">Still stuck? Speak to the manager.</div>`;
 }
-/* ---------- Swap board: ask everyone, they offer a shift back, you pick one, the manager approves ---------- */
+/* ---------- Swap board: ask everyone, they offer a shift back, you pick one, done ---------- */
 function canHelpWith(r){
   const me = state.user.id; const o = state.ops; if (!r.sh || r.staff_id === me || r.status !== 'open' || r.sh.shift_date <= todayStr()) return [];
   if ((state.soffers || []).some(x => x.request_id === r.id && x.staff_id === me && ['offered', 'passed', 'accepted'].includes(x.status))) return [];
@@ -4541,7 +4544,7 @@ function swapBoardHtml(){
   const myOffers = (state.soffers || []).filter(o => o.staff_id === me && o.shift_id && (o.status === 'offered' || o.created_at.slice(0, 10) >= recent) && o.status !== 'withdrawn');
   if (myOffers.length) h += `<div class="sbh">Your offers</div>${myOffers.map(o => { const r = (state.sreqs || []).find(x => x.id === o.request_id); const who = esc(pfirst(map[r?.staff_id]));
     return `<div class="swapreq"><span>You offered ${who} your <b>${shiftLine(o.sh)}</b> for their <b>${shiftLine(r?.sh)}</b></span>
-      <span class="cwnote ${o.status === 'accepted' ? 'ok' : o.status === 'declined' ? 'no' : 'wait'}">${o.status === 'accepted' ? `${who} picked yours. Waiting for the manager to approve.` : o.status === 'declined' ? `${who} chose a different swap` : `Waiting for ${who} to choose`}</span>
+      <span class="cwnote ${o.status === 'accepted' ? 'ok' : o.status === 'declined' ? 'no' : 'wait'}">${o.status === 'accepted' ? `${who} picked yours. The rota is updated.` : o.status === 'declined' ? `${who} chose a different swap` : `Waiting for ${who} to choose`}</span>
       ${o.status === 'offered' ? `<button class="linkbtn" data-action="sofwithdraw" data-id="${o.id}">Withdraw offer</button>` : ''}</div>`; }).join('')}`;
   const past = mySwapsHtml(); if (!past.includes('class="empty"')) h += `<div class="sbh">Swaps</div>${past}`;
   return h || '<div class="empty">No swaps right now. Can’t work a shift? Tap it in your diary and choose Ask everyone to swap.</div>';
@@ -4552,7 +4555,7 @@ function openSwapAsk(id){
     <ol class="steps"><li>Everyone who could work this shift is asked.</li><li>They offer one of their shifts back, or say no thanks.</li><li>You pick the offer you want.</li><li>The manager approves it and the rota changes.</li></ol>
     <form class="stack" data-form="swapask" data-id="${s.id}"><label class="f">Message (optional)<input class="in" name="note" placeholder="For example: it’s my daughter’s birthday"></label>
       <div class="err"></div><button class="btn" type="submit">Ask everyone</button></form>
-    <p class="muted" style="font-size:13px">You stay on the shift until the manager approves a swap.</p>`);
+    <p class="muted" style="font-size:13px">When you pick an offer, you swap straight away and the rota updates.</p>`);
 }
 /* ---------- Swaps page: My requests / Asked of me ---------- */
 function coverCallsForMe(){
@@ -4574,10 +4577,10 @@ function swapCounts(){
 }
 function swapLinkCard(){ const c = swapCounts();
   return `<button class="crow" data-action="go" data-view="swaps"><span class="ic sw">${ICONS.swap}</span><span class="ctxt"><b>Open Swaps</b><span>${c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} waiting for you to pick` : 'Ask to swap a shift, or help someone else'}</span></span><i aria-hidden="true">›</i></button>`; }
-const swapSteps = at => `<ol class="ssteps">${['Asked everyone', 'Pick an offer', 'Manager approves', 'Done'].map((l, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}"><span>${i < at ? '✓' : i + 1}</span>${l}</li>`).join('')}</ol>`;
+const swapSteps = at => `<ol class="ssteps">${['Asked everyone', 'Pick an offer', 'Swapped'].map((l, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}"><span>${i < at ? '✓' : i + 1}</span>${l}</li>`).join('')}</ol>`;
 function swapsView(){
   const me = state.user.id; const map = staffMap(); const c = swapCounts(); const tab = state.swTab ? (state.swTab === 'help' ? 'help' : 'mine') : (c.help && !c.mine ? 'help' : 'mine'); const recent = ymd(addDays(new Date(), -21));
-  const head = page('Swaps') + `<p class="muted" style="margin:-8px 0 14px">Can’t work a shift? Ask everyone to swap. Your shift only changes once the manager approves.</p>
+  const head = page('Swaps') + `<p class="muted" style="margin:-8px 0 14px">Can’t work a shift? Ask everyone to swap. When you both agree, the rota changes straight away.</p>
     <div class="bar">${seg('swtab', tab, [['mine', `My requests${c.mine ? ` (${c.mine})` : ''}`], ['help', `Asked of me${c.help ? ` (${c.help})` : ''}`]], 'Show')}</div>`;
   if (tab === 'mine'){
     const cards = [];
@@ -4587,8 +4590,8 @@ function swapsView(){
       let at = 1, body = '';
       if (r.status === 'open') body = offers.length ? `<p class="sq">${plural(offers.length, 'person', 'people')} can swap. <b>Pick the one you want:</b></p>${offers.map(o => `<div class="sofr"><span><b>${esc(pname(map[o.staff_id]))}</b><br>You’d work <b>${shiftLine(o.sh)}</b> instead</span><button class="btn sm" data-action="sofaccept" data-id="${o.id}">Pick</button></div>`).join('')}`
         : '<p class="sq muted">No offers yet. Everyone who could work your shift has been asked.</p>';
-      else if (w?.status === 'accepted'){ at = 2; body = `<p class="sq">You picked <b>${esc(pfirst(map[w.to_staff]))}</b>: you’d work their <b>${shiftLine(w.b)}</b>. Waiting for the manager.</p>`; }
-      else if (w?.status === 'approved'){ at = 4; body = `<p class="sq ok">✓ Approved. You now work <b>${shiftLine(w.b)}</b> and ${esc(pfirst(map[w.to_staff]))} works your old shift.</p>`; }
+      else if (w?.status === 'accepted'){ at = 2; body = `<p class="sq">You picked <b>${esc(pfirst(map[w.to_staff]))}</b>: you’d work their <b>${shiftLine(w.b)}</b>. Swapping now.</p>`; }
+      else if (w?.status === 'approved'){ at = 3; body = `<p class="sq ok">✓ Swapped. You now work <b>${shiftLine(w.b)}</b> and ${esc(pfirst(map[w.to_staff]))} works your old shift.</p>`; }
       else if (w?.status === 'refused'){ at = -1; body = '<p class="sq no">The manager said no. You’re still on your shift. You can ask again.</p>'; }
       cards.push(`<div class="swcard"><div class="swh"><span class="tagk">Your shift</span><b>${shiftLine(r.sh)}</b>${r.note ? `<span class="muted">“${esc(r.note)}”</span>` : ''}</div>
         ${at >= 0 ? swapSteps(at) : ''}${body}${r.status === 'open' ? `<button class="linkbtn" data-action="sreqcancel" data-id="${r.id}">Cancel request</button>` : ''}</div>`);
@@ -4635,7 +4638,7 @@ function openDaySheet(ds){
     h += card(d.shift);
     if (d.shift.decision === 'declined') h += '<div class="dnote no">Your can’t-work request was declined. You’re still on this shift.</div>';
     if (d.swap){ const other = pfirst(staffMap()[d.swap.from_staff === me ? d.swap.to_staff : d.swap.from_staff]);
-      h += `<div class="dnote swap">⇄ Swap with ${esc(other)}: ${d.swap.to_staff === me && d.swap.status === 'asked' ? 'they’ve asked you. Answer in Swaps.' : d.swap.status === 'accepted' ? 'waiting for the manager.' : 'waiting for them to say yes.'}</div>`; }
+      h += `<div class="dnote swap">⇄ Swap with ${esc(other)}: ${d.swap.to_staff === me && d.swap.status === 'asked' ? 'they’ve asked you. Answer in Swaps.' : d.swap.status === 'accepted' ? 'going through.' : 'waiting for them to say yes.'}</div>`; }
     if (d.req) h += `<div class="dnote swap">⇄ You’ve asked everyone to swap this shift. ${plural((state.soffers || []).filter(o => o.request_id === d.req.id && o.status === 'offered').length, 'offer')} so far.</div><button class="btn" data-action="go" data-view="swaps">Open Swaps</button>`;
     else if (!past && !d.swap){
       h += ds > todayStr() && isPublished(ds) ? `<div class="stack" style="gap:6px"><b>Can’t work it?</b><button class="btn" data-action="swapask" data-id="${d.shift.id}">⇄ Ask everyone to swap</button></div>` : '';
@@ -4967,16 +4970,16 @@ function myUpdatesHtml(mine){
   const me = state.user.id; const map = staffMap(); const recent = ymd(addDays(new Date(), -14)); const today = todayStr(); const items = [];
   const add = (cls, text, to) => items.push(`<button class="upd ${cls}" data-action="secjump" data-to="sec-${to}"><span>${text}</span><i aria-hidden="true">›</i></button>`);
   (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => add('act', `<b>${esc(pfirst(map[w.from_staff]))} wants to swap with you.</b> Answer yes or no.`, 'swaps'));
-  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('ok', `Swap with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))} approved`, 'swaps'));
+  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('ok', `Swapped with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))}. The rota is updated.`, 'swaps'));
   (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
-  (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'waiting for the manager'}`, 'swaps'));
+  (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'going through'}`, 'swaps'));
   coverCallsForMe().forEach(c => add('act', `<b>📣 Cover needed</b> ${shiftLine(c)}. Can you work it?`, 'swaps'));
   (state.msgs || []).filter(m => m.staff_id === me && m.reply && (m.replied_at || '').slice(0, 10) >= recent).forEach(m => add('ok', `The manager replied about “${esc(MSG_TOPICS[m.topic] || m.topic)}”`, 'msgs'));
   (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => add('act', `<b>${esc(pfirst(map[r.staff_id]))} needs a swap</b> for ${shiftLine(r.sh)}. Can you help?`, 'swaps'));
   (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').forEach(r => { const n = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length;
     add(n ? 'act' : 'wait', n ? `<b>${plural(n, 'offer')}</b> for your swap on ${shiftLine(r.sh)}. Pick one.` : `Swap asked for ${shiftLine(r.sh)}: no offers yet`, 'swaps'); });
   (state.soffers || []).filter(o => o.staff_id === me && o.shift_id && ['accepted', 'declined'].includes(o.status) && o.created_at.slice(0, 10) >= recent).forEach(o => { const r = (state.sreqs || []).find(x => x.id === o.request_id);
-    add(o.status === 'accepted' ? 'ok' : 'no', o.status === 'accepted' ? `${esc(pfirst(map[r?.staff_id]))} picked your swap offer. Waiting for the manager.` : `${esc(pfirst(map[r?.staff_id]))} chose a different swap`, 'swaps'); });
+    add(o.status === 'accepted' ? 'ok' : 'no', o.status === 'accepted' ? `${esc(pfirst(map[r?.staff_id]))} picked your swap offer. You’re swapped and the rota is updated.` : `${esc(pfirst(map[r?.staff_id]))} chose a different swap`, 'swaps'); });
   (state.offers || []).filter(o => o.staff_id === me).forEach(o => { const fresh = (o.decided_at || o.created_at || '').slice(0, 10) >= recent;
     if (o.status === 'offered') add('wait', `You offered to work ${shiftLine(o)}: waiting for the manager`, 'next');
     else if (o.status === 'accepted' && fresh) add('ok', `Offer accepted: you’re on ${shiftLine(o)}`, 'next');
@@ -5014,7 +5017,7 @@ function myRotaNote(mine){
     <b style="font-size:16px">Rota</b><span>${periodLabel(cur)}${isPublished(cur) ? ` · ${plural(inCur.length, 'shift')} · ${hrsFmt(hrs)} hours` : ' · not published yet'}</span>
 </div>`;
 }
-const SWAP_TXT = { asked: 'Waiting for them to say yes', accepted: 'They said yes. Waiting for the manager.', declined: 'They said no', approved: '✓ Approved by management. The rota is updated.', refused: 'The manager said no', cancelled: 'Cancelled' };
+const SWAP_TXT = { asked: 'Waiting for them to say yes', accepted: 'They said yes. Swapping now.', declined: 'They said no', approved: '✓ Swapped. The rota is updated.', refused: 'The manager said no', cancelled: 'Cancelled' };
 function mySwapsHtml(){
   const me = state.user.id; const map = staffMap(); const recent = ymd(addDays(new Date(), -14));
   const list = (state.swaps || []).filter(w => ['asked', 'accepted'].includes(w.status) || (w.status !== 'cancelled' && (w.decided_at || w.created_at).slice(0, 10) >= recent));
@@ -5319,7 +5322,7 @@ const actions = {
   publishrota: async t => { const on = t.dataset.on === '1'; if (!on && !armed(t)) return; await api.publishRota(t.dataset.start, on);
     toast(on ? 'Rota published. Staff can see it now.' : 'Rota back to draft. Staff can’t see it.'); refresh(); },
   swapdecide: async t => { const yes = t.dataset.yes === '1'; if (!yes && !armed(t)) return; await api.decideSwap(Number(t.dataset.id), yes); toast(yes ? 'Swap approved. The rota is updated.' : 'Swap declined'); refresh(); },
-  swapanswer: async t => { const yes = t.dataset.yes === '1'; await api.answerSwap(Number(t.dataset.id), yes); toast(yes ? 'Accepted. It goes to the manager to approve.' : 'You said no'); refresh(); },
+  swapanswer: async t => { const yes = t.dataset.yes === '1'; await api.answerSwap(Number(t.dataset.id), yes); toast(yes ? 'Swapped. The rota is updated.' : 'You said no'); refresh(); },
   swapcancel: async t => { if (!armed(t)) return; await api.cancelSwap(Number(t.dataset.id)); toast('Swap request cancelled'); refresh(); },
   cwwithdraw: async t => { if (!armed(t)) return; await api.withdrawCantWork(Number(t.dataset.id)); state.sheet = null; toast('Withdrawn. You’re back on the shift.'); refresh(); },
   swapstart: t => { state.sheet = { type: 'swap', id: Number(t.dataset.id), pick: null }; openSwapSheet(); },
@@ -5359,7 +5362,7 @@ const actions = {
   swappickmine: () => openPickMine(),
   swtab: t => go('swaps', { swTab: t.dataset.val }),
   sreqcancel: async t => { if (!armed(t)) return; await api.cancelSwapReq(Number(t.dataset.id)); toast('Swap request cancelled'); refresh(); },
-  sofaccept: async t => { await api.acceptSwapOffer(Number(t.dataset.id)); toast('Done. It’s gone to the manager to approve.'); refresh(); },
+  sofaccept: async t => { await api.acceptSwapOffer(Number(t.dataset.id)); toast('Swapped. The rota is updated.'); refresh(); },
   sofmake: async t => { await api.offerSwap(Number(t.dataset.req), Number(t.dataset.id)); toast('Offer sent. They’ll pick the one they want.'); refresh(); },
   sofpass: async t => { await api.passSwap(Number(t.dataset.req)); toast('No problem'); refresh(); },
   sofwithdraw: async t => { if (!armed(t)) return; await api.withdrawSwapOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
@@ -5584,11 +5587,11 @@ const forms = {
   async addnote(f){ await api.addNote({ staff_id: f.dataset.staff, note_date: f.date.value, kind: f.kind.value, note: f.note.value.trim() }); toast('Added to their record'); refresh(); },
   async swapask(f){ await api.askSwapAll(Number(f.dataset.id), f.note.value.trim()); await go('swaps', { swTab: 'mine' });
     openSheet(`<div class="sheet-h"><div><h2>Swap request sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-      <div class="sentok"><span class="tick">✓</span><p>Everyone who could work your shift has been asked.</p><p class="muted">When they offer a shift back, you’ll see it under Swaps. Pick the one you want and the manager will approve it.</p></div>
+      <div class="sentok"><span class="tick">✓</span><p>Everyone who could work your shift has been asked.</p><p class="muted">When they offer a shift back, you’ll see it under Swaps. Pick the one you want and you’re swapped straight away.</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
   async askswap(f){ const sh = state.sheet; await api.askSwap(sh.id, sh.pick, f.note.value.trim()); state.sheet = null; await refresh();
     openSheet(`<div class="sheet-h"><div><h2>Swap request sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-      <div class="sentok"><span class="tick">✓</span><p>We’ve asked them. If they say yes, it goes to the manager to approve.</p><p class="muted">You stay on your shift until the manager approves the swap. You can follow it under My shifts.</p></div>
+      <div class="sentok"><span class="tick">✓</span><p>We’ve asked them. If they say yes, you’re swapped straight away.</p><p class="muted">You stay on your shift until they say yes. You can follow it under My shifts.</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
   async saveprefs(f){ const pr = { cats: [...f.querySelectorAll('[name=cat]:checked')].map(x => x.value), drinks: [...f.querySelectorAll('[name=drink]:checked')].map(x => x.value),
       team: f.team.value.trim(), offers: f.offers.checked, updated: new Date().toISOString() };

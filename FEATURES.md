@@ -312,3 +312,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - In the 🔔 bell and as phone notifications: rota published, a colleague needs a swap, someone offered a shift for your swap, someone asks you to swap, swap approved / not approved, holiday approved / declined, can't-work approved / declined, and the manager's reply (also in 💬).
 - SQL: `update-staff-push.sql` (new notification kind "shifts").
 - Greeting on Home is centred.
+
+## Swaps no longer need the manager (Nov 2026)
+- When a colleague says yes to a direct swap, or you pick an offer on the swap board, the two shifts swap over straight away and the rota updates. Both get "✅ Swapped".
+- The checks stay: both must still be on those shifts, and neither can end up working twice at the same time.
+- Any swaps that were waiting for the manager are put through when the SQL is run.
+- SQL: `update-swaps-no-approval.sql`.
