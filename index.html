@@ -3760,7 +3760,7 @@ function holidayAdminHtml(){
         : `<div><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="cancelled">Cancel holiday</button></div>`}
     </div>`;
   };
-  return `<p class="muted" style="margin-bottom:14px;font-size:14px">Staff ask for holiday from My shifts. When you approve, they come off any shifts on those days and those shifts show as Cover needed on the Rota. Everyone gets ${HOLIDAY_DAYS} days a year (Jan–Dec).</p>
+  return `<p class="muted" style="margin-bottom:14px;font-size:14px">Staff ask for holiday from Book holiday in their app. When you approve, they come off any shifts on those days and those shifts show as Cover needed on the Rota. Everyone gets ${HOLIDAY_DAYS} days a year (Jan–Dec).</p>
     <div class="label">Waiting for you (${pend.length})</div><div class="list">${pend.map(h => card(h, true)).join('') || '<div class="empty">No holiday requests waiting.</div>'}</div>
     <div class="label" style="margin-top:24px">Approved, coming up</div><div class="list">${up.map(h => card(h, false)).join('') || '<div class="empty">No holiday booked.</div>'}</div>`;
 }
@@ -4350,6 +4350,7 @@ function staffQuickStart(){
   return `<div class="qstart"><div class="ntop"><b>👋 Welcome to the staff app</b><button class="linkbtn" data-action="qsdone">Got it</button></div>
     <ol><li><b>Your shifts</b> are on <b>My shifts</b>. Your next one is always at the top of Home.</li>
       <li><b>Can’t make a shift?</b> Tap it and press <b>Ask everyone to swap</b>. If no one can, message the manager.</li>
+      <li><b>🔔 and 💬 at the top</b> turn yellow when something’s new: 🔔 for your shifts and the manager’s notices, 💬 for replies from the manager.</li>
       <li><b>Holiday:</b> tap <b>Book holiday</b>, pick your first and last day, then send it.</li>
       <li>Turn on <b>notifications</b> so you hear when the rota is out or someone needs a swap.</li></ol></div>`;
 }
@@ -4598,13 +4599,13 @@ function staffHelpView(){
     <li>You need to ask at least <b>${CW_NOTICE_DAYS} days</b> before the shift. Any later, please <b>phone the manager</b>.</li><li>You can do this for up to <b>${CW_MAX} shifts per rota</b>.</li>
     <li>Plans changed? Tap the shift and choose <b>Withdraw, I can work it</b>.</li></ul>`)}
   ${sec('🌴', 'Holiday', `<ul><li>You get <b>${HOLIDAY_DAYS} days a year</b> (January to December).</li>
-    <li><b>Ask for holiday before the rota comes out.</b> Use <b>Request holiday</b> at the top of My shifts. Days already on a published rota show as <b>Out</b> and can’t be picked. For those, swap your shift instead.</li>
+    <li><b>Ask for holiday before the rota comes out.</b> Tap <b>Book holiday</b> on Home or My shifts. Days already on a published rota show as <b>Out</b> and can’t be picked. For those, swap your shift instead.</li>
     <li>It shows as <b>Hol asked</b> until the manager answers. You can withdraw it until then.</li></ul>`)}
-  ${sec('✉', 'Message the manager', `<p>Use <b>✉ Message the manager</b> at the top of My shifts (or the tile on Home). Pick what it’s about: can’t work a shift, feeling ill, a problem at the club, abuse from a member or guest, or a complaint. Then write up to <b>${MSG_WORDS} words</b>.</p><p>Your messages and the manager’s replies show under <b>My messages</b>.</p>`)}
+  ${sec('✉', 'Message the manager', `<p>Use <b>Message the manager</b> on Home, or tap the <b>💬</b> icon at the top and <b>New message to the manager</b>. Pick what it’s about: can’t work a shift, feeling ill, a problem at the club, abuse from a member or guest, or a complaint. Then write up to <b>${MSG_WORDS} words</b>.</p><p>Your messages and the manager’s replies are in the <b>💬</b> icon at the top. It turns yellow with a number when the manager replies.</p>`)}
   ${sec('📣', 'When the manager needs cover', `<p>If a shift needs someone, the manager can ask everyone who could work it. You’ll see <b>📣 Cover needed</b> in your updates and on the Swaps page. Tap <b>Yes, I can work it</b> or <b>No, sorry</b>. The manager picks from the people who said yes.</p>`)}
   ${sec('✋', 'Pick up an extra shift', `<p>If a shift still needs someone and you could work it, you’ll see <b>I can work this</b>. It shows on the <b>Rota</b> page and when you tap that day in your diary.</p>
     <p>Tap it and the manager will let you know. If they say yes, it appears in your diary. You can withdraw your offer until they answer.</p>`)}
-  ${sec('🔔', 'Updates', `<p>When something needs you, a <b>🔔 updates</b> button appears at the top of Home and My shifts. For example: someone wants to swap, your holiday is approved, or the manager answered your can’t-work request.</p>
+  ${sec('🔔', 'Updates', `<p>The <b>🔔</b> bell at the top of every page turns yellow with a number when something needs you: someone wants to swap, your holiday is approved, the rota is out, or the manager answered your can’t-work request. Messages from the manager are there too. Tap ✕ to clear one.</p>
     <p>Tap it to see them all. Tap one to go straight to it.</p>`)}
   ${sec('⏱️', 'Your hours', `<p>Every shift counts as its set opening times. For example, an evening on the Lounge Bar from 18:00 to 23:00 counts as 5 hours.</p>
     <p>Your shifts and hours for the current rota show at the top of Home and My shifts. The manager uses the same figures for wages.</p>`)}
@@ -5757,7 +5758,7 @@ const forms = {
       await api.staffSetShift(shiftId, 'cannot_work', body); }
     await api.sendMessage({ topic, body, shift_id: shiftId }); state.sheet = null; await refresh();
     openSheet(`<div class="sheet-h"><div><h2>Message sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-      <div class="sentok"><span class="tick">✓</span><p>The manager has your message.</p><p class="muted">${topic === 'cant_work' ? 'You stay on the shift until the manager decides. You’ll see the answer in My shifts.' : 'You’ll see their reply under My messages in My shifts.'}</p></div>
+      <div class="sentok"><span class="tick">✓</span><p>The manager has your message.</p><p class="muted">${topic === 'cant_work' ? 'You stay on the shift until the manager decides. You’ll see the answer under the 🔔 bell at the top.' : 'When they reply, the 💬 icon at the top turns yellow. Tap it to read the reply.'}</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString() }); toast('Done'); refresh(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
