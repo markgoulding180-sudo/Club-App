@@ -3273,7 +3273,7 @@ function homeView(){
     h += `<div class="label" style="margin-top:20px">What do you need?</div>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · your diary`, 'myshifts')}
-        ${tile('swap', 'Swap shifts', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'colleague needs', 'colleagues need')} a swap` : c.mine ? `${plural(c.mine, 'offer')} for your shift` : 'Can’t make a shift? Swap it'; })(), 'swaps', swapCounts().help + swapCounts().mine)}
+        ${tile('swap', 'Swap shifts', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'colleague needs', 'colleagues need')} a swap` : c.mine ? `${plural(c.mine, 'offer')} for your shift` : 'Can’t make a shift? Swap it'; })(), 'swaps', swapCounts().unseen)}
         <button class="tile" data-action="holnew"><span class="ic">${ICONS.cal}</span><b>Book holiday</b><span class="sub">${holLeftTxt()}</span></button>
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       </div>
@@ -4423,7 +4423,7 @@ async function openNotif(){
   const uid = state.user.id; const items = notifItems();
   const unreadIds = visibleNotices().filter(x => !(state.nRead || []).includes(x.id)).map(x => x.id);
   if (unreadIds.length && !viewing()){ try { await api.markNoticesRead(unreadIds); } catch(e){} (state.nRead ||= []).push(...unreadIds); }
-  lsSet('nseen-' + uid, [...new Set([...(lsGet('nseen-' + uid) || []), ...items.filter(x => x.upd).map(x => x.key)])]);
+  lsSet('nseen-' + uid, [...new Set([...(lsGet('nseen-' + uid) || []), ...items.filter(x => x.upd).map(x => x.key)])]); markSwapsSeen();
   state.sheet = { type: 'notif' };
   const ns = items.filter(x => !x.upd), us = items.filter(x => x.upd);
   openSheet(`<div class="sheet-h"><div><h2>🔔 Notifications</h2><p class="muted">${items.length ? 'Tap ✕ to clear one.' : 'You’re all caught up.'}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
@@ -4629,12 +4629,21 @@ function swapCounts(){
   const me = state.user.id;
   const mine = (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').reduce((a, r) => a + (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length, 0);
   const help = (state.sreqs || []).filter(r => canHelpWith(r).length).length + (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').length + coverCallsForMe().length;
-  return { mine, help };
+  const seen = new Set(lsGet('swseen-' + me) || []); const keys = swapKeys();
+  return { mine, help, unseen: keys.filter(k => !seen.has(k)).length };
 }
+/* Swap things waiting for me, by key, so the badge can go once they've been seen */
+function swapKeys(){ const me = state.user.id;
+  return [...(state.sreqs || []).filter(r => canHelpWith(r).length).map(r => 'r' + r.id),
+    ...(state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').map(w => 'w' + w.id),
+    ...coverCallsForMe().map(c => 'c' + c.id),
+    ...(state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).map(o => 'o' + o.id)]; }
+function markSwapsSeen(){ if (!state.user || !isStaff()) return; const me = state.user.id; lsSet('swseen-' + me, [...new Set([...(lsGet('swseen-' + me) || []), ...swapKeys()])]); }
 function swapLinkCard(){ const c = swapCounts();
   return `<button class="crow" data-action="go" data-view="swaps"><span class="ic sw">${ICONS.swap}</span><span class="ctxt"><b>Open Swaps</b><span>${c.help ? `${plural(c.help, 'request')} for you to answer` : c.mine ? `${plural(c.mine, 'offer')} waiting for you to pick` : 'Ask to swap a shift, or help someone else'}</span></span><i aria-hidden="true">›</i></button>`; }
 const swapSteps = at => `<ol class="ssteps">${['Asked everyone', 'Pick an offer', 'Swapped'].map((l, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}"><span>${i < at ? '✓' : i + 1}</span>${l}</li>`).join('')}</ol>`;
 function swapsView(){
+  markSwapsSeen();
   const me = state.user.id; const map = staffMap(); const c = swapCounts(); const tab = state.swTab ? (state.swTab === 'help' ? 'help' : 'mine') : (c.help && !c.mine ? 'help' : 'mine'); const recent = ymd(addDays(new Date(), -21));
   const head = page('Swaps') + `<p class="muted" style="margin:-8px 0 14px">Can’t work a shift? Ask everyone to swap. When you both agree, the rota changes straight away.</p>
     <div class="bar">${seg('swtab', tab, [['mine', `My requests${c.mine ? ` (${c.mine})` : ''}`], ['help', `Asked of me${c.help ? ` (${c.help})` : ''}`]], 'Show')}</div>`;
