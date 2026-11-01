@@ -4600,7 +4600,7 @@ function swapBoardHtml(){
   const myOffers = (state.soffers || []).filter(o => o.staff_id === me && o.shift_id && (o.status === 'offered' || o.created_at.slice(0, 10) >= recent) && o.status !== 'withdrawn');
   if (myOffers.length) h += `<div class="sbh">Your offers</div>${myOffers.map(o => { const r = (state.sreqs || []).find(x => x.id === o.request_id); const who = esc(pfirst(map[r?.staff_id]));
     return `<div class="swapreq"><span>You offered ${who} your <b>${shiftLine(o.sh)}</b> for their <b>${shiftLine(r?.sh)}</b></span>
-      <span class="cwnote ${o.status === 'accepted' ? 'ok' : o.status === 'declined' ? 'no' : 'wait'}">${o.status === 'accepted' ? `${who} picked yours. The rota is updated.` : o.status === 'declined' ? `${who} chose a different swap` : `Waiting for ${who} to choose`}</span>
+      <span class="cwnote ${o.status === 'accepted' ? 'ok' : o.status === 'declined' ? 'no' : 'wait'}">${o.status === 'accepted' ? `${who} picked yours. 🤝 Thanks for swapping! The rota is updated.` : o.status === 'declined' ? `${who} chose a different swap` : `Waiting for ${who} to choose`}</span>
       ${o.status === 'offered' ? `<button class="linkbtn" data-action="sofwithdraw" data-id="${o.id}">Withdraw offer</button>` : ''}</div>`; }).join('')}`;
   const past = mySwapsHtml(); if (!past.includes('class="empty"')) h += `<div class="sbh">Swaps</div>${past}`;
   return h || '<div class="empty">No swaps right now. Can’t work a shift? Tap it in your diary and choose Ask everyone to swap.</div>';
@@ -5036,7 +5036,7 @@ function myUpdatesHtml(mine){
   (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').forEach(r => { const n = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length;
     add(n ? 'act' : 'wait', n ? `<b>${plural(n, 'offer')}</b> for your swap on ${shiftLine(r.sh)}. Pick one.` : `Swap asked for ${shiftLine(r.sh)}: no offers yet`, 'swaps'); });
   (state.soffers || []).filter(o => o.staff_id === me && o.shift_id && ['accepted', 'declined'].includes(o.status) && o.created_at.slice(0, 10) >= recent).forEach(o => { const r = (state.sreqs || []).find(x => x.id === o.request_id);
-    add(o.status === 'accepted' ? 'ok' : 'no', o.status === 'accepted' ? `${esc(pfirst(map[r?.staff_id]))} picked your swap offer. You’re swapped and the rota is updated.` : `${esc(pfirst(map[r?.staff_id]))} chose a different swap`, 'swaps'); });
+    add(o.status === 'accepted' ? 'ok' : 'no', o.status === 'accepted' ? `${esc(pfirst(map[r?.staff_id]))} picked your offer. 🤝 Thanks for swapping! The rota is updated.` : `${esc(pfirst(map[r?.staff_id]))} chose a different swap. Thanks for offering, you keep your shift.`, 'swaps'); });
   (state.offers || []).filter(o => o.staff_id === me).forEach(o => { const fresh = (o.decided_at || o.created_at || '').slice(0, 10) >= recent;
     if (o.status === 'offered') add('wait', `You offered to work ${shiftLine(o)}: waiting for the manager`, 'next');
     else if (o.status === 'accepted' && fresh) add('ok', `Offer accepted: you’re on ${shiftLine(o)}`, 'next');

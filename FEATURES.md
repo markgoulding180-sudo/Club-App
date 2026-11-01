@@ -328,3 +328,8 @@ If no one can swap, the staff member can still tell the manager they can't work 
 
 ## Booking page: what else is on that day (Nov 2026)
 - Each booking shows **Also on [day]**: a small grid of Function Room and Lounge Bar × Daytime and Evening, showing club events, league nights and other hires (or "Nothing"), with this booking highlighted and a red ⚠ Clash if anything overlaps. What's On items for that day are listed underneath.
+
+## Swap messages (Nov 2026)
+- "🙋 X needs a swap" only goes to staff who could help: free that day, can do that job, and have a shift to offer back.
+- When the asker picks an offer: they get "✅ Swapped with Heather"; Heather gets "🤝 Thanks for swapping!"; anyone else who offered gets "Swap sorted, thanks for offering. You keep your shift."; the bosses get "🔄 Luis and Heather swapped" for info.
+- SQL: `update-swap-messages.sql`.
