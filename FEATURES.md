@@ -333,3 +333,8 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - "🙋 X needs a swap" only goes to staff who could help: free that day, can do that job, and have a shift to offer back.
 - When the asker picks an offer: they get "✅ Swapped with Heather"; Heather gets "🤝 Thanks for swapping!"; anyone else who offered gets "Swap sorted, thanks for offering. You keep your shift."; the bosses get "🔄 Luis and Heather swapped" for info.
 - SQL: `update-swap-messages.sql`.
+
+## Can't-work made simpler (Nov 2026)
+- Staff: the shift sheet has a red **No one can swap? Tell the manager** button.
+- Manager: can't-work requests no longer also appear as a staff message (one alert, not two). On the Rota: **Can't work: your decision** with **✓ Let them off** / **✗ They must work it** and a tick box for special circumstances. Once let off, it moves to **Needs cover** with **Pick someone** and **📣 Ask everyone**.
+- SQL: `update-cantwork-alert.sql`.

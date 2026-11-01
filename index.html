@@ -1617,6 +1617,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .sdtag{font-size:11px;font-weight:800;color:var(--teal,#2ee6c8);text-transform:uppercase;letter-spacing:.05em}
 .sdwarn{color:#ff7a7a;font-size:12.5px}
 .sdwo{margin:4px 0 0;padding-left:18px;font-size:14px}
+.redbtn{background:linear-gradient(140deg,#ff5d5d,#c81e3a)!important;color:#fff!important;border:0!important;width:100%}
+.cwq{display:grid;gap:8px;padding:10px 0;border-top:1px solid var(--line)}.cwq:first-of-type{border-top:0}
+.cwex{font-size:13.5px}
 </style>
 
 </head>
@@ -3673,9 +3676,15 @@ function rotaView(){
     if (twice.length) h += `<div class="alert"><b class="t">On two shifts in one day</b>${twice.map(v => `<div>${esc(pname(map[v[0].staff_id]))} on ${fmtDate(v[0].shift_date)}: ${v.map(s => `${SESS[s.session].toLowerCase()} ${JOBS[s.job]}`).join(' and ')}. Take them off one.</div>`).join('')}</div>`;
     const offs = (state.offers || []).filter(o => o.status === 'offered');
     if (offs.length) h += `<div class="alert swapok"><b class="t">Offers to work</b>${offs.map(o => `<div class="swaprow"><span><b>${esc(pname(map[o.staff_id]))}</b> can work ${shiftLine(o)} <button class="linkbtn" data-action="rotajump" data-date="${o.shift_date}">See day</button></span><span class="swapbtns"><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></span></div>`).join('')}</div>`;
-    const newMsgs = (state.msgs || []).filter(m => m.status === 'new').length;
+    const newMsgs = (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').length;
     if (newMsgs) h += `<div class="alert swapok"><b class="t">Messages from staff</b><div>${plural(newMsgs, 'new message')} <button class="linkbtn" data-action="go" data-view="messages">Open messages</button></div></div>`;
-    if (probs.length) h += `<div class="alert"><b class="t">Cover needed</b>${probs.map(s => `<div>${esc(pname(map[s.staff_id]))} can’t do ${fmtDate(s.shift_date)} ${SESS[s.session].toLowerCase()} (${JOBS[s.job]})${s.reason ? `: “${esc(s.reason)}”` : ''} <button class="linkbtn" data-action="rotajump" data-date="${s.shift_date}">Find cover</button></div>`).join('')}</div>`;
+    const ask = probs.filter(s => s.status === 'cannot_work' && !s.decision), need = probs.filter(s => !(s.status === 'cannot_work' && !s.decision));
+    const when = s => `${fmtDate(s.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} ${SESS[s.session].toLowerCase()} · ${JOBS[s.job]}`;
+    if (ask.length) h += `<div class="alert cwask"><b class="t">Can’t work: your decision</b>${ask.map(s => `<div class="cwq"><span><b>${esc(pname(map[s.staff_id]))}</b> can’t work <b>${when(s)}</b>${s.reason ? `<br><span class="muted">“${esc(s.reason)}”</span>` : ''}</span>
+      <label class="chk cwex"><input type="checkbox" id="cwex-${s.id}"> Special circumstances (don’t count it on their record)</label>
+      <span class="swapbtns"><button class="btn sm" data-action="cwallow" data-id="${s.id}">✓ Let them off</button><button class="btn ghost sm" data-action="cwdecline" data-id="${s.id}">✗ They must work it</button></span></div>`).join('')}</div>`;
+    if (need.length) h += `<div class="alert"><b class="t">Needs cover</b>${need.map(s => `<div class="cwq"><span><b>${when(s)}</b>: ${esc(pfirst(map[s.staff_id]))} is off${s.status === 'sick' ? ' sick' : s.status === 'no_show' ? ' (didn’t turn up)' : ''}.</span>
+      <span class="swapbtns"><button class="btn sm" data-action="rotajump" data-date="${s.shift_date}">Pick someone</button><button class="btn ghost sm" data-action="askcover" data-date="${s.shift_date}" data-sess="${s.session}" data-job="${s.job}">📣 Ask everyone</button></span></div>`).join('')}</div>`;
   }
   if (inPeriods){
     const wk = Math.round((parseYmd(ymd(ws)) - parseYmd(pst)) / 864e5 / 7) + 1;
@@ -4368,7 +4377,7 @@ function notifItems(){
 }
 function msgItems(){
   const uid = state.user?.id; const since = lsGet('mseen-' + uid) || '';
-  if (isAdmin()) return [...(canArea('messages') ? (state.msgs || []).filter(m => m.status === 'new').map(m => ({ unseen: m.created_at > since })) : []), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
+  if (isAdmin()) return [...(canArea('messages') ? (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').map(m => ({ unseen: m.created_at > since })) : []), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
   if (isStaff()) return (state.msgs || []).filter(m => m.staff_id === uid && m.reply).map(m => ({ unseen: (m.replied_at || m.created_at || '') > since }));
   return (state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }));
 }
@@ -4406,7 +4415,7 @@ function adminNotifs(){
   if (canArea('rota')){
     (state.swaps || []).filter(w => w.status === 'accepted').forEach(w => line('sw' + w.id, 'Swaps to approve', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> want to swap: ${shTxt(sh(w.from_shift))} for ${shTxt(sh(w.to_shift))}. Tap to approve.`, 'data-action="gorota" data-tab="rota"'));
     (state.holidays || []).filter(h => h.status === 'pending').forEach(h => line('hol' + h.id, 'Holiday requests', `<b>${nm(h.staff_id)}</b> asked for holiday: ${dayRanges(h.days)}`, 'data-action="gorota" data-tab="holidays"'));
-    (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, 'Can’t work', `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}`, 'data-action="gorota" data-tab="rota"'));
+    (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, x.status === 'cannot_work' && !x.decision ? 'Can’t work: your decision' : 'Needs cover', x.status === 'cannot_work' && !x.decision ? `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}. Tap to decide.` : `<b>${shTxt(x)}</b> needs cover (${nm(x.staff_id)} is off). Tap to pick someone.`, 'data-action="gorota" data-tab="rota"'));
   }
   if (canArea('rota')) (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= ymd(addDays(new Date(), -7)))
     .forEach(w => line('swd' + w.id, 'Swaps done (for info)', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> swapped: ${nm(w.from_staff)} now works ${swShift(w.b)}, ${nm(w.to_staff)} works ${swShift(w.a)}`, 'data-action="go" data-view="swaplog"'));
@@ -4435,7 +4444,7 @@ async function openNotif(){
 function openMsgs(){
   const uid = state.user.id; lsSet('mseen-' + uid, new Date().toISOString()); state.sheet = { type: 'msgs' };
   const committee = !isAdmin() && !isStaff() && (state.user.perms || []).length;
-  if (isAdmin()){ const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p])); const sm = (state.msgs || []).filter(m => m.status !== 'done').slice(0, 6);
+  if (isAdmin()){ const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p])); const sm = (state.msgs || []).filter(m => m.status !== 'done' && m.topic !== 'cant_work').slice(0, 6);
     openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">From staff, the committee and members.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
       ${canArea('messages') ? `<div class="isub">From staff</div>${sm.map(m => `<button class="upd${m.status === 'new' ? ' act' : ''}" data-action="go" data-view="messages"><span><b>${esc(pfirst(map[m.staff_id]) || 'Staff')}</b> · ${esc(MSG_TOPICS[m.topic] || m.topic)}: ${esc(m.body.slice(0, 80))}</span><i aria-hidden="true">›</i></button>`).join('') || '<p class="muted" style="margin:0 0 6px">Nothing from staff to deal with.</p>'}
         <button class="linkbtn" data-action="go" data-view="messages">All messages from staff ›</button>` : ''}
@@ -4707,7 +4716,7 @@ function openDaySheet(ds){
     if (d.req) h += `<div class="dnote swap">⇄ You’ve asked everyone to swap this shift. ${plural((state.soffers || []).filter(o => o.request_id === d.req.id && o.status === 'offered').length, 'offer')} so far.</div><button class="btn" data-action="go" data-view="swaps">Open Swaps</button>`;
     else if (!past && !d.swap){
       h += ds > todayStr() && isPublished(ds) ? `<div class="stack" style="gap:6px"><b>Can’t work it?</b><button class="btn" data-action="swapask" data-id="${d.shift.id}">⇄ Ask everyone to swap</button></div>` : '';
-      h += `<button class="linkbtn" style="justify-self:center" data-action="msgstart" data-topic="cant_work" data-shift="${d.shift.id}">No one can swap? Message the manager</button>`;
+      h += `<button class="btn redbtn" data-action="msgstart" data-topic="cant_work" data-shift="${d.shift.id}">No one can swap? Tell the manager</button>`;
     }
   }
   if (d.cw){ h += card(d.cw) + `<div class="stack" style="gap:6px">${cwNote(d.cw, !past)}</div>`; }
@@ -5466,8 +5475,8 @@ const actions = {
     : go('rota', { rotaWeek: Number(t.dataset.step) ? addDays(state.rotaWeek, 7 * Number(t.dataset.step)) : startOfWeek(new Date()) }),
   wkjump: t => { const el = document.getElementById('wk-' + t.dataset.date); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - 8, behavior: 'smooth' }); },
   rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)), rotaStart: isAdmin() ? periodStart(ds) : state.rotaStart }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
-  cwallow: async t => { const ex = t.dataset.ex === '1'; await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
-    toast(ex ? 'Allowed as special circumstances. Not on their record. Now find cover.' : 'Allowed. It goes on their record as unplanned absence. Now find cover.'); refresh(); },
+  cwallow: async t => { const ex = t.dataset.ex === '1' || !!document.getElementById('cwex-' + t.dataset.id)?.checked; await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
+    toast(ex ? 'Let off: special circumstances. Now pick someone to cover.' : 'Let off. It goes on their record. Now pick someone to cover.'); refresh(); },
   askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
   coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks! The manager will let you know.'); refresh(); },

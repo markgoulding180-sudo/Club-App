@@ -53,6 +53,7 @@ create trigger push_boss_booking after insert on public.bookings for each row ex
 -- Message from staff
 create or replace function public.push_boss_staffmsg() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
+  if new.topic = 'cant_work' then return new; end if;   -- can't-work already has its own alert
   perform public.push_bosses('messages', 'messages', '✉️ ' || public.push_first(new.staff_id) || ': ' ||
     case new.topic when 'cant_work' then 'can’t work a shift' when 'ill' then 'feeling ill' when 'club_problem' then 'problem at the club'
       when 'abuse' then 'abuse from a member or guest' when 'complaint' then 'complaint' else 'message' end,
