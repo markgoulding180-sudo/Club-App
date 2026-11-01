@@ -1622,6 +1622,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cwex{font-size:13.5px}
 .sendbox{display:grid;gap:8px;padding:12px;border:1px solid rgba(46,230,200,.4);border-radius:14px;background:rgba(46,230,200,.06);margin:4px 0 6px}
 .msgres{display:grid;gap:6px}
+.wkjump em{font-style:normal;font-size:11px;font-weight:800;margin-top:2px}.wkgap{color:#f6c850}.wkok{color:var(--green,#3ddc84)}
 </style>
 
 </head>
@@ -2719,7 +2720,7 @@ async function load(view){
     await loadWhatsOn(); await loadNotices();
     state.news = await api.listNewsletters(); await checkPush().catch(() => {});
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
-    if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
+    if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
     if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (isStaff()){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
@@ -3240,8 +3241,8 @@ function homeView(){
     const i = dayInfo(today, state.ops);
     const req = state.bk.bookings.filter(b => b.status === 'pending' && b.booking_date >= today).length;
     const up = state.bk.bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today).length;
-    const week = rangeDays(today, ahead(6)).map(ds => dayInfo(ds, state.ops));
-    const gaps = week.reduce((a, x) => a + x.short, 0);
+    const cps = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const rotaDays = rangeDays(today > cps ? today : cps, periodEnd(cps)).map(ds => dayInfo(ds, state.ops));
+    const gaps = rotaDays.reduce((a, x) => a + x.short, 0); const wkGap = rangeDays(today, ahead(6)).map(ds => dayInfo(ds, state.ops)).reduce((a, x) => a + x.short, 0);
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today).length;
     const holReq = state.holidays.filter(x => x.status === 'pending').length;
     h += isOwnerView() ? '' : '';
@@ -3251,7 +3252,7 @@ function homeView(){
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
       ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
-      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill this week` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
+      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
       ${tile('team', 'Membership register', 'Every member and their number', 'register')}
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
@@ -3664,7 +3665,8 @@ function rotaView(){
   if (admin && state.rotaTab === 'hours') return page('Rota') + `<div class="bar">${seg('rotatab', 'hours', [['rota', 'Rota'], ['holidays', 'Holiday requests'], ['hours', 'Hours']], 'Show')}</div>` + rotaHoursHtml();
   const pst = periodStart(ymd(ws)); const inPeriods = ymd(ws) >= ROTA_ANCHOR; const pub = isPublished(ymd(ws));
   const infos = days.map(ds => dayInfo(ds, state.ops));
-  const gaps = infos.reduce((a, i) => a + i.short, 0);
+  const gaps = infos.filter(i => i.ds >= today).reduce((a, i) => a + i.short, 0);
+  const wkGaps = w => infos.slice(w * 7, w * 7 + 7).filter(i => i.ds >= today).reduce((a, i) => a + i.short, 0);
   let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'shift')} to fill` : 'All filled'}</span>`);
   if (admin){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
@@ -3678,7 +3680,6 @@ function rotaView(){
     const offs = (state.offers || []).filter(o => o.status === 'offered');
     if (offs.length) h += `<div class="alert swapok"><b class="t">Offers to work</b>${offs.map(o => `<div class="swaprow"><span><b>${esc(pname(map[o.staff_id]))}</b> can work ${shiftLine(o)} <button class="linkbtn" data-action="rotajump" data-date="${o.shift_date}">See day</button></span><span class="swapbtns"><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></span></div>`).join('')}</div>`;
     const newMsgs = (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').length;
-    if (newMsgs) h += `<div class="alert swapok"><b class="t">Messages from staff</b><div>${plural(newMsgs, 'new message')} <button class="linkbtn" data-action="go" data-view="messages">Open messages</button></div></div>`;
     const ask = probs.filter(s => s.status === 'cannot_work' && !s.decision), need = probs.filter(s => !(s.status === 'cannot_work' && !s.decision));
     const when = s => `${fmtDate(s.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} ${SESS[s.session].toLowerCase()} · ${JOBS[s.job]}`;
     if (ask.length) h += `<div class="alert cwask"><b class="t">Can’t work: your decision</b>${ask.map(s => `<div class="cwq"><span><b>${esc(pname(map[s.staff_id]))}</b> can’t work <b>${when(s)}</b>${s.reason ? `<br><span class="muted">“${esc(s.reason)}”</span>` : ''}</span>
@@ -3697,7 +3698,7 @@ function rotaView(){
     <div class="empty">The rota for ${periodLabel(pst)} hasn’t been published yet. You’ll see it here once the manager publishes it. Mark any days you’re unavailable in My shifts before then.</div>`;
   if (admin) h += `<div class="bar"><button class="btn sm" data-action="openfill">Fill from regular shifts</button><span class="muted" style="font-size:13px">Set regular days on each person in Staff</span></div>`;
   h += admin ? `<div class="bar">${stepper('rotaweek', `Rota ${periodLabel(ymd(ws))}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">Current rota</button></div>
-    <div class="wkjump">${[0, 1, 2, 3].map(w => { const a = days[w * 7], b = days[w * 7 + 6]; return `<button data-action="wkjump" data-date="${a}"><b>Week ${w + 1}</b><span>${fmtDate(a, { day:'numeric', month:'short' })}–${fmtDate(b, { day:'numeric', month:'short' })}</span></button>`; }).join('')}</div>`
+    <div class="wkjump">${[0, 1, 2, 3].map(w => { const a = days[w * 7], b = days[w * 7 + 6]; return `<button data-action="wkjump" data-date="${a}"><b>Week ${w + 1}</b><span>${fmtDate(a, { day:'numeric', month:'short' })}–${fmtDate(b, { day:'numeric', month:'short' })}</span>${admin ? (wkGaps(w) ? `<em class="wkgap">${wkGaps(w)} to fill</em>` : '<em class="wkok">✓ Filled</em>') : ''}</button>`; }).join('')}</div>`
     : `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
   if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. Lounge Bar: 1 whenever open. Function Room Bar: when the room is in use (2 for parties over ${STAFF_RULES.guestsPerEventBar}). Door: every evening. Max 2 on each bar.</p>`;
   h += `<div class="list">${infos.map((i, n) => `${admin && n % 7 === 0 ? `<div class="wkhead" id="wk-${i.ds}">Week ${n / 7 + 1} · ${fmtDate(i.ds, { day:'numeric', month:'short' })} – ${fmtDate(days[n + 6], { day:'numeric', month:'short' })}</div>` : ''}<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
