@@ -340,3 +340,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - SQL: `update-cantwork-alert.sql`.
 - Staff are told when the manager adds them to a shift on a published rota (🔔 bell: "📅 You've been added to a shift", plus a phone notification), or takes them off one (phone). SQL: `update-shift-change-push.sql`.
 - **Cover calls**: "📣 Ask everyone" sends a phone notification to staff who could work it (free that day, right job, not on holiday). When someone taps "Yes, I can work it", the bosses get "🙋 Joe can work…" (phone + 🔔 bell "Said they can cover") and accept on the Rota. Others who offered are told "Cover sorted, thanks for offering". SQL: `update-cover-push.sql`.
+
+## Club bookings take priority (Nov 2026)
+- A club event or league night can be booked even if a member already has that room and session. The bosses are told straight away ("⚠️ Double booking … The club event stands: move or cancel the member booking"): phone notification, 🔔 bell group "Double bookings", and a red box on the member's booking page.
+- Two club events still can't share a room; members still can't book over a club event.
+- Ashford Premier League darts added on Mondays 7pm–11pm (`add-premier-league-mondays.sql`).
+- SQL: `update-club-priority.sql`.

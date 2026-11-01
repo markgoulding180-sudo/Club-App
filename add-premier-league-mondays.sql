@@ -1,6 +1,6 @@
 -- Ashford Premier League darts: Mondays, 7pm to 11pm, Lounge Bar, 2 Nov to 14 Dec 2026 (break for Christmas like the other leagues).
 -- League nights stay off the public What's On, but show in Bookings and on the rota.
--- If the Lounge Bar is already booked that evening, that Monday is skipped and listed at the end. Safe to run again.
+-- Club bookings take priority: if a member has the Lounge Bar that evening, the league still goes in and the double booking is listed at the end. Safe to run again.
 delete from public.bookings where event_details->>'src' = 'league-2026' and event_type = 'Ashford Premier League';
 do $$
 declare d date; skipped text := '';
@@ -21,7 +21,7 @@ end $$;
 -- Check: the Mondays added, and any Monday that clashed
 select to_char(booking_date, 'Dy DD Mon') as night, start_time, end_time, room from public.bookings
 where event_type = 'Ashford Premier League' order by booking_date;
-select to_char(b.booking_date, 'Dy DD Mon') as monday_not_added, coalesce(b.event_type, 'booking') || ' · ' || b.first_name || ' ' || b.last_name as lounge_already_booked_for
+select to_char(b.booking_date, 'Dy DD Mon') as double_booked, coalesce(b.event_type, 'booking') || ' · ' || b.first_name || ' ' || b.last_name as member_booking_to_move
 from public.bookings b
 where b.room = 'lounge' and b.status <> 'cancelled' and extract(dow from b.booking_date) = 1 and b.booking_date between '2026-11-02' and '2026-12-14'
   and b.slot in ('evening', 'full_day') and b.event_type <> 'Ashford Premier League' order by b.booking_date;

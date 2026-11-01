@@ -2240,7 +2240,7 @@ function makeDemoApi(){
   const live = b => b.status !== 'cancelled';
   function clash(b, ignoreId){
     return s.bookings.some(x => live(x) && x.id !== ignoreId && x.room === b.room && x.booking_date === b.booking_date &&
-      (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day'));
+      (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day') && !(b.booking_kind === 'club' && x.booking_kind !== 'club'));
   }
   const closedOn = b => s.closed.some(c => c.closed_date === b.booking_date && PART_SLOTS[c.part || 'all'].includes(b.slot));
   const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.staff_id === x.staff_id);   // one shift a day each
@@ -3566,6 +3566,7 @@ function bookingView(){
   return page(`${b.event_type || 'Booking'} · ${bname(b)}`, '', ['bookings', 'Bookings']) + `
     <div class="title-row"><span class="pill ${b.status}">${b.status}</span>${payPill(pi)}<span class="grow"></span></div>
     <div class="bar">${acts}</div>
+    ${(() => { const c = (state.cur?.day?.bks || []).find(x => isClub(x) && x.room === b.room && (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day')); return c && !isClub(b) && b.status !== 'cancelled' ? `<div class="alert"><b class="t">⚠️ Double booking</b><div><b>${esc(c.event_type || 'A club event')}</b> is on in the ${ROOMS[b.room].name} at the same time. Club events take priority, so move this booking to another room or date (Edit), or cancel it and let the member know.</div></div>` : ''; })()}
     ${sameDayHtml(b)}
     ${state.editBooking ? `<div class="panel" style="margin-bottom:14px">${bookingForm({ b, idp: 'eb' })}</div>` : ''}
     <div class="cols">
@@ -4405,6 +4406,10 @@ function swapLogView(){
       ${w.note ? `<span class="muted" style="font-size:13px">Reason: “${esc(w.note)}”</span>` : ''}
       <span class="muted" style="font-size:12.5px">Asked ${fmtWhen(w.created_at)}${w.decided_at ? ` · ${w.status === 'approved' ? 'swapped' : 'ended'} ${fmtWhen(w.decided_at)}` : ''}</span></div>`).join('') || '<div class="empty">No swaps here.</div>'}</div>`;
 }
+/* Club event and member hire in the same room and session: the club event stands */
+function clubClashes(list){ const today = todayStr(); const live = list.filter(b => b.status !== 'cancelled' && b.booking_date >= today); const out = [];
+  live.filter(isClub).forEach(c => live.filter(m => !isClub(m) && m.room === c.room && m.booking_date === c.booking_date && (m.slot === c.slot || m.slot === 'full_day' || c.slot === 'full_day')).forEach(m => out.push([c, m])));
+  return out; }
 /* Bosses: everything waiting for them */
 function adminNotifs(){
   const out = []; const today = todayStr(); const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p]));
@@ -4420,6 +4425,7 @@ function adminNotifs(){
   if (canArea('rota')) (state.offers || []).filter(o => o.status === 'offered' && o.shift_date >= today).forEach(o => line('of' + o.id, 'Said they can cover', `<b>${nm(o.staff_id)}</b> can work ${JOBS[o.job]} ${SESS[o.session]?.toLowerCase() || ''} ${fmtDate(o.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}. Tap to accept.`, 'data-action="gorota" data-tab="rota"'));
   if (canArea('rota')) (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= ymd(addDays(new Date(), -7)))
     .forEach(w => line('swd' + w.id, 'Swaps done (for info)', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> swapped: ${nm(w.from_staff)} now works ${swShift(w.b)}, ${nm(w.to_staff)} works ${swShift(w.a)}`, 'data-action="go" data-view="swaplog"'));
+  if (canArea('bookings')) clubClashes(state.bk?.bookings || []).forEach(([c, m]) => line('dbl' + c.id + '-' + m.id, '⚠️ Double bookings', `<b>${esc(c.event_type || 'Club event')}</b> and <b>${esc(bname(m))}</b>’s ${esc(m.event_type || 'booking')}, ${ROOMS[m.room]?.name || ''} ${fmtDate(m.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}. The club event stands: move or cancel the member booking.`, `data-action="openbooking" data-id="${m.id}"`));
   if (canArea('bookings')) (state.bk?.bookings || []).filter(b => b.status === 'pending' && b.booking_date >= today).forEach(b => line('bk' + b.id, 'Bookings to approve', `<b>${esc([b.first_name, b.last_name].filter(Boolean).join(' '))}</b>: ${esc(b.event_type || 'Booking')}, ${ROOMS[b.room]?.name || ''} ${fmtDate(b.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}`, `data-action="openbooking" data-id="${b.id}"`));
   return out;
 }
