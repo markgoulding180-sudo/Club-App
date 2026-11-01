@@ -307,3 +307,8 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - **Committee** (Entertainments) can message the bosses: their 💬 popup has "Message a club officer" (Sam · Bar Manager, Stuart · Secretary…). Ordinary members still can't message the bosses first.
 - Admin Home shows a "🔄 swaps to approve" card when a swap is waiting.
 - SQL: `update-committee-messages.sql`.
+
+## Staff notifications for the manager's decisions (Nov 2026)
+- In the 🔔 bell and as phone notifications: rota published, a colleague needs a swap, someone offered a shift for your swap, someone asks you to swap, swap approved / not approved, holiday approved / declined, can't-work approved / declined, and the manager's reply (also in 💬).
+- SQL: `update-staff-push.sql` (new notification kind "shifts").
+- Greeting on Home is centred.

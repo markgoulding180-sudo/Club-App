@@ -1603,6 +1603,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .offpick{display:flex;flex-wrap:wrap;gap:8px}
 .chipbtn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--ink);border-radius:999px;padding:9px 14px;font-weight:700;cursor:pointer}
 .sheet .upd{width:100%;margin-bottom:8px}
+.hello{text-align:center}.hello h2{text-align:center}
 </style>
 
 </head>
@@ -4988,6 +4989,8 @@ function myUpdatesHtml(mine){
     else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
     else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined`, 'holiday');
   });
+  (state.periods || []).filter(pp => pp.published_at && pp.published_at.slice(0, 10) >= recent && ymd(addDays(parseYmd(pp.start_date), 27)) >= today)
+    .forEach(pp => add('ok', `<b>📅 The rota for ${periodLabel(pp.start_date)} is out.</b> Check your shifts.`, 'next'));
   state.myUpdates = items;
   const next = nextRotaHtml();
   return (items.length ? `<button class="updbar" data-action="showupdates"><span><b>🔔 ${plural(items.length, 'update')}</b> for you</span><span class="btn sm">View</span></button>` : '') + next;
@@ -5372,7 +5375,7 @@ const actions = {
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
   offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
-  secjump: t => { if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (t.dataset.to === 'sec-msgs' && state.view !== 'myshifts') return go('myshifts'); if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
+  secjump: t => { if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
