@@ -1604,6 +1604,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .chipbtn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--ink);border-radius:999px;padding:9px 14px;font-weight:700;cursor:pointer}
 .sheet .upd{width:100%;margin-bottom:8px}
 .hello{text-align:center}.hello h2{text-align:center}
+.swl{display:grid;gap:3px;font-size:14px}
 </style>
 
 </head>
@@ -2065,7 +2066,7 @@ function makeSupabaseApi(){
     async decideOffer(id, yes){ ok(await sb.rpc('admin_decide_offer', { offer_id: id, yes })); },
     async listPeriods(){ const r = await sb.from('rota_periods').select('*'); return r.error ? [] : r.data; },
     async publishRota(start, on){ const r = await sb.rpc('admin_publish_rota', { period_start: start, publish: on }); if (r.error && /admin_publish_rota/.test(r.error.message)) throw new Error('Run the 4-weekly rota SQL in Supabase first.'); ok(r); },
-    async listSwaps(){ const r = await sb.from('shift_swaps').select('*, a:shifts!shift_swaps_from_shift_fkey(shift_date,session,job), b:shifts!shift_swaps_to_shift_fkey(shift_date,session,job)').order('created_at', { ascending: false }).limit(100); return r.error ? [] : r.data; },
+    async listSwaps(n = 100){ const r = await sb.from('shift_swaps').select('*, a:shifts!shift_swaps_from_shift_fkey(shift_date,session,job), b:shifts!shift_swaps_to_shift_fkey(shift_date,session,job)').order('created_at', { ascending: false }).limit(n); return r.error ? [] : r.data; },
     async askSwap(mine, theirs, note){ ok(await sb.rpc('staff_ask_swap', { mine, theirs, why: note || null })); },
     async answerSwap(id, yes){ ok(await sb.rpc('staff_answer_swap', { swap_id: id, yes })); },
     async cancelSwap(id){ ok(await sb.rpc('staff_cancel_swap', { swap_id: id })); },
@@ -2699,7 +2700,7 @@ async function loadWhatsOn(){
 async function load(view){
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
-    state.news = await api.listNewsletters(); if (!isAdmin()) await checkPush().catch(() => {});
+    state.news = await api.listNewsletters(); await checkPush().catch(() => {});
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); await loadOps(todayStr(), ahead(27)); }
     if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
@@ -2730,6 +2731,7 @@ async function load(view){
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
+  if (view === 'swaplog'){ state.swapLog = await api.listSwaps(500); if (!state.profiles) state.profiles = await api.listProfiles(); return; }
   if (view === 'news' || view === 'newsedit'){ state.news = await api.listNewsletters(); if (view === 'newsedit' && !state.nlDraft) state.nlDraft = blankNl(); return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
   if (view === 'messages'){ state.msgs = await api.listMessages(); if (isAdmin()){ state.profiles = await api.listProfiles(); await loadOps(ahead(-60), ahead(60)); } return; }
@@ -2831,7 +2833,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3226,6 +3228,7 @@ function homeView(){
     const holReq = state.holidays.filter(x => x.status === 'pending').length;
     h += isOwnerView() ? '' : '';
     const swOk = (state.swaps || []).filter(w => w.status === 'accepted').length;
+    h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
@@ -3241,6 +3244,8 @@ function homeView(){
       ${canArea('notices') ? `<button class="tile" data-action="go" data-view="news"><span class="ic">${ICONS.news}</span><b>Newsletter</b><span class="sub">${(state.news || []).some(n => !n.published_at) ? 'A draft is waiting' : 'Write the monthly newsletter'}</span></button>` : ''}
       ${canArea('register') || canArea('notices') ? `<button class="tile" data-action="go" data-view="clubmsg"><span class="ic">${ICONS.mail}</span><b>Message a member</b><span class="sub">Private message to one member</span></button>` : ''}
       ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
+      ${canArea('rota') ? tile('swap', 'Swap history', 'Every swap staff have made', 'swaplog') : ''}
+      ${tile('bell', 'Phone alerts', state.push === 'on' ? 'On for this phone' : 'Get requests on your phone', 'alerts')}
       ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
     </div>`;
     return h;
@@ -3628,7 +3633,7 @@ function rotaView(){
   let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'shift')} to fill` : 'All filled'}</span>`);
   if (admin){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
-    h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>`;
+    h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}<button class="btn ghost sm" data-action="go" data-view="swaplog">⇄ Swap history</button></div>`;
     const swaps = (state.swaps || []).filter(w => w.status === 'accepted');
     if (swaps.length) h += `<div class="alert swapok"><b class="t">Swaps to approve</b>${swaps.map(w => `<div class="swaprow"><span><b>${esc(pfirst(map[w.from_staff]))}</b> and <b>${esc(pfirst(map[w.to_staff]))}</b> want to swap: ${esc(pfirst(map[w.from_staff]))}’s ${shiftLine(w.a)} for ${esc(pfirst(map[w.to_staff]))}’s ${shiftLine(w.b)}. Both have said yes.</span><span class="swapbtns"><button class="btn sm" data-action="swapdecide" data-id="${w.id}" data-yes="1">Approve</button><button class="btn ghost sm" data-action="swapdecide" data-id="${w.id}" data-yes="0">Decline</button></span></div>`).join('')}</div>`;
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
@@ -4342,6 +4347,24 @@ function headIcons(){
   const btn = (act, ic, c, label) => `<button class="hicon${c ? ' on' : ''}" data-action="${act}" aria-label="${label}${c ? `, ${c} new` : ''}">${ICONS[ic]}${c ? `<span class="hnum">${c}</span>` : ''}</button>`;
   return `<div class="hicons">${btn('opennotif', 'bell', n, 'Notifications')}${btn('openmsgs', 'chat', m, 'Messages')}</div>`;
 }
+const swShift = x => x ? `${JOBS[x.job]} ${SESS[x.session]?.toLowerCase() || ''} ${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'a shift';
+/* Bosses: record of every swap, to look back on if there's a problem */
+function swapLogView(){
+  const map = Object.fromEntries([...(state.profiles || []), ...(state.ops?.staff || [])].map(p => [p.id, p])); const nm = id => esc(pname(map[id]) || 'Staff');
+  const tab = state.slTab || 'done'; const all = state.swapLog || [];
+  const list = all.filter(w => tab === 'done' ? w.status === 'approved' : w.status !== 'approved');
+  const q = (state.slQ || '').toLowerCase(); const shown = q ? list.filter(w => `${pname(map[w.from_staff])} ${pname(map[w.to_staff])}`.toLowerCase().includes(q)) : list;
+  const ST = { asked: 'Asked, waiting for an answer', accepted: 'Going through', declined: 'They said no', refused: 'Refused', cancelled: 'Cancelled (rota changed)' };
+  return page('Swap history', '', ['rota', 'Rota']) + `<p class="muted" style="margin:-8px 0 14px">Every swap staff have made. Swaps go through as soon as both agree, so check here if there’s ever a problem.</p>
+    <div class="bar">${seg('sltab', tab, [['done', `Swaps done (${all.filter(w => w.status === 'approved').length})`], ['other', 'Not done']], 'Show')}</div>
+    <input class="in" placeholder="Search by name" value="${esc(state.slQ || '')}" data-slsearch id="sl-q" style="margin-bottom:12px">
+    <div class="stack" style="gap:10px">${shown.map(w => `<div class="panel stack swlog" style="gap:6px;padding:13px 15px">
+      <div class="holline"><b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b><span class="grow"></span><span class="pill ${w.status === 'approved' ? 'approved' : 'cancelled'}">${w.status === 'approved' ? 'Swapped' : esc(ST[w.status] || w.status)}</span></div>
+      <div class="swl"><span><b>${nm(w.from_staff)}</b> gave up ${swShift(w.a)}${w.status === 'approved' ? `, now works ${swShift(w.b)}` : ''}</span>
+        <span><b>${nm(w.to_staff)}</b> gave up ${swShift(w.b)}${w.status === 'approved' ? `, now works ${swShift(w.a)}` : ''}</span></div>
+      ${w.note ? `<span class="muted" style="font-size:13px">Reason: “${esc(w.note)}”</span>` : ''}
+      <span class="muted" style="font-size:12.5px">Asked ${fmtWhen(w.created_at)}${w.decided_at ? ` · ${w.status === 'approved' ? 'swapped' : 'ended'} ${fmtWhen(w.decided_at)}` : ''}</span></div>`).join('') || '<div class="empty">No swaps here.</div>'}</div>`;
+}
 /* Bosses: everything waiting for them */
 function adminNotifs(){
   const out = []; const today = todayStr(); const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p]));
@@ -4354,6 +4377,8 @@ function adminNotifs(){
     (state.holidays || []).filter(h => h.status === 'pending').forEach(h => line('hol' + h.id, 'Holiday requests', `<b>${nm(h.staff_id)}</b> asked for holiday: ${dayRanges(h.days)}`, 'data-action="gorota" data-tab="holidays"'));
     (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, 'Can’t work', `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}`, 'data-action="gorota" data-tab="rota"'));
   }
+  if (canArea('rota')) (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= ymd(addDays(new Date(), -7)))
+    .forEach(w => line('swd' + w.id, 'Swaps done (for info)', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> swapped: ${nm(w.from_staff)} now works ${swShift(w.b)}, ${nm(w.to_staff)} works ${swShift(w.a)}`, 'data-action="go" data-view="swaplog"'));
   if (canArea('bookings')) (state.bk?.bookings || []).filter(b => b.status === 'pending' && b.booking_date >= today).forEach(b => line('bk' + b.id, 'Bookings to approve', `<b>${esc([b.first_name, b.last_name].filter(Boolean).join(' '))}</b>: ${esc(b.event_type || 'Booking')}, ${ROOMS[b.room]?.name || ''} ${fmtDate(b.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}`, `data-action="openbooking" data-id="${b.id}"`));
   return out;
 }
@@ -4834,10 +4859,11 @@ function noticesHomeBox(){
 /* Phone notifications (Web Push, free) */
 const PUSH_KINDS = [['events', 'New events', 'When the club adds something to What’s On'], ['reminders', '1 hour before', 'Nights you’re going to, or the kind you like'],
   ['news', 'Newsletter & notices', 'When the newsletter is out, and notices from the club'], ['messages', 'Messages', 'When someone messages you'], ['bookings', 'My bookings', 'When your booking is confirmed']];
+const BOSS_KINDS = [['shifts', 'Staff', 'Holiday and can’t-work requests, and swaps done'], ['bookings', 'Booking requests', 'When a member asks to book a room'], ['messages', 'Messages', 'Messages from staff, the committee and members']];
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-const pushPrefs = () => ({ events: true, news: true, bookings: true, messages: true, reminders: true, ...(state.user?.push_prefs || {}) });
+const pushPrefs = () => ({ events: true, news: true, bookings: true, messages: true, reminders: true, shifts: true, ...(state.user?.push_prefs || {}) });
 const b64ToBytes = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
 async function pushSub(){ if (!pushSupported()) return null; const reg = await navigator.serviceWorker.getRegistration(); return reg ? reg.pushManager.getSubscription() : null; }
 /* 'on' | 'off' | 'denied' | 'install' (iPhone: add to home screen first) | 'unsupported' */
@@ -4862,10 +4888,10 @@ async function turnPushOn(){
 async function turnPushOff(){ const sub = await pushSub(); if (sub){ await api.removePushSub(sub.endpoint).catch(() => {}); await sub.unsubscribe(); } state.push = 'off'; }
 const iosSteps = () => `<ol class="iosteps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span aria-hidden="true">⬆︎</span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open <b>Railway Club</b> from your home screen, sign in, and come back here to turn notifications on.</li></ol>`;
 function pushHomeCard(){
-  if (isAdmin() || !state.push || ['on', 'unsupported'].includes(state.push)) return '';
+  if (!state.push || ['on', 'unsupported'].includes(state.push)) return '';
   try { if (Number(localStorage.getItem('push-later') || 0) > Date.now()) return ''; } catch(e){}
   return `<div class="pushcard"><div class="ntop"><b>🔔 Get alerts on your phone</b><button class="linkbtn" data-action="pushlater">Not now</button></div>
-    <span>New events, the newsletter, messages, your booking confirmed, and a reminder 1 hour before nights you’re going to. It’s free.</span>
+    <span>${isAdmin() ? 'Holiday and can’t-work requests, booking requests, messages from staff, and swaps done. It’s free.' : isStaff() ? 'The new rota, swaps, holiday answers and messages from the manager. It’s free.' : 'New events, the newsletter, messages, your booking confirmed, and a reminder 1 hour before nights you’re going to. It’s free.'}</span>
     <button class="btn sm" data-action="go" data-view="alerts">${state.push === 'install' ? 'Show me how' : state.push === 'denied' ? 'How to turn them on' : 'Turn on notifications'}</button></div>`;
 }
 function alertsView(){
@@ -4878,7 +4904,7 @@ function alertsView(){
     <span class="muted">${st === 'on' ? 'This phone will get the alerts you pick below.' : 'Turn them on and your phone will ask you to allow them. Tap Allow.'}</span>
     <div class="err"></div>
     <button class="btn ${st === 'on' ? 'ghost' : ''}" data-action="${st === 'on' ? 'pushoff' : 'pushon'}">${st === 'on' ? 'Turn off on this phone' : 'Turn on notifications'}</button></div>`;
-  h += `<div class="label" style="margin-top:20px">What to tell me about</div><div class="panel stack">${PUSH_KINDS.filter(([k]) => isStaff() ? k === 'news' : true).map(([k, l, sub]) =>
+  h += `<div class="label" style="margin-top:20px">What to tell me about</div><div class="panel stack">${(isAdmin() ? BOSS_KINDS : isStaff() ? [...PUSH_KINDS.filter(([k]) => k === 'news'), ['shifts', 'My shifts', 'Rota out, swaps, holiday and can’t-work answers']] : PUSH_KINDS).map(([k, l, sub]) =>
     `<label class="chk pushpick"><input type="checkbox" data-pushpref="${k}" ${pr[k] ? 'checked' : ''}><span><b>${l}</b><small>${sub}</small></span></label>`).join('')}</div>`;
   return h;
 }
@@ -5267,6 +5293,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
   dmofficer: t => { const o = (state.officers || []).find(x => x.id === t.dataset.id); if (!o) return; state.contacts ||= [];
     if (!state.contacts.some(c => c.id === o.id)) state.contacts.push({ id: o.id, first_name: o.first_name, last_initial: o.last_initial, title: o.title, is_club: true }); openDm(o.id); },
@@ -5504,6 +5531,7 @@ document.addEventListener('change', async e => {
     if (el.matches('[data-profile]')){ const id = el.dataset.profile;
       await api.updateProfile(id, { role: document.getElementById('role-' + id).value, skill: document.getElementById('skill-' + id).value || null }); toast('Saved'); refresh(); }
     if (el.matches('[data-ntarget]')){ state.nAud = el.value; const o = document.getElementById('n-one'); if (o) o.hidden = el.value !== 'one'; return; }
+    if (el.matches('[data-slsearch]')){ state.slQ = el.value; render(); const i = document.getElementById('sl-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
     if (el.matches('[data-cmsearch]')){ state.cmQ = el.value; render(); const i = document.getElementById('cm-q'); if (i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
     if (el.matches('[data-rolesearch]')){ state.roleQ = el.value; render(); document.getElementById('role-q')?.focus(); return; }
     if (el.matches('[data-roleset]')){ const pr = ROLE_PRESETS[el.value]; await api.setAccess(el.dataset.roleset, pr); const p = state.profiles.find(x => x.id === el.dataset.roleset); if (p) Object.assign(p, { role: pr.role, title: pr.title, perms: pr.perms });
@@ -5682,7 +5710,7 @@ document.addEventListener('submit', async e => {
   if (state.user && /[?&]paid=/.test(location.search)) return afterPayment();
   const want = new URLSearchParams(location.search).get('go');
   if (want) history.replaceState(null, '', location.pathname);
-  const OK_GO = ['whatson', 'news', 'mine', 'friends', 'notices', 'alerts', 'myshifts', 'swaps', 'rota'];
+  const OK_GO = ['whatson', 'news', 'mine', 'friends', 'notices', 'alerts', 'myshifts', 'swaps', 'rota', 'bookings', 'messages', 'swaplog'];
   if (state.user) go(OK_GO.includes(want) ? want : 'hub'); else { render(); loadPublicEvents(); }
 })();
 </script>

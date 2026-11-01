@@ -318,3 +318,10 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - The checks stay: both must still be on those shifts, and neither can end up working twice at the same time.
 - Any swaps that were waiting for the manager are put through when the SQL is run.
 - SQL: `update-swaps-no-approval.sql`.
+
+## Bosses: phone alerts and swap history (Nov 2026)
+- Phone notifications for the bosses (each for their areas; App admin and anyone with no areas set gets all): 🌴 new holiday request, ⚠️ can't-work request, 📅 new booking request, ✉️ message from staff, 🔄 swap done (for info).
+- Admin Home has a **Phone alerts** tile (turn on, pick Staff / Booking requests / Messages) and a **Swap history** tile.
+- **Swap history** (also a button on the Rota): every swap with who gave up which shift and who works it now, the reason, when it was asked and done; search by name; "Not done" tab for refused/cancelled ones.
+- 🔔 bell also lists "Swaps done (for info)" from the last 7 days.
+- SQL: `update-boss-push.sql`.
