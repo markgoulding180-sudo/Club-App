@@ -1639,6 +1639,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .dline .dn{display:grid;min-width:0}.dline .dn b{font-size:14.5px;line-height:1.25}.dline .dn small{color:var(--muted);font-size:12.5px}
 .dno{font-size:13px;font-weight:700;color:var(--red);padding:4px 2px}
 .dfree{text-align:left;border:1px dashed var(--line);border-radius:12px;background:none;color:var(--muted);padding:9px 11px;font-size:13px;cursor:pointer}
+.bkintro{margin:-6px 0 14px;font-size:14.5px}
+.bkcal .day{min-height:104px}
+.bkcal .day .l.x{background:none;border:0;padding:0}
+.bkcal .day .l{white-space:normal;overflow:hidden;text-overflow:clip;word-break:normal;overflow-wrap:break-word;line-height:1.18;font-size:11px;letter-spacing:-.01em}
+@media (max-width:560px){ .bkcal .cal{padding:3px} .bkcal .cal-grid{gap:2px} .bkcal .day{min-height:92px;padding:4px 2px} .bkcal .day .l{font-size:9px} }
 </style>
 
 </head>
@@ -2576,7 +2581,7 @@ const api = LIVE ? makeSupabaseApi() : makeDemoApi();
 const state = {
   user: null, view: 'login', authTab: 'login',
   room: 'hall', month: startOfMonth(new Date()),
-  bkTab: 'upcoming', bkKind: 'all', bkMonth: startOfMonth(new Date()), newDate: null, newKind: 'member',
+  bkTab: 'calendar', bkKind: 'all', bkMonth: startOfMonth(new Date()), newDate: null, newKind: 'member',
   rotaWeek: startOfWeek(new Date()), offMonth: startOfMonth(new Date()), rotaTab: 'rota',
   holidays: [], holSel: [], holNote: '', holMonth: startOfMonth(new Date()),
   publicEvents: [], slide: 0, pic: 0, sold: {}, myTk: [], tk: { events: [], res: [] }, tkTab: 'upcoming', tkId: null,
@@ -3361,25 +3366,28 @@ function bookingsView(){
   const bookings = state.bk.bookings.filter(b => state.bkKind === 'all' || kindOf(b) === state.bkKind);
   const req = bookings.filter(b => b.status === 'pending' && b.booking_date >= today && !isClub(b));
   let h = page('Bookings', `<button class="btn" data-action="newon">+ New booking</button>`);
-  if (req.length) h += `<div class="label">Requests to confirm (${req.length})</div><div class="list">${req.map(b => bkRow(b, payments, { date: true, decide: true })).join('')}</div><div style="height:24px"></div>`;
-  h += `<div class="bar">${seg('bktab', tab, [['upcoming','Upcoming'],['calendar','Calendar'],['past','Past']], 'Show')}${seg('bkkind', state.bkKind, [['all','All'],['member','Members'],['club','Club'],['sports','Sports']], 'Booking type')}<span class="grow"></span>${tab === 'calendar' ? stepper('bkmonth', fmtMonth(state.bkMonth)) : ''}</div>`;
+  h += `<p class="muted bkintro">This is the club diary: every club event, league night and room hire. Tap a day to see what’s on or to add a booking.</p>`;
+  if (req.length) h += `<button class="helpask" data-action="bkreqjump" style="margin:0 0 12px"><b>⏳ ${plural(req.length, 'booking request')} to confirm</b><span>Tap to see ${req.length > 1 ? 'them' : 'it'}.</span><i aria-hidden="true">›</i></button>`;
+  const calTab = tab === 'calendar' || tab === 'diary';
+  h += `<div class="bar">${seg('bktab', tab, [['calendar','▦ Calendar'],['diary','☰ Diary'],['upcoming','List'],['past','Past']], 'View')}</div>
+    <div class="bar">${seg('bkkind', state.bkKind, [['all','All'],['member','Members'],['club','Club'],['sports','Sports']], 'Booking type')}<span class="grow"></span>${calTab ? stepper('bkmonth', fmtMonth(state.bkMonth)) : ''}</div>`;
   if (tab === 'upcoming'){
     const up = bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today);
     h += up.length ? grouped(up, payments) : '<div class="empty">No confirmed bookings coming up.</div>';
   } else if (tab === 'past'){
     const past = bookings.filter(b => b.booking_date < today || b.status === 'cancelled').sort((a, b) => b.booking_date.localeCompare(a.booking_date));
     h += past.length ? `<div class="list">${past.map(b => bkRow(b, payments, { date: true })).join('')}</div>` : '<div class="empty">Nothing here yet.</div>';
-  } else if (state.bkCalView !== 'month'){
-    h += `<div class="bar">${seg('bkcalview', 'diary', [['diary', '☰ Diary'], ['month', '▦ Month']], 'View')}</div>` + diaryHtml(bookings);
+  } else if (tab === 'diary'){
+    h += diaryHtml(bookings);
   } else {
-    h += `<div class="bar">${seg('bkcalview', 'month', [['diary', '☰ Diary'], ['month', '▦ Month']], 'View')}</div>`;
-    h += calendar(state.bkMonth, (ds, o) => {
+    h += `<div class="bkcal">` + calendar(state.bkMonth, (ds, o) => {
       const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort(bySlot);
       const cl = closedParts(ds); const allDay = closedAllDay(ds);
       return `<button class="day${o.out ? ' out' : ''}${o.past ? ' past' : ''}${o.today ? ' today' : ''}" data-action="bkday" data-date="${ds}" aria-label="${fmtDate(ds)}: ${plural(bks.length, 'booking')}">
-        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 2).map(b => isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${ROOMS[b.room].short} ${slotShort(b.slot)}${b.status === 'pending' ? '?' : ''}</span>`).join('')}${bks.length > 2 ? `<span class="l">+${bks.length - 2}</span>` : ''}</button>`;
-    }) + `<div class="legend"><span style="color:var(--teal)">Function</span><span style="color:var(--violet)">Lounge</span><span style="color:var(--amber)">Club event</span><span>? = not confirmed yet</span><span>Tap a day to add a booking or set no bookings</span></div>`;
+        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 3).map(b => isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${esc(b.event_type || ROOMS[b.room].short)}${b.status === 'pending' ? ' ?' : ''}</span>`).join('')}${bks.length > 3 ? `<span class="l">+${bks.length - 3} more</span>` : ''}</button>`;
+    }) + `</div><div class="legend"><span style="color:var(--teal)">Function Room</span><span style="color:var(--violet)">Lounge Bar</span><span style="color:var(--amber)">Club event</span><span>? = not confirmed yet</span></div>`;
   }
+  if (req.length) h += `<div class="label" id="bkreqs" style="margin-top:24px">Requests to confirm (${req.length})</div><div class="list">${req.map(b => bkRow(b, payments, { date: true, decide: true })).join('')}</div>`;
   return h;
 }
 function openBkDay(ds){
@@ -5414,7 +5422,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
-  bkcalview: t => { state.bkCalView = t.dataset.val; render(); },
+  bkreqjump: () => document.getElementById('bkreqs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   quickmsg: t => openQuickMsg(t.dataset.id),
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
