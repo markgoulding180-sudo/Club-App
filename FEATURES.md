@@ -338,3 +338,4 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Staff: the shift sheet has a red **No one can swap? Tell the manager** button.
 - Manager: can't-work requests no longer also appear as a staff message (one alert, not two). On the Rota: **Can't work: your decision** with **✓ Let them off** / **✗ They must work it** and a tick box for special circumstances. Once let off, it moves to **Needs cover** with **Pick someone** and **📣 Ask everyone**.
 - SQL: `update-cantwork-alert.sql`.
+- Staff are told when the manager adds them to a shift on a published rota (🔔 bell: "📅 You've been added to a shift", plus a phone notification), or takes them off one (phone). SQL: `update-shift-change-push.sql`.

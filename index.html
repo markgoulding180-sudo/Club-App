@@ -5067,6 +5067,10 @@ function myUpdatesHtml(mine){
     else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
     else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined`, 'holiday');
   });
+  { const pubAt = ds => (state.periods || []).find(pp => pp.start_date === periodStart(ds))?.published_at || '';
+    mine.filter(x => ACTIVE(x) && x.created_at && x.created_at.slice(0, 10) >= recent && pubAt(x.shift_date) && x.created_at > pubAt(x.shift_date)
+      && !(state.swaps || []).some(w => w.status === 'approved' && (w.from_shift === x.id || w.to_shift === x.id)) && !(state.offers || []).some(o => o.staff_id === me && o.shift_date === x.shift_date && o.status === 'accepted'))
+      .forEach(x => add('act', `<b>📅 You’ve been added to a shift:</b> ${shiftLine(x)}`, 'next')); }
   (state.periods || []).filter(pp => pp.published_at && pp.published_at.slice(0, 10) >= recent && ymd(addDays(parseYmd(pp.start_date), 27)) >= today)
     .forEach(pp => add('ok', `<b>📅 The rota for ${periodLabel(pp.start_date)} is out.</b> Check your shifts.`, 'next'));
   state.myUpdates = items;
