@@ -1623,6 +1623,22 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .sendbox{display:grid;gap:8px;padding:12px;border:1px solid rgba(46,230,200,.4);border-radius:14px;background:rgba(46,230,200,.06);margin:4px 0 6px}
 .msgres{display:grid;gap:6px}
 .wkjump em{font-style:normal;font-size:11px;font-weight:800;margin-top:2px}.wkgap{color:#f6c850}.wkok{color:var(--green,#3ddc84)}
+.diary{display:grid;gap:6px}
+.drow{display:grid;grid-template-columns:58px 1fr;gap:8px;align-items:stretch}
+.drow.wk{margin-top:10px}
+.drow.past{opacity:.55}
+.dday{display:grid;place-content:center;text-align:center;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);cursor:pointer;padding:8px 0;line-height:1.05}
+.dday span{font-size:11.5px;font-weight:800;text-transform:uppercase;color:var(--muted)}.dday b{font-size:22px}
+.drow.today{background:none!important;border:0!important;padding:0!important;box-shadow:none!important}
+.drow.today .dday{border-color:#f6c850;background:rgba(246,200,80,.14)}
+.dlist{display:grid;gap:5px}
+.dline{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;text-align:left;padding:9px 11px;border-radius:12px;border:1px solid var(--line);border-left:4px solid var(--muted);background:var(--surface);color:var(--ink);cursor:pointer}
+.dline.hall{border-left-color:var(--teal)}.dline.lounge{border-left-color:var(--violet)}.dline.club{border-left-color:var(--amber)}
+.dline.pend{border-style:dashed;border-left-style:solid}
+.dline .dt{font-size:12.5px;font-weight:800;color:var(--muted);white-space:nowrap}
+.dline .dn{display:grid;min-width:0}.dline .dn b{font-size:14.5px;line-height:1.25}.dline .dn small{color:var(--muted);font-size:12.5px}
+.dno{font-size:13px;font-weight:700;color:var(--red);padding:4px 2px}
+.dfree{text-align:left;border:1px dashed var(--line);border-radius:12px;background:none;color:var(--muted);padding:9px 11px;font-size:13px;cursor:pointer}
 </style>
 
 </head>
@@ -3353,7 +3369,10 @@ function bookingsView(){
   } else if (tab === 'past'){
     const past = bookings.filter(b => b.booking_date < today || b.status === 'cancelled').sort((a, b) => b.booking_date.localeCompare(a.booking_date));
     h += past.length ? `<div class="list">${past.map(b => bkRow(b, payments, { date: true })).join('')}</div>` : '<div class="empty">Nothing here yet.</div>';
+  } else if (state.bkCalView !== 'month'){
+    h += `<div class="bar">${seg('bkcalview', 'diary', [['diary', '☰ Diary'], ['month', '▦ Month']], 'View')}</div>` + diaryHtml(bookings);
   } else {
+    h += `<div class="bar">${seg('bkcalview', 'month', [['diary', '☰ Diary'], ['month', '▦ Month']], 'View')}</div>`;
     h += calendar(state.bkMonth, (ds, o) => {
       const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort(bySlot);
       const cl = closedParts(ds); const allDay = closedAllDay(ds);
@@ -3552,6 +3571,21 @@ function sameDayHtml(b){
   return `<section class="panel sameday"><h3>Also on ${fmtDate(b.booking_date, { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
     <div class="sdgrid"><div class="sdr sdh"><span></span><span>Daytime${open.day ? '' : ' (closed)'}</span><span>Evening${open.eve ? '' : ' (closed)'}</span></div>${rows}</div>
     ${wo ? `<p class="muted" style="margin:8px 0 0;font-size:13.5px">Also on What’s On:</p><ul class="sdwo">${wo}</ul>` : ''}</section>`;
+}
+/* Bookings diary: one full-width row per day, every booking on its own line */
+function diaryHtml(bookings){
+  const m = state.bkMonth; const today = todayStr();
+  const days = rangeDays(ymd(startOfMonth(m)), ymd(endOfMonth(m)));
+  const t = b => b.start_time ? `${hhmm(b.start_time)}–${hhmm(b.end_time)}` : (SLOTS.find(x => x.id === b.slot)?.label || '');
+  const line = b => { const club = isClub(b); const cls = club ? 'club' : b.room;
+    return `<button class="dline ${cls}${b.status === 'pending' ? ' pend' : ''}" data-action="openbooking" data-id="${b.id}"><span class="dt">${t(b)}</span>
+      <span class="dn"><b>${esc(club ? (b.event_type || 'Club event') : `${b.event_type || 'Hire'} · ${bname(b)}`)}</b><small>${ROOMS[b.room]?.name || ''}${b.status === 'pending' ? ' · not confirmed yet' : ''}${!club && b.guests ? ` · ${b.guests} guests` : ''}</small></span></button>`; };
+  return `<div class="diary">${days.map(ds => { const d = parseYmd(ds); const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+    const cl = closedParts(ds); const allDay = closedAllDay(ds); const past = ds < today;
+    return `<div class="drow${ds === today ? ' today' : ''}${past ? ' past' : ''}${d.getDay() === 1 ? ' wk' : ''}">
+      <button class="dday" data-action="bkday" data-date="${ds}"><span>${d.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${d.getDate()}</b></button>
+      <div class="dlist">${allDay ? '<span class="dno">No bookings this day</span>' : cl.map(c => `<span class="dno">No ${c.part === 'afternoon' ? 'afternoon' : 'evening'} bookings</span>`).join('')}${bks.map(line).join('') || (allDay ? '' : `<button class="dfree" data-action="bkday" data-date="${ds}">Free · tap to add</button>`)}</div></div>`; }).join('')}</div>
+    <div class="legend"><span style="color:var(--teal)">Function Room</span><span style="color:var(--violet)">Lounge Bar</span><span style="color:var(--amber)">Club event</span><span>Dashed = not confirmed yet</span></div>`;
 }
 function bookingView(){
   const c = state.cur;
@@ -5380,6 +5414,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  bkcalview: t => { state.bkCalView = t.dataset.val; render(); },
   quickmsg: t => openQuickMsg(t.dataset.id),
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),

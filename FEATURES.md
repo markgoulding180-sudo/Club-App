@@ -352,3 +352,6 @@ If no one can swap, the staff member can still tell the manager they can't work 
   - **✉ Send a message**: type a name, email or membership number and tap them. Staff get a private message (🔔 + phone, "just to you"); members, committee and other officers open the message board conversation. **📢 Message all staff or everyone** goes to Notices.
   - **From staff**: messages from staff to deal with, with a link to all of them.
   - **Committee & members**: message board conversations.
+
+## Bookings diary (Nov 2026)
+- Bookings → Calendar now opens as a **Diary**: one full-width row per day, each booking on its own line with the time, name, room and guests, coloured by room (teal Function Room, violet Lounge Bar, amber club event; dashed = not confirmed). Free days say "Free · tap to add"; no-bookings days show in red. Tap a booking to open it. The old grid is still there under **Month**.
