@@ -1802,7 +1802,7 @@ function fbNoteHtml(ds, compact = false){
   return `<div class="fbnote"><b>⚽ Premier League on the screens</b><ul>${list.map(e => `<li>${item(e)}</li>`).join('')}</ul></div>`;
 }
 const isSport = b => isClub(b) && !!(b.event_details && b.event_details.sport);
-const SPORTS = ['Darts Ashford League', 'Darts Ladies League', 'Darts', 'Pool League', 'Bowls', 'Snooker'];
+const SPORTS = ['Ashford Premier League', 'Darts Ashford League', 'Darts Ladies League', 'Darts', 'Pool League', 'Bowls', 'Snooker'];
 const DOW = [['1', 'Mon'], ['2', 'Tue'], ['3', 'Wed'], ['4', 'Thu'], ['5', 'Fri'], ['6', 'Sat'], ['0', 'Sun']];
 /* Bar staff per booking, on the bar in that room (max 2 per bar):
    - club events: the admin picks 1 or 2
