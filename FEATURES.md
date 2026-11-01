@@ -346,3 +346,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Two club events still can't share a room; members still can't book over a club event.
 - Ashford Premier League darts added on Mondays 7pm–11pm (`add-premier-league-mondays.sql`).
 - SQL: `update-club-priority.sql`.
+
+## All messages in the 💬 icon for the bosses (Nov 2026)
+- The "Messages from staff" and "Message a member" tiles are gone from the admin Home. Everything is in the 💬 icon at the top:
+  - **✉ Send a message**: type a name, email or membership number and tap them. Staff get a private message (🔔 + phone, "just to you"); members, committee and other officers open the message board conversation. **📢 Message all staff or everyone** goes to Notices.
+  - **From staff**: messages from staff to deal with, with a link to all of them.
+  - **Committee & members**: message board conversations.
