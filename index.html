@@ -4640,7 +4640,7 @@ function swapsView(){
     <div class="bar">${seg('swtab', tab, [['mine', `My requests${c.mine ? ` (${c.mine})` : ''}`], ['help', `Asked of me${c.help ? ` (${c.help})` : ''}`]], 'Show')}</div>`;
   if (tab === 'mine'){
     const cards = [];
-    (state.sreqs || []).filter(r => r.staff_id === me && (r.status === 'open' || (r.status === 'matched' && (r.decided_at || r.created_at).slice(0, 10) >= recent))).forEach(r => {
+    (state.sreqs || []).filter(r => r.staff_id === me && (r.status === 'open' || (r.status === 'matched' && (r.decided_at || r.created_at).slice(0, 10) >= recent))).sort((x, y) => (y.created_at || '').localeCompare(x.created_at || '')).forEach(r => {
       const w = (state.swaps || []).filter(x => x.from_shift === r.shift_id && x.from_staff === me).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
       const offers = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered');
       let at = 1, body = '';
@@ -4649,15 +4649,15 @@ function swapsView(){
       else if (w?.status === 'accepted'){ at = 2; body = `<p class="sq">You picked <b>${esc(pfirst(map[w.to_staff]))}</b>: you’d work their <b>${shiftLine(w.b)}</b>. Swapping now.</p>`; }
       else if (w?.status === 'approved'){ at = 3; body = `<p class="sq ok">✓ Swapped. You now work <b>${shiftLine(w.b)}</b> and ${esc(pfirst(map[w.to_staff]))} works your old shift.</p>`; }
       else if (w?.status === 'refused'){ at = -1; body = '<p class="sq no">The manager said no. You’re still on your shift. You can ask again.</p>'; }
-      cards.push(`<div class="swcard"><div class="swh"><span class="tagk">Your shift</span><b>${shiftLine(r.sh)}</b>${r.note ? `<span class="muted">“${esc(r.note)}”</span>` : ''}</div>
-        ${at >= 0 ? swapSteps(at) : ''}${body}${r.status === 'open' ? `<button class="linkbtn" data-action="sreqcancel" data-id="${r.id}">Cancel request</button>` : ''}</div>`);
+      cards.push([r.created_at || '', `<div class="swcard"><div class="swh"><span class="tagk">Your shift</span><b>${shiftLine(r.sh)}</b>${r.note ? `<span class="muted">“${esc(r.note)}”</span>` : ''}</div>
+        ${at >= 0 ? swapSteps(at) : ''}${body}${r.status === 'open' ? `<button class="linkbtn" data-action="sreqcancel" data-id="${r.id}">Cancel request</button>` : ''}</div>`]);
     });
     // direct swaps asked the old way
     (state.swaps || []).filter(w => w.from_staff === me && !(state.sreqs || []).some(r => r.shift_id === w.from_shift && r.staff_id === me) && (['asked', 'accepted'].includes(w.status) || (w.decided_at || w.created_at).slice(0, 10) >= recent) && w.status !== 'cancelled').forEach(w => {
-      cards.push(`<div class="swcard"><div class="swh"><span class="tagk">Your shift</span><b>${shiftLine(w.a)}</b></div><p class="sq">Swap with ${esc(pfirst(map[w.to_staff]))} for their <b>${shiftLine(w.b)}</b>: ${SWAP_TXT[w.status]}</p>
-        ${['asked', 'accepted'].includes(w.status) ? `<button class="linkbtn" data-action="swapcancel" data-id="${w.id}">Cancel</button>` : ''}</div>`); });
+      cards.push([w.created_at || '', `<div class="swcard"><div class="swh"><span class="tagk">Your shift</span><b>${shiftLine(w.a)}</b></div><p class="sq">Swap with ${esc(pfirst(map[w.to_staff]))} for their <b>${shiftLine(w.b)}</b>: ${SWAP_TXT[w.status]}</p>
+        ${['asked', 'accepted'].includes(w.status) ? `<button class="linkbtn" data-action="swapcancel" data-id="${w.id}">Cancel</button>` : ''}</div>`]); });
     return head + `<button class="btn swnew" data-action="swappickmine">⇄ Ask to swap one of my shifts</button>
-      <div class="label" style="margin-top:20px">My requests</div>${cards.join('') || '<div class="empty">You haven’t asked to swap any shifts.</div>'}`;
+      <div class="label" style="margin-top:20px">My requests</div>${cards.sort((x, y) => y[0].localeCompare(x[0])).map(c => c[1]).join('') || '<div class="empty">You haven’t asked to swap any shifts.</div>'}`;
   }
   // Asked of me
   const ask = [];
