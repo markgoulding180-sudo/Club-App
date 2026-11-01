@@ -3241,6 +3241,8 @@ function homeView(){
     const i = dayInfo(today, state.ops);
     const req = state.bk.bookings.filter(b => b.status === 'pending' && b.booking_date >= today).length;
     const up = state.bk.bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today).length;
+    const nb = state.bk.bookings.filter(b => b.status === 'confirmed' && b.booking_date >= today && !isLeagueNight(b.event_type, b)).sort((a, b) => (a.booking_date + (a.start_time || '')).localeCompare(b.booking_date + (b.start_time || '')))[0];
+    const nbTxt = nb ? `Next: ${isClub(nb) ? esc(nb.event_type || 'Club event') : `${esc(nb.event_type || 'Hire')} · ${esc(bname(nb))}`}, ${nb.booking_date === today ? 'today' : nb.booking_date === ahead(1) ? 'tomorrow' : fmtDate(nb.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}${nb.start_time ? ' ' + hhmm(nb.start_time) : ''} · ${ROOMS[nb.room]?.short || ''}` : 'Nothing booked yet';
     const cps = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today); const rotaDays = rangeDays(today > cps ? today : cps, periodEnd(cps)).map(ds => dayInfo(ds, state.ops));
     const gaps = rotaDays.reduce((a, x) => a + x.short, 0); const wkGap = rangeDays(today, ahead(6)).map(ds => dayInfo(ds, state.ops)).reduce((a, x) => a + x.short, 0);
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today).length;
@@ -3251,7 +3253,7 @@ function homeView(){
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
-      ${tile('cal', 'Bookings', req ? `${plural(req, 'request')} to confirm` : `${up} coming up`, 'bookings', req)}
+      ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
       ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
       ${tile('team', 'Membership register', 'Every member and their number', 'register')}
