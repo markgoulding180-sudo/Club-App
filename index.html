@@ -1605,6 +1605,18 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .sheet .upd{width:100%;margin-bottom:8px}
 .hello{text-align:center}.hello h2{text-align:center}
 .swl{display:grid;gap:3px;font-size:14px}
+.sameday{margin-bottom:14px}
+.sdgrid{display:grid;gap:6px}
+.sdr{display:grid;grid-template-columns:30% 1fr 1fr;gap:6px;align-items:stretch}
+.sdr>b{font-size:14px;align-self:center}
+.sdh span{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sdc{border:1px solid var(--line);border-radius:10px;padding:7px 9px;font-size:13.5px;line-height:1.35;background:rgba(255,255,255,.03);display:grid;gap:3px}
+.sdc.busy{border-color:rgba(246,200,80,.55);background:rgba(246,200,80,.08)}
+.sdc.mine{border-color:rgba(46,230,200,.6);background:rgba(46,230,200,.10)}
+.sdc.clash{border-color:rgba(255,90,90,.75);background:rgba(255,90,90,.12)}
+.sdtag{font-size:11px;font-weight:800;color:var(--teal,#2ee6c8);text-transform:uppercase;letter-spacing:.05em}
+.sdwarn{color:#ff7a7a;font-size:12.5px}
+.sdwo{margin:4px 0 0;padding-left:18px;font-size:14px}
 </style>
 
 </head>
@@ -2715,7 +2727,8 @@ async function load(view){
   if (view === 'mine'){ await loadWhatsOn(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
   if (view === 'bookings'){ await loadMoney(); state.closed = await api.closedBetween(ahead(-120), ahead(500)); }
   if (view === 'booking'){
-    try { const b = await api.getBooking(state.bookingId); state.cur = { b, payments: await api.paymentsFor([b.id]) }; }
+    try { const b = await api.getBooking(state.bookingId); state.cur = { b, payments: await api.paymentsFor([b.id]) };
+      const [sameDay, evs] = await Promise.all([api.bookingsBetween(b.booking_date, b.booking_date), api.eventsBetween(b.booking_date, b.booking_date)]); state.cur.day = { bks: sameDay.filter(x => x.status !== 'cancelled'), evs: evs.filter(e => !isFootball(e)) }; }
     catch(e){ state.cur = null; }
     state.profiles = await api.listProfiles();
   }
@@ -3517,6 +3530,23 @@ function clubBookingView(b){
 }
 
 /* ---------- One booking ---------- */
+/* What else is on that day, room by room, so the manager can see before confirming */
+function sameDayHtml(b){
+  const d = state.cur?.day; if (!d) return '';
+  const others = d.bks.filter(x => x.id !== b.id);
+  const sessOf = x => SLOT_SESS[x.slot] || ['eve'];
+  const label = x => isClub(x) ? esc(x.event_type || 'Club event') : `${esc(x.event_type || 'Private hire')} · ${esc(bname(x))}${x.status === 'pending' ? ' <em>(not confirmed)</em>' : ''}`;
+  const cell = (room, sess) => { const here = others.filter(x => x.room === room && sessOf(x).includes(sess));
+    const mine = b.room === room && sessOf(b).includes(sess);
+    const txt = here.map(label).join(', ');
+    return `<div class="sdc${here.length && mine ? ' clash' : here.length ? ' busy' : ''}${mine ? ' mine' : ''}">${mine ? '<span class="sdtag">This booking</span>' : ''}${txt || (mine ? '' : '<span class="muted">Nothing</span>')}${here.length && mine ? '<b class="sdwarn">⚠ Clash</b>' : ''}</div>`; };
+  const open = openOn(b.booking_date);
+  const rows = Object.keys(ROOMS).map(r => `<div class="sdr"><b>${ROOMS[r].name}</b>${cell(r, 'day')}${cell(r, 'eve')}</div>`).join('');
+  const wo = d.evs.map(e => `<li>${esc(e.title)} <span class="muted">${timeOf(e.starts_at)}</span></li>`).join('');
+  return `<section class="panel sameday"><h3>Also on ${fmtDate(b.booking_date, { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+    <div class="sdgrid"><div class="sdr sdh"><span></span><span>Daytime${open.day ? '' : ' (closed)'}</span><span>Evening${open.eve ? '' : ' (closed)'}</span></div>${rows}</div>
+    ${wo ? `<p class="muted" style="margin:8px 0 0;font-size:13.5px">Also on What’s On:</p><ul class="sdwo">${wo}</ul>` : ''}</section>`;
+}
 function bookingView(){
   const c = state.cur;
   if (!c) return page('Booking', '', ['bookings', 'Bookings']) + '<div class="empty">This booking no longer exists.</div>';
@@ -3533,6 +3563,7 @@ function bookingView(){
   return page(`${b.event_type || 'Booking'} · ${bname(b)}`, '', ['bookings', 'Bookings']) + `
     <div class="title-row"><span class="pill ${b.status}">${b.status}</span>${payPill(pi)}<span class="grow"></span></div>
     <div class="bar">${acts}</div>
+    ${sameDayHtml(b)}
     ${state.editBooking ? `<div class="panel" style="margin-bottom:14px">${bookingForm({ b, idp: 'eb' })}</div>` : ''}
     <div class="cols">
       <section class="panel"><h3>Details</h3><dl class="kv">

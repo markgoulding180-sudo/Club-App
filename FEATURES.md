@@ -325,3 +325,6 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - **Swap history** (also a button on the Rota): every swap with who gave up which shift and who works it now, the reason, when it was asked and done; search by name; "Not done" tab for refused/cancelled ones.
 - 🔔 bell also lists "Swaps done (for info)" from the last 7 days.
 - SQL: `update-boss-push.sql`.
+
+## Booking page: what else is on that day (Nov 2026)
+- Each booking shows **Also on [day]**: a small grid of Function Room and Lounge Bar × Daytime and Evening, showing club events, league nights and other hires (or "Nothing"), with this booking highlighted and a red ⚠ Clash if anything overlaps. What's On items for that day are listed underneath.
