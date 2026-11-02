@@ -1644,6 +1644,12 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .bkcal .day .l.x{background:none;border:0;padding:0}
 .bkcal .day .l{white-space:normal;overflow:hidden;text-overflow:clip;word-break:normal;overflow-wrap:break-word;line-height:1.18;font-size:11px;letter-spacing:-.01em}
 @media (max-width:560px){ .bkcal .cal{padding:3px} .bkcal .cal-grid{gap:2px} .bkcal .day{min-height:92px;padding:4px 2px} .bkcal .day .l{font-size:9px} }
+.rtag{display:block;font-size:10.5px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;line-height:1.2;margin-bottom:1px}
+.rtag.hall{color:var(--teal)}.rtag.lounge{color:var(--violet)}
+.bev{display:block;margin-top:3px}
+.bev .l{padding-left:0!important;margin-left:0!important}
+.bkcal .bev .rtag{font-size:8.5px;letter-spacing:.04em}
+@media (max-width:560px){ .bkcal .bev .rtag{font-size:7.5px;letter-spacing:0} }
 </style>
 
 </head>
@@ -3341,16 +3347,17 @@ function homeView(){
 /* =====================================================================
    BOOKINGS (admin)
    ===================================================================== */
+const roomTag = (b, short) => `<span class="rtag ${b.room}">${short ? (b.room === 'hall' ? 'Function' : 'Lounge') : ROOMS[b.room]?.name || ''}</span>`;
 function bkRow(b, payments, { date = false, decide = false } = {}){
   if (isClub(b)) return `<div class="row" role="button" tabindex="0" data-action="openbooking" data-id="${b.id}">
     <span class="room club">Club</span>
-    <div class="row-main"><b>${esc(b.event_type || 'Club event')}</b>
+    <div class="row-main">${roomTag(b)}<b>${esc(b.event_type || 'Club event')}</b>
       <span class="sub">${date ? fmtDate(b.booking_date) + ' · ' : ''}${ROOMS[b.room].name} · ${hhmm(b.start_time)}–${hhmm(b.end_time)} · ${b.ticketed ? `Tickets ${money(b.price_member || 0)} / ${money(b.price_guest || 0)}` : 'Free entry'}</span></div>
     ${b.status === 'cancelled' ? '<span class="pill cancelled">cancelled</span>' : ''}<span class="go" aria-hidden="true">›</span></div>`;
   const pi = payInfo(b, payments);
   return `<div class="row" role="button" tabindex="0" data-action="openbooking" data-id="${b.id}">
     <span class="room ${b.room}">${ROOMS[b.room].short}</span>
-    <div class="row-main"><b>${esc(b.event_type || 'Booking')} · ${esc(bname(b))}</b>
+    <div class="row-main">${roomTag(b)}<b>${esc(b.event_type || 'Booking')} · ${esc(bname(b))}</b>
       <span class="sub">${date ? fmtDate(b.booking_date) + ' · ' : ''}${slotLabel(b.slot)} · ${b.guests ?? '?'} guests${b.price != null ? ' · ' + money(b.price) : ''}</span></div>
     ${b.status !== 'confirmed' ? `<span class="pill ${b.status}">${b.status}</span>` : ''}${b.status !== 'pending' ? payPill(pi, true) : ''}${(() => { const d = depositDue(b, payments); return d ? `<span class="duetag ${d.overdue ? 'bad' : d.days <= 2 ? 'warn' : ''}">${d.overdue ? 'Deposit overdue' : `Deposit by ${dShort(d.due)}`}</span>` : ''; })()}
     ${decide ? `<div class="acts"><button class="btn sm" data-action="status" data-id="${b.id}" data-status="confirmed">Confirm</button><button class="btn ghost sm" data-action="status" data-id="${b.id}" data-status="cancelled">Decline</button></div>` : '<span class="go" aria-hidden="true">›</span>'}
@@ -3384,7 +3391,7 @@ function bookingsView(){
       const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort(bySlot);
       const cl = closedParts(ds); const allDay = closedAllDay(ds);
       return `<button class="day${o.out ? ' out' : ''}${o.past ? ' past' : ''}${o.today ? ' today' : ''}" data-action="bkday" data-date="${ds}" aria-label="${fmtDate(ds)}: ${plural(bks.length, 'booking')}">
-        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 3).map(b => isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${esc(b.event_type || ROOMS[b.room].short)}${b.status === 'pending' ? ' ?' : ''}</span>`).join('')}${bks.length > 3 ? `<span class="l">+${bks.length - 3} more</span>` : ''}</button>`;
+        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 3).map(b => `<span class="bev">${roomTag(b, true)}${isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${esc(b.event_type || 'Hire')}${b.status === 'pending' ? ' ?' : ''}</span>`}</span>`).join('')}${bks.length > 3 ? `<span class="l">+${bks.length - 3} more</span>` : ''}</button>`;
     }) + `</div><div class="legend"><span style="color:var(--teal)">Function Room</span><span style="color:var(--violet)">Lounge Bar</span><span style="color:var(--amber)">Club event</span><span>? = not confirmed yet</span></div>`;
   }
   if (req.length) h += `<div class="label" id="bkreqs" style="margin-top:24px">Requests to confirm (${req.length})</div><div class="list">${req.map(b => bkRow(b, payments, { date: true, decide: true })).join('')}</div>`;
@@ -3587,7 +3594,7 @@ function diaryHtml(bookings){
   const t = b => b.start_time ? `${hhmm(b.start_time)}–${hhmm(b.end_time)}` : (SLOTS.find(x => x.id === b.slot)?.label || '');
   const line = b => { const club = isClub(b); const cls = club ? 'club' : b.room;
     return `<button class="dline ${cls}${b.status === 'pending' ? ' pend' : ''}" data-action="openbooking" data-id="${b.id}"><span class="dt">${t(b)}</span>
-      <span class="dn"><b>${esc(club ? (b.event_type || 'Club event') : `${b.event_type || 'Hire'} · ${bname(b)}`)}</b><small>${ROOMS[b.room]?.name || ''}${b.status === 'pending' ? ' · not confirmed yet' : ''}${!club && b.guests ? ` · ${b.guests} guests` : ''}</small></span></button>`; };
+      <span class="dn">${roomTag(b)}<b>${esc(club ? (b.event_type || 'Club event') : `${b.event_type || 'Hire'} · ${bname(b)}`)}</b><small>${club ? 'Club event' : 'Room hire'}${b.status === 'pending' ? ' · not confirmed yet' : ''}${!club && b.guests ? ` · ${b.guests} guests` : ''}</small></span></button>`; };
   return `<div class="diary">${days.map(ds => { const d = parseYmd(ds); const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
     const cl = closedParts(ds); const allDay = closedAllDay(ds); const past = ds < today;
     return `<div class="drow${ds === today ? ' today' : ''}${past ? ' past' : ''}${d.getDay() === 1 ? ' wk' : ''}">
