@@ -1649,7 +1649,12 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .bev{display:block;margin-top:3px}
 .bev .l{padding-left:0!important;margin-left:0!important}
 .bkcal .bev .rtag{font-size:8.5px;letter-spacing:.04em}
-@media (max-width:560px){ .bkcal .bev .rtag{font-size:7.5px;letter-spacing:0} }
+@media (max-width:560px){
+  .bkcal .bev .rtag{display:none}
+  .bkcal .bev{border-left:3px solid var(--muted);padding-left:3px;margin-top:4px}
+  .bkcal .bev.r-hall{border-left-color:var(--teal)} .bkcal .bev.r-lounge{border-left-color:var(--violet)}
+  .bkcal .bev .l{line-height:1.15!important;display:block} }
+.lgbar{display:inline-block;width:4px;height:13px;border-radius:2px;margin-right:6px;vertical-align:-2px}
 </style>
 
 </head>
@@ -3391,8 +3396,8 @@ function bookingsView(){
       const bks = bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort(bySlot);
       const cl = closedParts(ds); const allDay = closedAllDay(ds);
       return `<button class="day${o.out ? ' out' : ''}${o.past ? ' past' : ''}${o.today ? ' today' : ''}" data-action="bkday" data-date="${ds}" aria-label="${fmtDate(ds)}: ${plural(bks.length, 'booking')}">
-        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 3).map(b => `<span class="bev">${roomTag(b, true)}${isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${esc(b.event_type || 'Hire')}${b.status === 'pending' ? ' ?' : ''}</span>`}</span>`).join('')}${bks.length > 3 ? `<span class="l">+${bks.length - 3} more</span>` : ''}</button>`;
-    }) + `</div><div class="legend"><span style="color:var(--teal)">Function Room</span><span style="color:var(--violet)">Lounge Bar</span><span style="color:var(--amber)">Club event</span><span>? = not confirmed yet</span></div>`;
+        <span class="n">${o.day}</span>${allDay ? '<span class="l x">No bookings</span>' : cl.map(c => `<span class="l x">No ${c.part === 'afternoon' ? 'aft' : 'eve'}</span>`).join('')}${bks.slice(0, 3).map(b => `<span class="bev r-${b.room}">${roomTag(b, true)}${isClub(b) ? `<span class="l club">${esc(b.event_type)}</span>` : `<span class="l ${b.room}">${esc(b.event_type || 'Hire')}${b.status === 'pending' ? ' ?' : ''}</span>`}</span>`).join('')}${bks.length > 3 ? `<span class="l">+${bks.length - 3} more</span>` : ''}</button>`;
+    }) + `</div><div class="legend"><span><i class="lgbar" style="background:var(--teal)"></i>Function Room</span><span><i class="lgbar" style="background:var(--violet)"></i>Lounge Bar</span><span style="color:var(--amber)">Orange text = club event</span><span>? = not confirmed yet</span></div>`;
   }
   if (req.length) h += `<div class="label" id="bkreqs" style="margin-top:24px">Requests to confirm (${req.length})</div><div class="list">${req.map(b => bkRow(b, payments, { date: true, decide: true })).join('')}</div>`;
   return h;
