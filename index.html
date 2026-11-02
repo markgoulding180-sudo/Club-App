@@ -1657,6 +1657,15 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .lgbar{display:inline-block;width:4px;height:13px;border-radius:2px;margin-right:6px;vertical-align:-2px}
 .btm{display:block;font-size:10.5px;font-weight:700;color:var(--muted);line-height:1.2;white-space:nowrap}
 @media (max-width:560px){ .bkcal .btm{font-size:8px;letter-spacing:-.03em;white-space:normal} }
+.droom{border:2px solid var(--line);border-radius:16px;padding:12px;margin-top:12px;display:grid;gap:8px}
+.droom.hall{border-color:var(--teal);background:rgba(46,230,200,.06)}.droom.lounge{border-color:var(--violet);background:rgba(160,120,255,.07)}
+.drh{display:flex;justify-content:space-between;align-items:baseline}.drh b{font-size:16px}.droom.hall .drh b{color:var(--teal)}.droom.lounge .drh b{color:var(--violet)}.drh span{color:var(--muted);font-size:13px}
+.ditem{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.ditem .dtime{font-weight:800;font-size:13.5px;white-space:nowrap}.ditem .dwhat{display:grid;gap:2px;min-width:0}.ditem .dwhat b{font-size:15.5px}.ditem small{color:var(--muted);font-size:12.5px}
+.ditem i{font-style:normal;color:var(--muted);font-size:20px}.dtags{display:flex;gap:5px;flex-wrap:wrap}.dtags:empty{display:none}
+.pill.nobartag{background:rgba(246,200,80,.15);color:#f6c850}
+.nobar{align-items:flex-start;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px}.nobar span{display:grid}.nobar small{color:var(--muted);font-size:12.5px}
+.addclubev{margin-bottom:16px}.addclubev summary{cursor:pointer;display:grid;gap:2px;list-style:none}.addclubev summary::-webkit-details-marker{display:none}
 </style>
 
 </head>
@@ -1846,7 +1855,8 @@ const DOW = [['1', 'Mon'], ['2', 'Tue'], ['3', 'Wed'], ['4', 'Thu'], ['5', 'Fri'
    - member hire: 1, or 2 when over guestsPerEventBar guests */
 const clampBar = n => Math.min(MAX_PER_BAR, Math.max(1, Number(n) || 1));
 const clubStaff = b => clampBar(b.bar_staff ?? 1);
-const barNeedFor = b => isClub(b) ? clubStaff(b) : ((Number(b.guests) || 0) > STAFF_RULES.guestsPerEventBar ? 2 : 1);
+const noBar = b => !!b?.event_details?.no_bar;
+const barNeedFor = b => noBar(b) ? 0 : isClub(b) ? clubStaff(b) : ((Number(b.guests) || 0) > STAFF_RULES.guestsPerEventBar ? 2 : 1);
 const eventNeedFor = barNeedFor;
 const clubStaffText = b => { const n = clubStaff(b); const sess = b.slot === 'afternoon' ? 'day' : 'eve';
   return `${plural(n, 'person', 'people')} on the ${ROOMS[b.room].name}${b.room === 'hall' ? ' Bar' : ''} that ${sess === 'day' ? 'afternoon' : 'evening'}${sess === 'eve' && openOn(b.booking_date).eve ? ', plus the door' : ''}`; };
@@ -1854,6 +1864,17 @@ const tmin = t => { if (!t) return 0; const [h2, m] = t.slice(0, 5).split(':').m
 const hhmm = t => (t || '').slice(0, 5);
 /* Work out which session(s) a club event's times fall in, so it blocks the room correctly. */
 const slotFromTimes = (s, e) => { const a = tmin(s), b = tmin(e) || 1440; return b <= 17 * 60 + 30 && a < 17 * 60 ? 'afternoon' : a >= 17 * 60 ? 'evening' : 'full_day'; };
+/* Hire times: each session's limits, and a start/finish picker for member bookings */
+const SLOT_LIMITS = { afternoon: ['12:00', '17:00'], evening: ['18:00', '00:00'], full_day: ['12:00', '00:00'] };
+const hireTimeSel = (id, name, val, slot, isEnd) => { const [a, z] = SLOT_LIMITS[slot] || SLOT_LIMITS.evening;
+  const opts = CLUB_TIMES.filter(t => tmin(t) >= tmin(a) && tmin(t) <= (tmin(z) || 1440));
+  return `<select id="${id}" name="${name}" required data-hiretime>${opts.map(t => `<option value="${t}" ${t === (val || (isEnd ? z : a)) ? 'selected' : ''}>${t === '00:00' ? '00:00 (midnight)' : t}</option>`).join('')}</select>`; };
+const hireTimesHtml = (idp, slot, v = {}) => `<div class="grid2 hiretimes"><label class="f">Starts${hireTimeSel(`${idp}-st`, 'start_time', hhmm(v.start_time), slot, false)}</label><label class="f">Finishes${hireTimeSel(`${idp}-et`, 'end_time', hhmm(v.end_time), slot, true)}</label></div>`;
+const hireTimesFromForm = (f, slot) => { if (!f.start_time) return {}; const st = f.start_time.value.slice(0, 5), et = f.end_time.value.slice(0, 5); const [a, z] = SLOT_LIMITS[slot];
+  if (tmin(et) <= tmin(st)) throw new Error('The finish time must be after the start time.');
+  if (tmin(st) < tmin(a) || tmin(et) > (tmin(z) || 1440)) throw new Error(`For a ${slotLabel(slot).toLowerCase()} booking, pick times between ${pTime(a)} and ${pTime(z)}.`);
+  return { start_time: st, end_time: et }; };
+const noBarBox = (idp, on) => `<label class="chk nobar"><input type="checkbox" id="${idp}-nobar" name="no_bar" ${on ? 'checked' : ''}> <span><b>No bar needed</b><small>No bar staff go on the rota for this booking</small></span></label>`;
 const clubEntry = b => b.ticketed ? `Tickets: members ${money(b.price_member || 0)}, non-members ${money(b.price_guest || 0)}` : 'Free entry';
 function sessionNeeds(ds, bookings){
   const o = openOn(ds);
@@ -3409,21 +3430,26 @@ function bookingsView(){
 }
 function openBkDay(ds){
   state.sheet = { type: 'bkday', date: ds };
-  const list = state.bk.bookings.filter(b => b.booking_date === ds).sort(bySlot);
+  const list = state.bk.bookings.filter(b => b.booking_date === ds && b.status !== 'cancelled').sort((a, b) => (a.start_time || SLOT_LIMITS[a.slot]?.[0] || '').localeCompare(b.start_time || SLOT_LIMITS[b.slot]?.[0] || ''));
   const cl = closedParts(ds); const allDay = closedAllDay(ds);
   const left = Object.keys(CLOSE_PARTS).filter(k => !cl.some(c => c.part === k || c.part === 'all'));
+  const item = b => `<button class="ditem" data-action="openbooking" data-id="${b.id}"><span class="dtime">${bkTimes(b)}</span>
+      <span class="dwhat"><b>${esc(b.event_type || (isClub(b) ? 'Club event' : 'Hire'))}</b><small>${isClub(b) ? (isSport(b) ? 'League / sport' : 'Club event') : `Member hire · ${esc(bname(b))}${b.guests ? ` · ${b.guests} guests` : ''}`}</small>
+      <span class="dtags">${b.status === 'pending' ? '<span class="pill pending">Not confirmed</span>' : ''}${noBar(b) ? '<span class="pill nobartag">No bar</span>' : ''}</span></span><i aria-hidden="true">›</i></button>`;
+  const roomBox = r => { const here = list.filter(b => b.room === r);
+    return `<section class="droom ${r}"><div class="drh"><b>${ROOMS[r].name}</b><span>${here.length ? plural(here.length, 'booking') : 'Free all day'}</span></div>
+      ${here.map(item).join('') || '<p class="muted" style="margin:2px 0 0;font-size:14px">Nothing booked.</p>'}</section>`; };
   openSheet(`<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2><p class="muted">${openText(ds)}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     ${cl.map(c => `<div class="alert"><b class="t">${closedLabel(c)}</b>${c.reason ? `<span>${esc(c.reason)}</span>` : ''}<span class="muted">Members can’t book this. You still can.</span>
       <div><button class="btn ghost sm" data-action="reopenday" data-id="${c.id}">Allow bookings again</button></div></div>`).join('')}
-    ${list.length ? `<div class="list">${list.map(b => bkRow(b, state.bk.payments)).join('')}</div>` : '<div class="empty">No bookings on this day.</div>'}
-    <div class="grid2"><button class="btn" data-action="newon" data-date="${ds}" data-kind="member">+ Member booking${cl.length ? ' anyway' : ''}</button><button class="btn ghost" data-action="newon" data-date="${ds}" data-kind="club">+ Club event</button></div>
-    ${!allDay && left.length ? `<form class="panel stack" data-form="closeday" data-date="${ds}"><b>No bookings</b>
+    ${roomBox('hall')}${roomBox('lounge')}
+    <div class="grid2" style="margin-top:12px"><button class="btn" data-action="newon" data-date="${ds}" data-kind="member">+ Member booking${cl.length ? ' anyway' : ''}</button><button class="btn ghost" data-action="newon" data-date="${ds}" data-kind="club">+ Club event</button></div>
+    ${!allDay && left.length ? `<form class="panel stack" data-form="closeday" data-date="${ds}" style="margin-top:12px"><b>No bookings</b>
       <p class="muted" style="font-size:13px">Stop members booking this day. Bookings already made stay, and you can still add one yourself.</p>
       <div class="grid2"><select class="in" id="cd-part" name="part" aria-label="When">${left.map(k => `<option value="${k}">${CLOSE_PARTS[k]}</option>`).join('')}</select>
         <input class="in" id="cd-reason" name="reason" placeholder="Reason (only admins see it)" aria-label="Reason"></div>
       <button class="btn ghost" type="submit">Set no bookings</button></form>` : ''}`);
 }
-
 /* ---------- Booking form (new + edit) ---------- */
 const eventTypeSelect = (id, val = 'Birthday') => `<select id="${id}" name="event_type" required data-evtype>${EVENT_TYPES.map(t => `<option ${t === val ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
 const x18Fields = (idp, ex = null) => `<fieldset class="x18" ${ex ? '' : 'hidden'}><legend>18th birthday</legend>
@@ -3446,10 +3472,12 @@ function bookingForm({ b = null, date = todayStr(), idp = 'nb' } = {}){
       <label class="f">Event type${eventTypeSelect(`${idp}-type`, v.event_type || 'Birthday')}</label></div>
     ${x18Fields(idp, v.event_type === '18th Birthday' ? (v.event_details || {}) : null)}
     <div class="grid2"><label class="f">Room<select id="${idp}-room" name="room" data-reprice>${Object.entries(ROOMS).map(([k, r]) => `<option value="${k}" ${k === room ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label>
-      <label class="f">Session<select id="${idp}-slot" name="slot" data-reprice>${SLOTS.map(s => `<option value="${s.id}" ${s.id === slot ? 'selected' : ''}>${s.label} ${s.time}</option>`).join('')}</select></label></div>
+      <label class="f">Session<select id="${idp}-slot" name="slot" data-reprice data-slotpick>${SLOTS.map(s => `<option value="${s.id}" ${s.id === slot ? 'selected' : ''}>${s.label} ${s.time}</option>`).join('')}</select></label></div>
+    ${hireTimesHtml(idp, slot, v)}
     <div class="grid2"><label class="f">Guests<input id="${idp}-guests" name="guests" type="number" min="1" required value="${v.guests ?? 40}"></label>
       <label class="f">Hire price (£)<input id="${idp}-price" name="price" type="number" min="0" step="1" value="${v.price ?? priceFor(room, slot, date)}" ${b ? '' : 'data-autoprice'}></label></div>
     <label class="f">Status<select id="${idp}-status" name="status">${[['confirmed','Confirmed'],['pending','Not confirmed yet'], ...(b ? [['cancelled','Cancelled']] : [])].map(([k, l]) => `<option value="${k}" ${k === (v.status || 'confirmed') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    ${noBarBox(idp, noBar(v))}
     <label class="f">Notes<textarea id="${idp}-notes" name="notes">${esc(v.notes)}</textarea></label>
     <div class="err" id="${idp}-err"></div>
     <button class="btn" type="submit">${b ? 'Save changes' : 'Save booking'}</button></form>`;
@@ -3474,6 +3502,7 @@ function clubForm({ b = null, date = todayStr(), idp = 'cb' } = {}){
       <label class="f">Non-member price (£)<input id="${idp}-pg" name="price_guest" type="number" min="0" step="0.5" value="${v.price_guest ?? 5}"></label></div>
       <label class="f">Tickets available<input id="${idp}-tt" name="tickets_total" type="number" min="1" step="1" placeholder="Leave blank for no limit" value="${v.tickets_total ?? ''}">
         <span class="muted" style="font-weight:500;font-size:12px">Members can reserve tickets from What’s On until these run out.</span></label></div>
+    ${noBarBox(idp, noBar(v))}
     ${catSelect(`${idp}-cat`, v.event_details?.cat || guessCat(v.event_type) || 'none')}
     <label class="f">Notes (optional)<textarea id="${idp}-notes" name="notes" placeholder="Shown on What’s On">${esc(v.notes)}</textarea></label>
     <div class="err" id="${idp}-err"></div>
@@ -3541,6 +3570,7 @@ async function addMany(f, base, dates, label, filterKind){
   }
   if (!added) throw new Error('Nothing added. ' + (skipped.length ? 'Skipped: ' + skipped.join(', ') : ''));
   state.pickDates = []; state.often = null;
+  if (!isAdmin()){ state.pickDates = []; toast(`${plural(added, 'event')} added to What’s On`); return go('whatson'); }
   if (dates.length === 1){ toast(`${label} saved`); return go('booking', { bookingId: last.id, editBooking: false }); }
   toast(`${plural(added, 'night')} added${skipped.length ? `, ${skipped.length} skipped` : ''}`);
   await go('bookings', { bkKind: filterKind, bkTab: 'upcoming' });
@@ -3570,7 +3600,7 @@ function clubBookingView(b){
     ${state.editBooking ? `<div class="panel" style="margin-bottom:14px">${clubForm({ b, idp: 'ec' })}</div>` : ''}
     <section class="panel"><dl class="kv">
       ${kv('Date', fmtDate(b.booking_date, { weekday:'long', day:'numeric', month:'long', year:'numeric' }))}${kv('Room', ROOMS[b.room].name)}
-      ${kv('Times', `${hhmm(b.start_time)}–${hhmm(b.end_time)}`)}${kv('Entry', b.ticketed ? 'Ticket' : 'Open (free)')}
+      ${kv('Times', bkTimes(b))}${kv('Bar', noBar(b) ? '<b style="color:var(--amber)">No bar needed</b>' : clubStaffText(b))}${kv('Entry', b.ticketed ? 'Ticket' : 'Open (free)')}
       ${b.ticketed ? kv('Member price', money(b.price_member || 0)) + kv('Non-member price', money(b.price_guest || 0)) + kv('Tickets', `${b.tickets_total ? b.tickets_total + ' available' : 'No limit'} · <button class="linkbtn" data-action="tkevent" data-id="${b.id}">See who’s booked</button>`) : ''}
       ${b.notes ? kv('Notes', esc(b.notes)) : ''}${kv('Staff', clubStaffText(b))}</dl>
       <p class="muted" style="margin-top:12px;font-size:13px">This shows on What’s On for members and stops the ${ROOMS[b.room].name} being booked for that session.</p></section>
@@ -3634,7 +3664,7 @@ function bookingView(){
     <div class="cols">
       <section class="panel"><h3>Details</h3><dl class="kv">
         ${kv('Date', fmtDate(b.booking_date, { weekday:'long', day:'numeric', month:'long', year:'numeric' }))}
-        ${kv('Room', ROOMS[b.room].name)}${kv('Session', `${slot?.label} ${slot?.time}`)}${kv('Guests', b.guests ?? '—')}
+        ${kv('Room', ROOMS[b.room].name)}${kv('Session', `${slot?.label} · ${bkTimes(b)}`)}${kv('Bar', noBar(b) ? '<b style="color:var(--amber)">No bar needed</b>' : 'Bar staff on the rota')}${kv('Guests', b.guests ?? '—')}
         ${kv('Hire price', b.price != null ? money(b.price) : '—')}${kv('Name', esc(bname(b)))}${kv('Phone', esc(b.customer_phone || '—'))}
         ${kv('Email', esc(b.customer_email || '—'))}${kv('Membership', esc(b.membership_no || '—'))}
         ${b.event_type === '18th Birthday' ? kv('Turning 18', esc(ex.celebrant || '—')) + kv('ID checks', ex.id_checks ? 'Agreed' : '<span style="color:var(--red)">Not agreed</span>') + (ex.door_notes ? kv('Door notes', esc(ex.door_notes)) : '') : ''}
@@ -3979,7 +4009,7 @@ function whatsOnView(){
   const member = isMember(); const hasPrefs = (myPrefs().cats || []).length;
   const tabs = (tab === 'sport' ? '<img class="wobanner" src="img/banner-sport.webp" alt="Live Sport Showing" width="1200" height="124">' : '') + `<div class="bar">${seg('wotab', tab, [['events', 'Club Events'], ['sport', 'Live Sport Shown']], 'Show')}</div>`
     + (member && tab === 'events' ? `<div class="bar">${hasPrefs ? seg('wofilter', fy ? 'mine' : 'all', [['all', 'Everything'], ['mine', '★ For you']], 'Filter') : ''}<button class="linkbtn" data-action="openprefs">${hasPrefs ? 'Edit my favourites' : '★ Pick your favourite nights'}</button></div>` : '');
-  return page('What’s On', isAdmin() ? `<button class="btn ghost sm" data-action="openposter">🖨 Print monthly poster</button>` : '') + (editor ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
+  return page('What’s On', isAdmin() ? `<button class="btn ghost sm" data-action="openposter">🖨 Print monthly poster</button>` : '') + (editor && !isAdmin() ? `<details class="panel addclubev" ${state.showAddEv ? 'open' : ''}><summary><b>+ Add a club event</b><span class="muted">Bingo, live music, karaoke… with the room and times</span></summary><div style="margin-top:12px">${clubForm({ date: ahead(1), idp: 'ce' })}</div></details>` : '') + (editor && isAdmin() ? `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Club events you add in Bookings show here automatically.</p><form class="panel stack" data-form="addevent" style="margin-bottom:16px"><b>Add an event</b>
       <div class="grid2"><input class="in" id="ev-title" name="title" required placeholder="Title, e.g. Cabaret night" aria-label="Title">
         <select class="in" id="ev-cat" name="category" aria-label="Type">${EVENT_CATS.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div class="grid2"><input class="in" id="ev-date" name="date" type="date" required value="${ahead(1)}" aria-label="Date"><input class="in" id="ev-time" name="time" type="time" required value="20:00" aria-label="Start time"></div>
@@ -5339,8 +5369,10 @@ function openUserDay(ds){
   openSheet(`<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2><p class="muted">${room.name}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <form class="stack" data-form="request" data-date="${ds}">
       <div class="slots">${SLOTS.map(s => { const ok = slotFree(taken, s.id);
-        return `<label class="opt ${ok ? '' : 'taken'}"><input type="radio" name="slot" value="${s.id}" ${ok ? '' : 'disabled'} ${s === firstFree ? 'checked' : ''}>
+        return `<label class="opt ${ok ? '' : 'taken'}"><input type="radio" name="slot" value="${s.id}" ${ok ? '' : 'disabled'} ${s === firstFree ? 'checked' : ''} data-slotpick>
           <span><b>${s.label}</b><br><span class="t">${s.time}</span></span><b>${ok ? money(priceFor(state.room, s.id, ds)) : 'Not available'}</b></label>`; }).join('')}</div>
+      ${hireTimesHtml('rq', firstFree?.id || 'evening')}
+      <p class="muted" style="font-size:12.5px;margin:-6px 0 0">When your party starts and finishes, within the session you picked.</p>
       <div class="grid2"><label class="f">First name<input id="rq-fn" name="first_name" required value="${esc(u.first_name)}"></label><label class="f">Last name<input id="rq-ln" name="last_name" required value="${esc(u.last_name)}"></label></div>
       <div class="grid2"><label class="f">Phone<input id="rq-phone" name="customer_phone" type="tel" required value="${esc(u.phone)}"></label><label class="f">Email<input id="rq-email" name="customer_email" type="email" required value="${esc(u.email)}"></label></div>
       <div class="grid2"><label class="f">Event type${eventTypeSelect('rq-type')}</label><label class="f">Guests<input id="rq-guests" name="guests" type="number" min="1" max="${room.capacity}" required value="${Math.min(30, room.capacity)}"></label></div>
@@ -5664,6 +5696,8 @@ document.addEventListener('change', async e => {
     if (el.matches('[data-nlimg]') && el.files?.[0] && state.nlDraft){ const k = el.dataset.nlimg; toast('Adding picture…');
       const url = await api.uploadImage(await shrinkImage(el.files[0]));
       if (k === 'cover') state.nlDraft.cover_url = url; else state.nlDraft.sections[Number(k.slice(1))].img = url; render(); toast('Picture added'); return; }
+    if (el.matches('[data-slotpick]')){ const f = el.form; const slot = el.value; const box = f.querySelector('.hiretimes');
+      if (box){ const idp = f.start_time.id.replace(/-st$/, ''); box.outerHTML = hireTimesHtml(idp, slot); } }
     if (el.matches('[data-reprice]')){ const f = el.form; if (f.booking_date.value && f.price.hasAttribute('data-autoprice')) f.price.value = priceFor(f.room.value, f.slot.value, f.booking_date.value); }
     if (el.matches('[data-newname]')){ const inp = el.parentElement.parentElement.querySelector('.newname') || el.closest('label')?.querySelector('.newname'); const isNew = el.value === '__new'; if (inp){ inp.hidden = !isNew; inp.required = isNew; if (isNew) inp.focus(); } }
     if (el.matches('[data-newname], .newname') && el.form?.cat){ const g = guessCat(el.value === '__new' ? '' : el.value); if (g){ el.form.cat.value = g; el.form.cat._sync?.(); } }
@@ -5713,7 +5747,8 @@ function bookingFromForm(f){
 }
 function adminBooking(f){
   const room = f.room.value;
-  const b = { ...bookingFromForm(f), room, booking_date: f.booking_date.value, slot: f.slot.value, status: f.status.value, price: f.price.value ? Number(f.price.value) : null };
+  const b = { ...bookingFromForm(f), room, booking_date: f.booking_date.value, slot: f.slot.value, status: f.status.value, price: f.price.value ? Number(f.price.value) : null, ...hireTimesFromForm(f, f.slot.value) };
+  b.event_details = { ...(state.cur?.b?.event_details || {}), ...(b.event_details || {}), no_bar: !!f.no_bar?.checked };
   if (b.guests > ROOMS[room].capacity) throw new Error(`The ${ROOMS[room].name} holds up to ${ROOMS[room].capacity} guests.`);
   return b;
 }
@@ -5738,8 +5773,8 @@ const forms = {
       event_details: { sport: true, cat: f.cat.value } };
     await addMany(f, base, dates, 'Sports booking', 'sports');
   },
-  async addclub(f){ const { booking_date, ...base } = clubFromForm(f); base.event_details = { cat: f.cat.value }; const { dates } = datesFromForm(f); await addMany(f, base, dates, 'Club event', 'club'); },
-  async editclub(f){ const { status, ...patch } = clubFromForm(f); patch.event_details = { ...(state.cur?.b?.event_details || {}), cat: f.cat.value }; await api.updateBooking(Number(f.dataset.id), patch); state.editBooking = false; toast('Saved'); refresh(); },
+  async addclub(f){ const { booking_date, ...base } = clubFromForm(f); base.event_details = { cat: f.cat.value, no_bar: !!f.no_bar?.checked }; const { dates } = datesFromForm(f); await addMany(f, base, dates, 'Club event', 'club'); },
+  async editclub(f){ const { status, ...patch } = clubFromForm(f); patch.event_details = { ...(state.cur?.b?.event_details || {}), cat: f.cat.value, no_bar: !!f.no_bar?.checked }; await api.updateBooking(Number(f.dataset.id), patch); state.editBooking = false; toast('Saved'); refresh(); },
   async login(f){ state.user = await api.signIn(f.email.value.trim(), f.password.value); go('hub'); },
   async signup(f){
     const r = await api.signUp({ email: f.email.value.trim(), password: f.password.value, first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), phone: f.phone.value.trim(), membership_no: f.membership_no.value.trim() });
@@ -5748,7 +5783,7 @@ const forms = {
   },
   async request(f){
     const slot = f.slot.value; const ds = f.dataset.date;
-    await api.requestBooking({ ...bookingFromForm(f), room: state.room, booking_date: ds, slot, price: priceFor(state.room, slot, ds), deposit_required: DEPOSIT }, state.user.id);
+    await api.requestBooking({ ...bookingFromForm(f), ...hireTimesFromForm(f, slot), room: state.room, booking_date: ds, slot, price: priceFor(state.room, slot, ds), deposit_required: DEPOSIT }, state.user.id);
     closeSheet(); toast('Request sent. The club will confirm soon.'); refresh();
   },
   async addbooking(f){ const b = adminBooking(f); const x = await api.addBooking({ ...b, deposit_required: DEPOSIT }); toast('Booking saved'); go('booking', { bookingId: x.id, editBooking: false }); },

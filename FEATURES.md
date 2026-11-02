@@ -355,3 +355,11 @@ If no one can swap, the staff member can still tell the manager they can't work 
 
 ## Bookings diary (Nov 2026)
 - Bookings → Calendar now opens as a **Diary**: one full-width row per day, each booking on its own line with the time, name, room and guests, coloured by room (teal Function Room, violet Lounge Bar, amber club event; dashed = not confirmed). Free days say "Free · tap to add"; no-bookings days show in red. Tap a booking to open it. The old grid is still there under **Month**.
+
+## Room bookings locked in (Nov 2026)
+- Two kinds of booking: **member hires** (any member books the Function Room or Lounge for a birthday, wedding etc. in the app) and **club events** (committee, Secretary, manager: bingo, live music, karaoke, leagues…).
+- Every booking now has a **start and finish time**. Members pick a session (Afternoon 12–5, Evening 6–12, Full day), then their start and finish within it; admins can set them on any booking.
+- Calendar / diary / lists show room (colour), time and event name.
+- **Day popup**: a teal-bordered **Function Room** box and a violet-bordered **Lounge Bar** box, each listing its bookings with time, name, member/club, "Not confirmed" and "No bar" tags.
+- **No bar needed** tick box on member and club bookings (manager): no bar staff go on the rota for it.
+- **Committee** (What's On access) can add club events with room and times from What's On (+ Add a club event). SQL: `update-committee-bookings.sql`.
