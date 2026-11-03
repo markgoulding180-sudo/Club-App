@@ -1704,6 +1704,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .profh{display:flex;align-items:center;gap:12px}
 .rowwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .mfrom{display:inline-flex;align-items:center;gap:6px;margin-right:8px}.mgrmsg .ntop{align-items:center}
+.mrow{display:flex;gap:12px;align-items:flex-start}.mtext{flex:1;min-width:0}
+.mby{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.mby b{font-size:15.5px}.mby span{font-size:12px;font-weight:700;color:#f6c850;text-transform:uppercase;letter-spacing:.04em}.mby small{margin-left:auto}
+.mtitle{display:block;margin-top:2px;font-weight:600;font-size:14.5px}.avatar.wic{font-size:22px;background:var(--surface-2)}
+.offchip{display:inline-flex;align-items:center;gap:8px;padding-left:5px}.upd > .avatar{margin-right:8px}.holline > .avatar{margin-right:2px}
+.conv > .avatar{flex:none}.frname > .avatar{flex:none}
 </style>
 
 </head>
@@ -2461,12 +2466,12 @@ function makeDemoApi(){
     async sendDm(to, body){ const ok2 = meU()?.role === 'admin' || ((meU()?.perms || []).length && s.users.find(u => u.id === to)?.role === 'admin') || (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)) || (s.dms || []).some(m => m.sender === to && m.recipient === s.session && s.users.find(u => u.id === to)?.role === 'admin'); if (!ok2) throw new Error('You can only message friends, or reply to the club.');
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
     async msgContacts(){ const ids = new Set((s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => m.sender === s.session ? m.recipient : m.sender));
-      return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin' }; }); },
+      return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin', photo_url: u.photo_url || null }; }); },
     async uploadPhoto(blob, pid){ const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = url; save(); } return url; },
     async removePhoto(pid){ const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = null; save(); } },
     async hiddenList(){ return ((s.hidden ||= {})[s.session] || []).slice(); },
     async hideItem(key){ ((s.hidden ||= {})[s.session] ||= []).push(key); save(); },
-    async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club' })); },
+    async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club', photo_url: u.photo_url || null })); },
     async markRead(friend){ (s.dms ||= []).filter(m => m.recipient === s.session && m.sender === friend && !m.read_at).forEach(m => m.read_at = new Date().toISOString()); save(); },
     async deleteDm(id){ s.dms = (s.dms ||= []).filter(m => m.id !== id); save(); },
     async myRsvps(){ return (s.rsvps ||= []).filter(r => r.user_id === s.session).map(r => ({ event_key: r.event_key, status: r.status })); },
@@ -4614,7 +4619,7 @@ function openMsgs(){
   if (isAdmin()){ const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p])); const sm = (state.msgs || []).filter(m => m.status !== 'done' && m.topic !== 'cant_work').slice(0, 6);
     openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">From staff, the committee and members.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
       ${sendBoxHtml()}
-      ${canArea('messages') ? `<div class="isub">From staff</div>${sm.map(m => `<button class="upd${m.status === 'new' ? ' act' : ''}" data-action="go" data-view="messages"><span><b>${esc(pfirst(map[m.staff_id]) || 'Staff')}</b> · ${esc(MSG_TOPICS[m.topic] || m.topic)}: ${esc(m.body.slice(0, 80))}</span><i aria-hidden="true">›</i></button>`).join('') || '<p class="muted" style="margin:0 0 6px">Nothing from staff to deal with.</p>'}
+      ${canArea('messages') ? `<div class="isub">From staff</div>${sm.map(m => `<button class="upd${m.status === 'new' ? ' act' : ''}" data-action="go" data-view="messages">${avatar(map[m.staff_id], 30)}<span><b>${esc(pfirst(map[m.staff_id]) || 'Staff')}</b> · ${esc(MSG_TOPICS[m.topic] || m.topic)}: ${esc(m.body.slice(0, 80))}</span><i aria-hidden="true">›</i></button>`).join('') || '<p class="muted" style="margin:0 0 6px">Nothing from staff to deal with.</p>'}
         <button class="linkbtn" data-action="go" data-view="messages">All messages from staff ›</button>` : ''}
       <div class="isub">Committee &amp; members</div>${boardHtml().replace('Add friends first, then you can message them here. Messages from the club also show here.', 'No conversations yet.')}`);
     render(); if (!(state.profiles || []).length) api.listProfiles().then(ps => { state.profiles = ps; }); return; }
@@ -4622,7 +4627,7 @@ function openMsgs(){
       <div class="isub">Message a club officer</div><div class="offpick" id="offpick"><span class="muted">Loading…</span></div>
       <div class="isub">Conversations</div>${boardHtml()}`);
     api.clubOfficers().then(list => { const el = document.getElementById('offpick'); if (!el) return; state.officers = list;
-      el.innerHTML = list.map(o => `<button class="chipbtn" data-action="dmofficer" data-id="${o.id}">${esc(o.first_name)} · ${esc(o.title)}</button>`).join('') || '<span class="muted">No officers found.</span>'; });
+      el.innerHTML = list.map(o => `<button class="chipbtn offchip" data-action="dmofficer" data-id="${o.id}">${avatar(o, 28)}${esc(o.first_name)} · ${esc(o.title)}</button>`).join('') || '<span class="muted">No officers found.</span>'; });
     render(); return; }
   if (isStaff()) openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">Your messages to the manager, and their replies.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <button class="btn" data-action="msgstart" style="width:100%;margin-bottom:12px">✉ New message to the manager</button>${myMessagesHtml().replace('Use “Message the manager” at the top of this page.', 'Tap the button above to send one.')}`);
@@ -4724,11 +4729,14 @@ function fromMgrView(){
   if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
   return page('Messages', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">From the manager, the secretary and other staff: holiday and can’t-work answers, replies, notices and swaps.</p>
     ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
-      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="ntop">${x.from ? `<span class="mfrom">${avatar(x.from, 30)}<small>${esc(pfirst(x.from))}</small></span>` : ''}<b>${x.icon} ${x.title}</b><small>${x.when ? fmtWhen(x.when) : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')}</div>`).join('')
+      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`).join('')}</div>`).join('')
       || '<div class="empty">No messages yet.</div>'}
     <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`;
 }
 /* Profile photos: a round photo, or the first letter when there isn't one */
+const photoOf = id => { if (!id) return null; if (state.user?.id === id) return state.user.photo_url || null;
+  for (const l of [state.officers, state.profiles, state.ops?.staff, state.contacts]) { const p = (l || []).find(x => x.id === id); if (p?.photo_url) return p.photo_url; } return null; };
+const avatarId = (id, first, size) => avatar({ first_name: first, photo_url: photoOf(id) }, size);
 const avatar = (p, size = 40) => p?.photo_url ? `<img class="avatar" src="${esc(p.photo_url)}" alt="" style="width:${size}px;height:${size}px" loading="lazy">`
   : `<span class="avatar ini" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px">${esc((p?.first_name || '?')[0])}</span>`;
 async function squarePhoto(file, px = 480){
@@ -5042,7 +5050,7 @@ function messagesView(){
   const shift = id => (state.ops?.shifts || []).find(s => s.id === id);
   return page('Messages from staff') + `<div class="bar">${seg('msgtab', tab, [['open', `To deal with (${all.filter(m => m.status !== 'done').length})`], ['done', 'Done']], 'Show')}</div>
     <div class="list">${list.map(m => { const sh = m.shift_id ? shift(m.shift_id) : null; return `<div class="panel stack msgcard ${m.topic}">
-      <div class="holline"><b>${esc(pname(map[m.staff_id]))}</b><span class="tagt">${esc(MSG_TOPICS[m.topic] || m.topic)}</span><span class="grow"></span>${m.status === 'new' ? '<span class="pill waiting">New</span>' : ''}<span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { day:'numeric', month:'short' })}</span></div>
+      <div class="holline">${avatar(map[m.staff_id], 40)}<b>${esc(pname(map[m.staff_id]))}</b><span class="tagt">${esc(MSG_TOPICS[m.topic] || m.topic)}</span><span class="grow"></span>${m.status === 'new' ? '<span class="pill waiting">New</span>' : ''}<span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { day:'numeric', month:'short' })}</span></div>
       <p style="margin:0">${esc(m.body)}</p>
       ${sh ? `<span class="muted" style="font-size:13px">Shift: ${shiftLine(sh)} <button class="linkbtn" data-action="rotajump" data-date="${sh.shift_date}">Open on the rota</button></span>` : ''}
       ${m.reply ? `<span class="cwnote ok">Your reply: “${esc(m.reply)}”</span>` : ''}
@@ -5052,7 +5060,7 @@ function messagesView(){
 const unreadDms = () => (state.inbox || []).filter(m => m.recipient === state.user?.id && !m.read_at).length;
 function convPeople(){
   const fr = (state.friends || []).filter(f => f.status === 'accepted').map(f => ({ other: f.other, first_name: f.first_name, last_initial: f.last_initial, club: false }));
-  (state.contacts || []).filter(c => !fr.some(f => f.other === c.id)).forEach(c => fr.push({ other: c.id, first_name: c.first_name, last_initial: c.last_initial, club: c.is_club, title: c.title }));
+  (state.contacts || []).filter(c => !fr.some(f => f.other === c.id)).forEach(c => fr.push({ other: c.id, first_name: c.first_name, last_initial: c.last_initial, club: c.is_club, title: c.title, photo_url: c.photo_url }));
   return fr;
 }
 const personName = f => f.club ? (isAdmin() || (state.user?.perms || []).length ? `${esc(f.first_name)} · ${esc(f.title || 'Club')}` : `${esc(CONFIG.CLUB_NAME)} · ${esc(f.title || 'Club')}`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`;
@@ -5061,7 +5069,7 @@ function boardHtml(){
   const convs = fr.map(f => { const ms = all.filter(m => m.sender === f.other || m.recipient === f.other); return { f, last: ms[0], unread: ms.filter(m => m.recipient === me && !m.read_at).length }; })
     .sort((a, b) => (b.last?.created_at || '').localeCompare(a.last?.created_at || ''));
   if (!fr.length) return '<div class="empty">Add friends first, then you can message them here. Messages from the club also show here.</div>';
-  return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}"><span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>
+  return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}">${photoOf(f.other) ? avatarId(f.other, f.first_name, 42) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}
       <span class="ctxt"><b>${personName(f)}</b><span>${last ? `${last.sender === me ? 'You: ' : ''}${esc(last.body.slice(0, 70))}${last.body.length > 70 ? '…' : ''}` : 'No messages yet. Say hello!'}</span></span>
       <span class="cmeta">${last ? `<small>${fmtWhen(last.created_at)}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></button>`).join('')}</div>`;
 }
@@ -5073,7 +5081,7 @@ async function openDm(uid){
   state.sheet = { type: 'dm', id: uid };
   if ((state.inbox || []).some(m => m.sender === uid && m.recipient === state.user.id && !m.read_at)){ await api.markRead(uid); (state.inbox || []).forEach(m => { if (m.sender === uid && !m.read_at) m.read_at = new Date().toISOString(); }); }
   const ms = (state.inbox || []).filter(m => m.sender === uid || m.recipient === uid).slice().reverse();
-  openSheet(`<div class="sheet-h"><div class="frname"><span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span><div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? `From ${esc(f.first_name)}` : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+  openSheet(`<div class="sheet-h"><div class="frname">${photoOf(uid) ? avatarId(uid, f.first_name, 52) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}<div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? `From ${esc(f.first_name)}` : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><p>${esc(m.body)}</p><small>${fmtWhen(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
     <form class="dmform" data-form="senddm" data-to="${uid}"><textarea class="in" name="body" rows="2" maxlength="500" required placeholder="Write a message…"></textarea><button class="btn" type="submit">Send</button><div class="err"></div></form>`);
   setTimeout(() => { const t = document.getElementById('thread'); if (t) t.scrollTop = t.scrollHeight; }, 30);

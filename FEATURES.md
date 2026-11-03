@@ -375,3 +375,4 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - The app admin can set anyone's photo from **Roles & access** (tap the round picture) or from a staff member's profile on **Staff**.
 - Photos show on Home, the Staff list, Roles, and next to the sender on staff Messages (manager, secretary, colleagues).
 - Stored in the Supabase storage bucket `photos` (public), one folder per person; `profiles.photo_url`. SQL: `update-profile-photos.sql`. Photos are never put in GitHub (the repo is public).
+- Messages show the sender's photo: staff Messages page (photo, name and title, e.g. "Stuart · SECRETARY", then the message), members' message board and conversations (the officer who wrote to them), the committee's "Message a club officer" buttons, and the bosses' Messages from staff list and 💬 popup. Messages with no known sender show the 🍺/📋/🏛 icon. SQL: `update-message-photos.sql` (adds `photo_url` to `msg_contacts()`).
