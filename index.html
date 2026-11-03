@@ -1750,6 +1750,15 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hrole{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:999px;background:rgba(246,200,80,.14);border:1px solid rgba(246,200,80,.4);color:#f6c850;font-weight:800;font-size:13px;letter-spacing:.02em}
 .impbox{border:2px solid #ff8a3d;border-radius:18px;padding:12px;margin-bottom:16px;background:rgba(255,138,61,.08)}
 .imphead{font-weight:900;color:#ffb27a;margin:0 0 10px;font-size:14.5px;text-transform:uppercase;letter-spacing:.04em}
+.covstat{border:2px solid #ff8a3d;border-radius:18px;padding:12px 14px;margin:0 0 14px;background:rgba(255,138,61,.08)}
+.covhead{font-weight:900;color:#ffb27a;font-size:15px;margin-bottom:6px}.covhead span{font-weight:700;color:var(--muted);font-size:13px;margin-left:6px}
+.cvrow{border-top:1px solid rgba(255,255,255,.08);padding:10px 0 4px}.cvrow:first-of-type{border-top:0}
+.cvt{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.cvt span{color:var(--muted);font-size:13px}
+.cvl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}.cvlab{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:2px}
+.cvlab.ok{color:#3ddc84}.cvlab.no{color:#ff8a8a}
+.cvchip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 2px;border-radius:999px;background:rgba(255,255,255,.07);font-size:13px;font-weight:700}
+.cvchip.ok{background:rgba(61,220,132,.15)}.cvchip.no{background:rgba(255,107,107,.12);color:#ffb3b3}
+.cvyes{display:inline-flex;gap:6px;align-items:center}
 </style>
 
 </head>
@@ -2880,7 +2889,7 @@ async function load(view){
     if (!isStaff() && !state.hidden) state.hidden = await api.hiddenList().catch(() => []);
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
-    if (isAdmin()){ state.todos = await api.listTodos().catch(() => null); state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
+    if (isAdmin()){ state.todos = await api.listTodos().catch(() => null); state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.covers = await api.listCoverCalls(); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
@@ -3414,6 +3423,7 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
+    ${coverStatusHtml()}
     <div class="tiles">
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
@@ -3812,6 +3822,25 @@ function staffSelect(ds, x, job, shift, cover, k){
 }
 const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
   <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
+/* Manager: every open "can anyone cover?" request, with who said yes, who said no, and who hasn't answered */
+function coverStatusHtml(){
+  if (!canArea('rota')) return '';
+  const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
+  if (!calls.length) return '';
+  const staff = state.ops?.staff || []; const map = Object.fromEntries(staff.map(p => [p.id, p]));
+  return `<div class="covstat"><div class="covhead">📣 Cover requests <span>${plural(calls.length, 'shift')} waiting</span></div>${calls.map(c => {
+    const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job);
+    const yes = offs.filter(o => o.status === 'offered'), no = offs.filter(o => o.status === 'passed');
+    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
+    const answered = new Set(offs.map(o => o.staff_id));
+    const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !answered.has(p.id));
+    const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
+    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span></div>
+      ${yes.length ? `<div class="cvl"><span class="cvlab ok">✓ Said yes</span>${yes.map(o => `<span class="cvyes">${chip(map[o.staff_id] || {}, 'ok')}<button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></span>`).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
+      ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
+      ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
+      <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; }).join('')}</div>`;
+}
 function coverAskHtml(ds, sess, job, offs){
   if (ds < todayStr()) return '';
   const call = (state.covers || []).find(c => c.status === 'open' && c.shift_date === ds && c.session === sess && c.job === job);
@@ -3874,7 +3903,8 @@ function rotaView(){
     const dbl = {}; state.ops.shifts.filter(s => ACTIVE(s) && s.shift_date >= today).forEach(s => (dbl[s.shift_date + '|' + s.staff_id] ||= []).push(s));
     const twice = Object.values(dbl).filter(v => v.length > 1).sort((a, b) => a[0].shift_date.localeCompare(b[0].shift_date));
     if (twice.length) h += `<div class="alert"><b class="t">On two shifts in one day</b>${twice.map(v => `<div>${esc(pname(map[v[0].staff_id]))} on ${fmtDate(v[0].shift_date)}: ${v.map(s => `${SESS[s.session].toLowerCase()} ${JOBS[s.job]}`).join(' and ')}. Take them off one.</div>`).join('')}</div>`;
-    const offs = (state.offers || []).filter(o => o.status === 'offered');
+    h += coverStatusHtml();
+    const offs = (state.offers || []).filter(o => o.status === 'offered' && !(state.covers || []).some(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job));
     if (offs.length) h += `<div class="alert swapok"><b class="t">Offers to work</b>${offs.map(o => `<div class="swaprow"><span><b>${esc(pname(map[o.staff_id]))}</b> can work ${shiftLine(o)} <button class="linkbtn" data-action="rotajump" data-date="${o.shift_date}">See day</button></span><span class="swapbtns"><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></span></div>`).join('')}</div>`;
     const newMsgs = (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').length;
     const ask = probs.filter(s => s.status === 'cannot_work' && !s.decision), need = probs.filter(s => !(s.status === 'cannot_work' && !s.decision));

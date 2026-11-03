@@ -398,3 +398,8 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Chat card: TO/FROM tag, name · role, the **title** in yellow with the message count, the first message (what started it), "··· N more messages ···", then the latest message and its status.
 - Opening someone with no title picked shows "New message to X" (Title + Message) and their existing conversations to carry on.
 - Phone alert: "💬 Sam (Bar Manager): Card machine". SQL: `update-message-titles.sql` (`member_messages.subject`).
+
+## Cover requests: what the manager sees (Nov 2026)
+- Orange **📣 Cover requests** box on the manager's Home and at the top of the Rota: each shift asked about, with **✓ Said yes** (photo + "Give them the shift"), **✕ Said no**, and **… Not answered** (staff who can do that job and aren't working that day). "Open on the rota" / "Stop asking".
+- Staff see the request at the top of Your Messages → Management as **⚠️ Important**, with Yes / No buttons. Sam gets a phone alert when someone says yes.
+- Home shows each person's role under their name (Bar Manager, Secretary, Staff, Member…).
