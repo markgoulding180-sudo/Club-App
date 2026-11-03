@@ -1747,6 +1747,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .bub .bwho{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}.bub.me .bwho{color:#7ff3df;text-align:right}.bub.them .bwho{color:#f6c850}
 .conv .ctxt .cdirl{display:block}.conv .cdirl .cdir{margin:0 0 2px}
 .conv{position:relative}.conv > .mclose{position:absolute;top:8px;right:8px}.conv .cmeta{margin-top:30px}
+.hrole{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:999px;background:rgba(246,200,80,.14);border:1px solid rgba(246,200,80,.4);color:#f6c850;font-weight:800;font-size:13px;letter-spacing:.02em}
+.impbox{border:2px solid #ff8a3d;border-radius:18px;padding:12px;margin-bottom:16px;background:rgba(255,138,61,.08)}
+.imphead{font-weight:900;color:#ffb27a;margin:0 0 10px;font-size:14.5px;text-transform:uppercase;letter-spacing:.04em}
 </style>
 
 </head>
@@ -3390,9 +3393,10 @@ setInterval(() => {
 }, 5000);
 
 /* ---------- Home ---------- */
+const roleLabel = p => !p ? '' : p.role === 'admin' ? (p.title || 'Club officer') : p.role === 'staff' ? 'Staff' : (p.perms || []).length ? (p.title ? p.title + ' committee' : 'Committee') : 'Member';
 function homeView(){
   const first = state.user.first_name || ''; const today = todayStr();
-  let h = `<div class="hello"><h2>${greeting()}${first ? `,<span class="hname">${esc(first)}</span>` : ''}</h2><button class="helloav" data-action="myprofile" aria-label="My profile">${avatar(state.user, 96)}${state.user?.photo_url ? '' : '<span class="addph">+</span>'}</button></div>`;
+  let h = `<div class="hello"><div><h2>${greeting()}${first ? `,<span class="hname">${esc(first)}</span>` : ''}</h2><span class="hrole">${esc(roleLabel(state.user))}</span></div><button class="helloav" data-action="myprofile" aria-label="My profile">${avatar(state.user, 96)}${state.user?.photo_url ? '' : '<span class="addph">+</span>'}</button></div>`;
   const next = state.events[0];
   const nextTxt = next ? `Next: ${next.title}, ${fmtDate(ymd(new Date(next.starts_at)))}` : 'Nothing listed yet';
   if (isAdmin()){
@@ -3438,7 +3442,7 @@ function homeView(){
       <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from management and other staff are in <b>Your Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
-        ${(() => { const n = fromMgr().filter(x => x.isNew).length + (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="yourmsgs"><span class="ic">${ICONS.bell}</span><b>Your Messages</b><span class="sub">From management and staff</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
+        ${(() => { const n = fromMgr().filter(x => x.isNew).length + coverCallsForMe().length + (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="yourmsgs"><span class="ic">${ICONS.bell}</span><b>Your Messages</b><span class="sub">From management and staff</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       </div>`;
     return h;
@@ -4565,9 +4569,9 @@ function notifItems(){
   if (isAdmin()){ adminNotifs().forEach(x => { if (!cleared.has(x.key)) items.push({ ...x, unseen: !seen.has(x.key), upd: true }); }); return items; }
   if (!isStaff()) visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
     items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop">${whoP(n.created_by) ? `<span class="mfrom">${avatar(whoP(n.created_by), 30)}</span>` : ''}<b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
-  if (isStaff()){ const fm = fromMgr().filter(x => x.isNew), ch = (state.inbox || []).filter(m => m.recipient === uid && !m.read_at); const n = fm.length + ch.length;
+  if (isStaff()){ const fm = fromMgr().filter(x => x.isNew), ch = (state.inbox || []).filter(m => m.recipient === uid && !m.read_at), cv = state.covers ? coverCallsForMe() : []; const n = fm.length + ch.length + cv.length;
     if (n){ const last = [...fm.map(x => x.when), ...ch.map(m => m.created_at)].sort().pop() || ''; const key = 'newmsgs-' + last;
-      if (!cleared.has(key)) items.push({ key, unseen: !seen.has(key), upd: true, html: `<button class="upd act" data-action="yourmsgs"><span>💬 <b>You have new messages.</b> Check Your Messages.</span><i aria-hidden="true">›</i></button>` }); } }
+      if (!cleared.has(key)) items.push({ key, unseen: !seen.has(key), upd: true, html: `<button class="upd act" data-action="yourmsgs"><span>${cv.length ? '⚠️ <b>The manager needs cover.</b> Check Your Messages.' : '💬 <b>You have new messages.</b> Check Your Messages.'}</span><i aria-hidden="true">›</i></button>` }); } }
   if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
     (state.myUpdates || []).forEach(h => { const key = hashTxt(h); if (cleared.has(key)) return; items.push({ key, unseen: !seen.has(key), upd: true, html: h }); }); }
   return items;
@@ -4797,7 +4801,8 @@ const whoChips = items => { const c = {}; items.filter(x => x.isNew).forEach(x =
 function fromMgrView(){
   const items = fromMgr(); const me = state.user.id; const tab = state.fmTab === 'staff' ? 'staff' : 'mgmt';
   const unreadChats = (state.inbox || []).filter(m => m.recipient === me && !m.read_at).length;
-  const nM = items.filter(x => x.who !== 'staff' && x.isNew).length, nS = items.filter(x => x.who === 'staff' && x.isNew).length + unreadChats;
+  const covers = coverCallsForMe();
+  const nM = items.filter(x => x.who !== 'staff' && x.isNew).length + covers.length, nS = items.filter(x => x.who === 'staff' && x.isNew).length + unreadChats;
   try { localStorage.setItem((tab === 'staff' ? 'stfseen-' : 'mgrseen-') + me, JSON.stringify(new Date().toISOString())); } catch(e){}
   if (tab === 'mgmt'){ const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id);
     if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); } }
@@ -4805,7 +4810,7 @@ function fromMgrView(){
   const tabBtn = (k, label, n) => `<button class="fmtab${tab === k ? ' on' : ''}" data-action="fmtab" data-val="${k}">${label}${n ? `<span class="fmnew">${n} new</span>` : ''}</button>`;
   let body;
   if (tab === 'mgmt'){ const list = items.filter(x => x.who !== 'staff');
-    body = `<div class="stack" style="gap:10px">${list.map(card).join('') || '<div class="empty">No messages from management.</div>'}</div>
+    body = `${covers.length ? `<div class="impbox"><div class="imphead">⚠️ Important · the manager needs cover</div><div class="stack" style="gap:10px">${coverCardsHtml()}</div></div>` : ''}<div class="stack" style="gap:10px">${list.map(card).join('') || (covers.length ? '' : '<div class="empty">No messages from management.</div>')}</div>
       <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`; }
   else { const list = items.filter(x => x.who === 'staff');
     body = `${(state.inbox || []).length ? boardHtml() : '<div class="empty">No chats yet.</div>'}
