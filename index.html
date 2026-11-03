@@ -4569,7 +4569,7 @@ function notifItems(){
 function msgItems(){
   const uid = state.user?.id; const since = lsGet('mseen-' + uid) || '';
   if (isAdmin()) return [...(canArea('messages') ? (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').map(m => ({ unseen: m.created_at > since })) : []), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
-  if (isStaff()) return [...(state.msgs || []).filter(m => m.staff_id === uid && m.reply).map(m => ({ unseen: (m.replied_at || m.created_at || '') > since })), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
+  if (isStaff()) return [...fromMgr().filter(x => x.isNew), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at)].map(() => ({ unseen: true }));
   return (state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }));
 }
 function headIcons(){
@@ -4675,6 +4675,9 @@ async function openNotif(){
   render();
 }
 function openMsgs(){
+  if (isStaff()){ const me = state.user.id; const mNew = fromMgr().filter(x => x.isNew && x.who !== 'staff').length;
+    const sNew = (state.inbox || []).filter(m => m.recipient === me && !m.read_at).length + fromMgr().filter(x => x.isNew && x.who === 'staff').length;
+    return go('frommgr', { fmTab: !mNew && sNew ? 'staff' : 'mgmt' }); }
   const uid = state.user.id; lsSet('mseen-' + uid, new Date().toISOString()); state.sheet = { type: 'msgs' };
   const committee = !isAdmin() && !isStaff() && (state.user.perms || []).length;
   if (isAdmin()){ const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p])); const sm = (state.msgs || []).filter(m => m.status !== 'done' && m.topic !== 'cant_work').slice(0, 6);
