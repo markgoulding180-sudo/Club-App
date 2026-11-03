@@ -400,6 +400,6 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Phone alert: "💬 Sam (Bar Manager): Card machine". SQL: `update-message-titles.sql` (`member_messages.subject`).
 
 ## Cover requests: what the manager sees (Nov 2026)
-- Orange **📣 Cover requests** box on the manager's Home and at the top of the Rota: each shift asked about, with **✓ Said yes** (photo + "Give them the shift"), **✕ Said no**, and **… Not answered** (staff who can do that job and aren't working that day). "Open on the rota" / "Stop asking".
+- Slim line "📣 Cover requests: 1 shift · 1 said yes ›" on the manager's Home and the Rota opens the **Cover requests** page: each shift asked about, with **✓ Said yes** (photo + "Give them the shift"), **✕ Said no**, and **… Not answered** (staff who can do that job and aren't working that day). "Open on the rota" / "Stop asking".
 - Staff see the request at the top of Your Messages → Management as **⚠️ Important**, with Yes / No buttons. Sam gets a phone alert when someone says yes.
 - Home shows each person's role under their name (Bar Manager, Secretary, Staff, Member…).

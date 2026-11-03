@@ -1759,6 +1759,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvchip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 2px;border-radius:999px;background:rgba(255,255,255,.07);font-size:13px;font-weight:700}
 .cvchip.ok{background:rgba(61,220,132,.15)}.cvchip.no{background:rgba(255,107,107,.12);color:#ffb3b3}
 .cvyes{display:inline-flex;gap:6px;align-items:center}
+.covline{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:11px 14px;margin:0 0 12px;border-radius:14px;border:1px solid rgba(255,138,61,.6);background:rgba(255,138,61,.1);color:var(--ink);font-size:14.5px;cursor:pointer}
+.covline.yes{border-color:#3ddc84;background:rgba(61,220,132,.1)}.covline i{font-style:normal;color:#ffb27a;font-size:18px}
 </style>
 
 </head>
@@ -2917,6 +2919,7 @@ async function load(view){
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'todo'){ state.todos = await api.listTodos(); return; }
+  if (view === 'covers'){ state.covers = await api.listCoverCalls(); state.offers = await api.listOffers(todayStr()); await loadOps(todayStr(), ahead(60)); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
   if (view === 'frommgr'){ await load('hub'); return; }
@@ -3022,7 +3025,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, todo: todoView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, todo: todoView, covers: coverView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3423,7 +3426,7 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
-    ${coverStatusHtml()}
+    ${coverLineHtml()}
     <div class="tiles">
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
@@ -3841,6 +3844,17 @@ function coverStatusHtml(){
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
       <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; }).join('')}</div>`;
 }
+function coverLineHtml(){
+  if (!canArea('rota')) return '';
+  const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
+  const yes = (state.offers || []).filter(o => o.status === 'offered' && calls.some(c => c.shift_date === o.shift_date && c.session === o.session && c.job === o.job)).length;
+  return `<button class="covline${yes ? ' yes' : ''}" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.length, 'shift')}${yes ? ` · <b>${yes} said yes</b>` : ' · no one yet'}</span><i aria-hidden="true">›</i></button>`;
+}
+function coverView(){
+  const body = coverStatusHtml();
+  return page('Cover requests', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Shifts you’ve asked everyone to cover. See who said yes, who said no, and who hasn’t answered yet.</p>`
+    + (body || '<div class="empty">No cover requests open. Ask from a gap on the Rota with “📣 Ask everyone to cover”.</div>');
+}
 function coverAskHtml(ds, sess, job, offs){
   if (ds < todayStr()) return '';
   const call = (state.covers || []).find(c => c.status === 'open' && c.shift_date === ds && c.session === sess && c.job === job);
@@ -3903,7 +3917,7 @@ function rotaView(){
     const dbl = {}; state.ops.shifts.filter(s => ACTIVE(s) && s.shift_date >= today).forEach(s => (dbl[s.shift_date + '|' + s.staff_id] ||= []).push(s));
     const twice = Object.values(dbl).filter(v => v.length > 1).sort((a, b) => a[0].shift_date.localeCompare(b[0].shift_date));
     if (twice.length) h += `<div class="alert"><b class="t">On two shifts in one day</b>${twice.map(v => `<div>${esc(pname(map[v[0].staff_id]))} on ${fmtDate(v[0].shift_date)}: ${v.map(s => `${SESS[s.session].toLowerCase()} ${JOBS[s.job]}`).join(' and ')}. Take them off one.</div>`).join('')}</div>`;
-    h += coverStatusHtml();
+    h += coverLineHtml();
     const offs = (state.offers || []).filter(o => o.status === 'offered' && !(state.covers || []).some(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job));
     if (offs.length) h += `<div class="alert swapok"><b class="t">Offers to work</b>${offs.map(o => `<div class="swaprow"><span><b>${esc(pname(map[o.staff_id]))}</b> can work ${shiftLine(o)} <button class="linkbtn" data-action="rotajump" data-date="${o.shift_date}">See day</button></span><span class="swapbtns"><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></span></div>`).join('')}</div>`;
     const newMsgs = (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').length;
