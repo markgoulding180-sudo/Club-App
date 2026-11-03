@@ -3327,7 +3327,6 @@ function homeView(){
       ${tile('mail', 'Notices', 'Send a message to everyone on the app', 'notices')}
       ${canArea('notices') ? `<button class="tile" data-action="go" data-view="news"><span class="ic">${ICONS.news}</span><b>Newsletter</b><span class="sub">${(state.news || []).some(n => !n.published_at) ? 'A draft is waiting' : 'Write the monthly newsletter'}</span></button>` : ''}
       ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
-      ${canArea('rota') ? tile('swap', 'Swap history', 'Every swap staff have made', 'swaplog') : ''}
       ${tile('bell', 'Phone alerts', state.push === 'on' ? 'On for this phone' : 'Get requests on your phone', 'alerts')}
       ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
     </div>`;
@@ -3768,7 +3767,7 @@ function rotaView(){
   let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'shift')} to fill` : 'All filled'}</span>`);
   if (admin){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
-    h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}<button class="btn ghost sm" data-action="go" data-view="swaplog">⇄ Swap history</button></div>`;
+    h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>`;
     const swaps = (state.swaps || []).filter(w => w.status === 'accepted');
     if (swaps.length) h += `<div class="alert swapok"><b class="t">Swaps to approve</b>${swaps.map(w => `<div class="swaprow"><span><b>${esc(pfirst(map[w.from_staff]))}</b> and <b>${esc(pfirst(map[w.to_staff]))}</b> want to swap: ${esc(pfirst(map[w.from_staff]))}’s ${shiftLine(w.a)} for ${esc(pfirst(map[w.to_staff]))}’s ${shiftLine(w.b)}. Both have said yes.</span><span class="swapbtns"><button class="btn sm" data-action="swapdecide" data-id="${w.id}" data-yes="1">Approve</button><button class="btn ghost sm" data-action="swapdecide" data-id="${w.id}" data-yes="0">Decline</button></span></div>`).join('')}</div>`;
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
@@ -4546,8 +4545,6 @@ function adminNotifs(){
     (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, x.status === 'cannot_work' && !x.decision ? 'Can’t work: your decision' : 'Needs cover', x.status === 'cannot_work' && !x.decision ? `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}. Tap to decide.` : `<b>${shTxt(x)}</b> needs cover (${nm(x.staff_id)} is off). Tap to pick someone.`, 'data-action="gorota" data-tab="rota"'));
   }
   if (canArea('rota')) (state.offers || []).filter(o => o.status === 'offered' && o.shift_date >= today).forEach(o => line('of' + o.id, 'Said they can cover', `<b>${nm(o.staff_id)}</b> can work ${JOBS[o.job]} ${SESS[o.session]?.toLowerCase() || ''} ${fmtDate(o.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}. Tap to accept.`, 'data-action="gorota" data-tab="rota"'));
-  if (canArea('rota')) (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= ymd(addDays(new Date(), -7)))
-    .forEach(w => line('swd' + w.id, 'Swaps done (for info)', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> swapped: ${nm(w.from_staff)} now works ${swShift(w.b)}, ${nm(w.to_staff)} works ${swShift(w.a)}`, 'data-action="go" data-view="swaplog"'));
   if (canArea('bookings')) clubClashes(state.bk?.bookings || []).forEach(([c, m]) => line('dbl' + c.id + '-' + m.id, '⚠️ Double bookings', `<b>${esc(c.event_type || 'Club event')}</b> and <b>${esc(bname(m))}</b>’s ${esc(m.event_type || 'booking')}, ${ROOMS[m.room]?.name || ''} ${fmtDate(m.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}. The club event stands: move or cancel the member booking.`, `data-action="openbooking" data-id="${m.id}"`));
   if (canArea('bookings')) (state.bk?.bookings || []).filter(b => b.status === 'pending' && b.booking_date >= today).forEach(b => line('bk' + b.id, 'Bookings to approve', `<b>${esc([b.first_name, b.last_name].filter(Boolean).join(' '))}</b>: ${esc(b.event_type || 'Booking')}, ${ROOMS[b.room]?.name || ''} ${fmtDate(b.booking_date, { weekday: 'short', day: 'numeric', month: 'short' })}`, `data-action="openbooking" data-id="${b.id}"`));
   return out;
