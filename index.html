@@ -1682,6 +1682,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .pbar > .pbhol{width:100%;display:grid;gap:8px;padding-top:10px;border-top:1px dashed rgba(246,210,122,.4)}
 .pbh{display:grid;gap:6px;font-size:14px}.pbh small{color:var(--muted)}.pbh em{font-style:normal;color:var(--muted)}
 .pbh.ok{gap:3px;color:var(--green,#3ddc84)}.pbh.ok b{color:var(--ink)}
+.mgrmsg{border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.mgrmsg.ok{border-left-color:var(--green,#3ddc84)}.mgrmsg.no{border-left-color:#ff6b6b}.mgrmsg.me{border-left-color:#f6c850}
+.mgrmsg.new{box-shadow:0 0 0 1px rgba(246,200,80,.6)}
+.mgrmsg p{margin:6px 0 0;white-space:pre-wrap;font-size:14.5px}.mgrmsg small{color:var(--muted)}
 </style>
 
 </head>
@@ -2821,6 +2825,7 @@ async function load(view){
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
+  if (view === 'frommgr'){ await load('hub'); return; }
   if (view === 'swaplog'){ state.swapLog = await api.listSwaps(500); if (!state.profiles) state.profiles = await api.listProfiles(); return; }
   if (view === 'news' || view === 'newsedit'){ state.news = await api.listNewsletters(); if (view === 'newsedit' && !state.nlDraft) state.nlDraft = blankNl(); return; }
   if (view === 'jobs'){ state.jobs = await api.listJobs(); state.myApps = isAdmin() ? [] : await api.myApplications(); if (isAdmin()){ state.jobApps = {}; for (const j of state.jobs) state.jobApps[j.id] = await api.jobApplicants(j.id); } return; }
@@ -2923,7 +2928,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3347,9 +3352,10 @@ function homeView(){
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
       + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
-      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
+      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Answers and news from the manager are in <b>Messages from the manager</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
+        ${(() => { const n = fromMgr().filter(x => x.isNew).length; return `<button class="tile" data-action="go" data-view="frommgr"><span class="ic">${ICONS.bell}</span><b>Messages from the manager</b><span class="sub">${n ? `${plural(n, 'new message')}` : 'Holiday answers, replies and notices'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       </div>`;
     return h;
@@ -4656,6 +4662,29 @@ function openHolDecline(id, blockStart){
       <div class="err"></div><button class="btn" type="submit">Decline and send</button>
       ${blockStart ? `<button class="btn ghost" type="button" data-action="holblockback">‹ Back</button>` : ''}</form>`);
 }
+/* Staff: everything the manager has said to them, newest first */
+function fromMgr(){
+  const me = state.user?.id; if (!me) return []; const seen = lsGet('mgrseen-' + me) || '';
+  const out = []; const add = (when, icon, title, body, tone) => out.push({ when: when || '', icon, title, body, tone, isNew: (when || '') > seen && (when || '') > new Date(Date.now() - 14 * 864e5).toISOString() });
+  (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h =>
+    add(h.decided_at || h.created_at, h.status === 'approved' ? '🌴' : '❌', `Holiday ${dayRanges(h.days)}: ${h.status === 'approved' ? 'approved' : 'declined'}`, h.admin_note || (h.status === 'approved' ? 'Enjoy your time off.' : ''), h.status === 'approved' ? 'ok' : 'no'));
+  (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && x.decided_at).forEach(x =>
+    add(x.decided_at, x.decision === 'approved' ? '✅' : '❌', `Can’t work ${shiftLine(x)}: ${x.decision === 'approved' ? 'you’re off this shift' : 'declined, you’re still on'}`, '', x.decision === 'approved' ? 'ok' : 'no'));
+  (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m =>
+    add(m.replied_at || m.created_at, '💬', `Reply about “${MSG_TOPICS[m.topic] || m.topic}”`, `You: “${m.body}”\nManager: “${m.reply}”`, ''));
+  visibleNotices().forEach(n => add(n.created_at, n.to_user ? '✉️' : '📢', n.title, n.body + (n.to_user ? '' : ''), n.to_user ? 'me' : ''));
+  return out.sort((a, b) => b.when.localeCompare(a.when));
+}
+function fromMgrView(){
+  const items = fromMgr();
+  try { localStorage.setItem('mgrseen-' + state.user.id, JSON.stringify(new Date().toISOString())); } catch(e){}
+  const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id);
+  if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
+  return page('Messages from the manager', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Answers to your holiday and can’t-work requests, replies to your messages, and notices from the manager.</p>
+    <div class="stack" style="gap:10px">${items.map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}"><div class="ntop"><b>${x.icon} ${esc(x.title)}</b><small>${x.when ? fmtWhen(x.when) : ''}${x.tone === 'me' ? ' · just to you' : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')
+      || '<div class="empty">Nothing from the manager yet.</div>'}</div>
+    <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`;
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
@@ -5655,7 +5684,7 @@ const actions = {
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
   offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
-  secjump: t => { if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
+  secjump: t => { if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr'); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
