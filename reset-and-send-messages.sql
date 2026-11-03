@@ -7,7 +7,7 @@ begin
   select id into adam    from public.profiles where lower(email) = 'adam@railway.com';
   select id into luis    from public.profiles where lower(email) = 'luis@railway.com';
   select id into sam     from public.profiles where role = 'admin' and (lower(email) like 'sam%@railway.com' or title ilike '%bar manager%') order by (lower(email) like 'sam%') desc limit 1;
-  select id into stuart  from public.profiles where lower(email) = 'stewart@railway.com';
+  select id into stuart  from public.profiles where lower(email) = 'stuart@railway.com';
   if stuart is null then select id into stuart from public.profiles where role = 'admin' and title ilike '%secretary%' limit 1; end if;
   select id into mark    from public.profiles where lower(email) = 'markgoulding180@gmail.com';
   select id into jason   from public.profiles where lower(email) like 'jason%@railway.com' limit 1;
@@ -22,9 +22,9 @@ begin
   delete from public.staff_messages;
   delete from public.member_messages;
 
-  -- 📋 Secretary (Stewart) to all staff
+  -- 📋 Secretary (Stuart) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
-  select 'Staff Christmas party', 'The staff Christmas do is Sun 10 Jan, 7pm in the Function Room. Partners welcome. Let Sam know numbers by 20 Dec. Stewart', 'staff', stuart, now() - interval '50 minutes' where stuart is not null;
+  select 'Staff Christmas party', 'The staff Christmas do is Sun 10 Jan, 7pm in the Function Room. Partners welcome. Let Sam know numbers by 20 Dec. Stuart', 'staff', stuart, now() - interval '50 minutes' where stuart is not null;
 
   -- 🏛 The club (Mark) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
@@ -49,9 +49,9 @@ begin
   -- Member messages: the Secretary to Chloe about her booking, and her reply
   if chloe is not null and stuart is not null then
     insert into public.member_messages (sender, recipient, body, created_at)
-    values (stuart, chloe, 'Hi Chloe, your Function Room booking for Fri 6 Nov is all set. The DJ can set up from 6:30pm. Stewart, Secretary', now() - interval '45 minutes');
+    values (stuart, chloe, 'Hi Chloe, your Function Room booking for Fri 6 Nov is all set. The DJ can set up from 6:30pm. Stuart, Secretary', now() - interval '45 minutes');
     insert into public.member_messages (sender, recipient, body, created_at)
-    values (chloe, stuart, 'Brilliant, thank you Stewart!', now() - interval '35 minutes');
+    values (chloe, stuart, 'Brilliant, thank you Stuart!', now() - interval '35 minutes');
   end if;
 
   -- Committee: Jason (Entertainments) to Sam
