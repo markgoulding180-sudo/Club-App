@@ -3401,7 +3401,7 @@ function homeView(){
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
         ${(() => { const c = (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; const n = fromMgr().filter(x => x.isNew).length + c; return `<button class="tile" data-action="go" data-view="frommgr"><span class="ic">${ICONS.bell}</span><b>Messages</b><span class="sub">${n ? `<span class="whochips">${c ? `<span class="whochip">💬 Chat <b>${c}</b></span>` : ''}${whoChips(fromMgr())}</span>` : 'Chats, and from the manager, secretary and staff'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
-        ${(() => { const n = (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="openmsgs"><span class="ic">${ICONS.chat}</span><b>Message staff</b><span class="sub">Chat with other staff or the manager</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
+        <button class="tile" data-action="staffdm"><span class="ic">${ICONS.chat}</span><b>Message staff</b><span class="sub">Start a chat with staff or the manager. Replies show in Messages.</span></button>
       </div>`;
     return h;
   }
