@@ -384,3 +384,11 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Committee: the officers, and friends. Members: friends. Anyone can reply to someone who messaged them.
 - Staff 💬 popup: Message staff / Message the manager buttons, Chats, and reports with the manager's reply and photo.
 - SQL: `update-message-rules.sql` (`msg_kind()`, new `can_message()`, phone alert says "💬 Stuart (Secretary)").
+
+## To-do list for the bosses (Nov 2026)
+- Home tile **To-do list** (count + first item). Type to add, tick to mark done, ✕ to delete, "Clear done".
+- **+ To-do** on every message from staff (Messages from staff page) and on messages in a chat: one tap adds the message, with "From Heather · 3 Nov".
+- Each officer has their own list. SQL: `add-todo-list.sql` (table `todos`, own rows only).
+
+## Staff bell
+- Staff 🔔 shows shift things only, plus one line "💬 You have new messages. Check Your Messages." when there's anything new (tap opens Your Messages). Messages themselves only show in Your Messages.

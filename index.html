@@ -1724,6 +1724,14 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .fmtab.on{background:linear-gradient(140deg,#2ee6c8,#1fb8d6);color:#04212a;border-color:transparent}
 .fmnew{white-space:nowrap;background:#f6c850;color:#1a1300;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900}
 .ntop .mfrom + b{flex:1;text-align:left;min-width:0}
+.todobtn{align-self:flex-start;justify-self:start;width:max-content;background:rgba(246,200,80,.12);border:1px solid rgba(246,200,80,.45);color:#f6c850;border-radius:999px;padding:4px 12px;font-weight:800;font-size:13px;cursor:pointer}.todobtn:disabled{opacity:.7}
+.tdadd{display:flex;gap:8px}.tdadd .in{flex:1}
+.todo{display:flex;gap:12px;align-items:flex-start;position:relative;padding:12px 44px 12px 14px;border-radius:14px;border:1px solid var(--edge);background:rgba(20,30,62,.6)}
+.todo .tdtxt{flex:1;min-width:0}.todo p{margin:0;font-size:15px;white-space:pre-wrap}.todo small{color:var(--muted);font-size:12.5px}
+.todo.done p{text-decoration:line-through;color:var(--muted)}
+.tdck{position:relative;flex:none;width:26px;height:26px;cursor:pointer}.tdck input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.tdck span{display:block;width:26px;height:26px;border-radius:8px;border:2px solid #7ff3df}.tdck input:checked + span{background:#2ee6c8;border-color:#2ee6c8}
+.tdck input:checked + span::after{content:'✓';display:grid;place-items:center;height:100%;color:#04212a;font-weight:900}
 </style>
 
 </head>
@@ -2164,6 +2172,10 @@ function makeSupabaseApi(){
       if (r.error) throw new Error(/bucket/i.test(r.error.message) ? 'Run the profile photos SQL in Supabase first.' : r.error.message);
       const url = sb.storage.from('photos').getPublicUrl(path).data.publicUrl; ok(await sb.rpc('set_profile_photo', { pid, url })); return url; },
     async removePhoto(pid){ ok(await sb.rpc('set_profile_photo', { pid, url: null })); },
+    async listTodos(){ const r = await sb.from('todos').select('*').order('created_at', { ascending: false }).limit(300); return r.error ? null : r.data; },
+    async addTodo(body, from_note){ const r = await sb.from('todos').insert({ body, from_note }); if (r.error && /todos/.test(r.error.message)) throw new Error('Run the to-do list SQL in Supabase first.'); ok(r); },
+    async setTodo(id, done){ ok(await sb.from('todos').update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', id)); },
+    async delTodo(id){ ok(await sb.from('todos').delete().eq('id', id)); },
     async hiddenList(){ const r = await sb.from('hidden_messages').select('item_key'); return r.error ? [] : r.data.map(x => x.item_key); },
     async hideItem(key){ const r = await sb.from('hidden_messages').upsert({ item_key: key }, { onConflict: 'user_id,item_key', ignoreDuplicates: true }); if (r.error && /hidden_messages/.test(r.error.message)) throw new Error('Run the hide-messages SQL in Supabase first.'); },
     async deleteDm(id){ ok(await sb.from('member_messages').delete().eq('id', id)); },
@@ -2484,6 +2496,10 @@ function makeDemoApi(){
       return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin', photo_url: u.photo_url || null }; }); },
     async uploadPhoto(blob, pid){ const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = url; save(); } return url; },
     async removePhoto(pid){ const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = null; save(); } },
+    async listTodos(){ return (s.todos ||= []).filter(t => t.user_id === s.session).map(t => ({ ...t })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
+    async addTodo(body, from_note){ (s.todos ||= []).push({ id: nextId(), user_id: s.session, body, from_note: from_note || null, done: false, done_at: null, created_at: new Date().toISOString() }); save(); },
+    async setTodo(id, done){ const t = (s.todos || []).find(x => x.id === id); if (t){ t.done = done; t.done_at = done ? new Date().toISOString() : null; save(); } },
+    async delTodo(id){ s.todos = (s.todos || []).filter(x => x.id !== id); save(); },
     async hiddenList(){ return ((s.hidden ||= {})[s.session] || []).slice(); },
     async hideItem(key){ ((s.hidden ||= {})[s.session] ||= []).push(key); save(); },
     async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club', photo_url: u.photo_url || null })); },
@@ -2845,7 +2861,7 @@ async function load(view){
     state.news = await api.listNewsletters(); await checkPush().catch(() => {});
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
-    if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
+    if (isAdmin()){ state.todos = await api.listTodos().catch(() => null); state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
@@ -2872,6 +2888,7 @@ async function load(view){
   if (view === 'register'){ state.register = await api.listRegister(); state.profiles = await api.listProfiles(); return; }
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
+  if (view === 'todo'){ state.todos = await api.listTodos(); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
   if (view === 'frommgr'){ await load('hub'); return; }
@@ -2977,7 +2994,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, todo: todoView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3378,6 +3395,7 @@ function homeView(){
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     <div class="tiles">
+      ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
       ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
@@ -4531,6 +4549,9 @@ function notifItems(){
   if (isAdmin()){ adminNotifs().forEach(x => { if (!cleared.has(x.key)) items.push({ ...x, unseen: !seen.has(x.key), upd: true }); }); return items; }
   if (!isStaff()) visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
     items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop">${whoP(n.created_by) ? `<span class="mfrom">${avatar(whoP(n.created_by), 30)}</span>` : ''}<b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
+  if (isStaff()){ const fm = fromMgr().filter(x => x.isNew), ch = (state.inbox || []).filter(m => m.recipient === uid && !m.read_at); const n = fm.length + ch.length;
+    if (n){ const last = [...fm.map(x => x.when), ...ch.map(m => m.created_at)].sort().pop() || ''; const key = 'newmsgs-' + last;
+      if (!cleared.has(key)) items.push({ key, unseen: !seen.has(key), upd: true, html: `<button class="upd act" data-action="yourmsgs"><span>💬 <b>You have new messages.</b> Check Your Messages.</span><i aria-hidden="true">›</i></button>` }); } }
   if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
     (state.myUpdates || []).forEach(h => { const key = hashTxt(h); if (cleared.has(key)) return; items.push({ key, unseen: !seen.has(key), upd: true, html: h }); }); }
   return items;
@@ -5093,6 +5114,7 @@ function messagesView(){
     <div class="list">${list.map(m => { const sh = m.shift_id ? shift(m.shift_id) : null; return `<div class="panel stack msgcard ${m.topic}">
       <div class="holline">${avatar(map[m.staff_id], 40)}<b>${esc(pname(map[m.staff_id]))}</b><span class="tagt">${esc(MSG_TOPICS[m.topic] || m.topic)}</span><span class="grow"></span>${m.status === 'new' ? '<span class="pill waiting">New</span>' : ''}<span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { day:'numeric', month:'short' })}</span></div>
       <p style="margin:0">${esc(m.body)}</p>
+      <button class="todobtn" data-action="todofrom" data-sm="${m.id}">+ To-do</button>
       ${sh ? `<span class="muted" style="font-size:13px">Shift: ${shiftLine(sh)} <button class="linkbtn" data-action="rotajump" data-date="${sh.shift_date}">Open on the rota</button></span>` : ''}
       ${m.reply ? `<span class="cwnote ok">Your reply: “${esc(m.reply)}”</span>` : ''}
       ${m.status !== 'done' ? `<form class="msgreply" data-form="replymsg" data-id="${m.id}"><input class="in" name="reply" placeholder="Reply (optional)" maxlength="300"><button class="btn sm" type="submit">Reply &amp; mark done</button>${m.status === 'new' ? `<button class="btn ghost sm" type="button" data-action="msgseen" data-id="${m.id}">Mark seen</button>` : ''}</form>` : ''}
@@ -5123,7 +5145,7 @@ async function openDm(uid){
   if ((state.inbox || []).some(m => m.sender === uid && m.recipient === state.user.id && !m.read_at)){ await api.markRead(uid); (state.inbox || []).forEach(m => { if (m.sender === uid && !m.read_at) m.read_at = new Date().toISOString(); }); }
   const ms = (state.inbox || []).filter(m => m.sender === uid || m.recipient === uid).slice().reverse();
   openSheet(`<div class="sheet-h"><div class="frname">${photoOf(uid) ? avatarId(uid, f.first_name, 52) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}<div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? `From ${esc(f.first_name)}` : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><p>${esc(m.body)}</p><small>${fmtWhen(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
+    <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><p>${esc(m.body)}</p><small>${fmtWhen(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : isAdmin() ? ` · <button class="linkbtn" data-action="todofrom" data-dm="${m.id}">+ To-do</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
     <form class="dmform" data-form="senddm" data-to="${uid}"><textarea class="in" name="body" rows="2" maxlength="500" required placeholder="Write a message…"></textarea><button class="btn" type="submit">Send</button><div class="err"></div></form>`);
   setTimeout(() => { const t = document.getElementById('thread'); if (t) t.scrollTop = t.scrollHeight; }, 30);
   render();  // updates unread badges behind the sheet
@@ -5203,6 +5225,18 @@ function viewAsBar(){
   return `<div class="viewas"><span>👁 View as</span>${VIEW_AS.map(([k, l]) => `<button data-action="viewas" data-val="${k}" aria-pressed="${(state.viewAs || 'owner') === k}">${l}</button>`).join('')}</div>`;
 }
 /* App admin: who has which role */
+/* To-do list for the bosses: built up as they go, e.g. orders */
+const todoFrom = (who, when) => `From ${who}${when ? ' · ' + fmtDate(when.slice(0, 10), { day: 'numeric', month: 'short' }) : ''}`;
+function todoView(){
+  if (state.todos === null) return page('To-do list') + '<div class="empty">Run <b>add-todo-list.sql</b> in Supabase to turn on the to-do list.</div>';
+  const all = state.todos || []; const open = all.filter(t => !t.done), done = all.filter(t => t.done);
+  const row = t => `<div class="todo${t.done ? ' done' : ''}"><label class="tdck"><input type="checkbox" data-todock="${t.id}" ${t.done ? 'checked' : ''} aria-label="Done"><span></span></label>
+    <div class="tdtxt"><p>${esc(t.body)}</p>${t.from_note ? `<small>${esc(t.from_note)}</small>` : ''}</div><button class="mclose" data-action="tododel" data-id="${t.id}" aria-label="Delete">✕</button></div>`;
+  return page('To-do list') + `<p class="muted" style="margin:-8px 0 14px">Build it up as you go: orders, jobs, things to sort. Tap <b>+ To-do</b> on any message to add it in one go.</p>
+    <form class="tdadd" data-form="todoadd"><input class="in" name="body" maxlength="600" required placeholder="e.g. Order more lemons" autocomplete="off"><button class="btn" type="submit">Add</button></form>
+    <div class="label" style="margin-top:16px">To do (${open.length})</div><div class="stack" style="gap:8px">${open.map(row).join('') || '<div class="empty">Nothing to do. Nice.</div>'}</div>
+    ${done.length ? `<div class="bar" style="margin:18px 0 8px"><div class="label" style="margin:0">Done (${done.length})</div><span class="grow"></span><button class="linkbtn" data-action="todoclear">Clear done</button></div><div class="stack" style="gap:8px">${done.slice(0, 30).map(row).join('')}</div>` : ''}`;
+}
 function rolesView(){
   const q = (state.roleQ || '').toLowerCase(); const ps = (state.profiles || []).filter(p => !q || `${p.first_name} ${p.last_name} ${p.email} ${p.membership_no}`.toLowerCase().includes(q))
     .sort((a, b) => ['owner', 'secretary', 'manager', 'ent', 'staff', 'member'].indexOf(presetOf(a)) - ['owner', 'secretary', 'manager', 'ent', 'staff', 'member'].indexOf(presetOf(b)) || byName(a, b));
@@ -5687,6 +5721,12 @@ const actions = {
   bkreqjump: () => document.getElementById('bkreqs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   quickmsg: t => openQuickMsg(t.dataset.id),
   staffdm: () => openStaffDm(),
+  todofrom: async t => { let body, from; const who = id => pfirst([...(state.profiles || []), ...(state.ops?.staff || []), ...(state.officers || []), ...(state.contacts || [])].find(x => x.id === id)) || 'a message';
+    if (t.dataset.sm){ const m = (state.msgs || []).find(x => x.id === Number(t.dataset.sm)); if (!m) return; body = m.body; from = todoFrom(who(m.staff_id), m.created_at); }
+    else { const m = (state.inbox || []).find(x => x.id === Number(t.dataset.dm)); if (!m) return; body = m.body; from = todoFrom(who(m.sender), m.created_at); }
+    await api.addTodo(body, from); state.todos = await api.listTodos(); t.textContent = '✓ Added'; t.disabled = true; toast('Added to your to-do list'); },
+  tododel: async t => { await api.delTodo(Number(t.dataset.id)); state.todos = await api.listTodos(); render(); },
+  todoclear: async () => { for (const x of (state.todos || []).filter(x => x.done)) await api.delTodo(x.id); state.todos = await api.listTodos(); render(); },
   fmtab: t => { state.fmTab = t.dataset.val; render(); },
   yourmsgs: () => go('frommgr', { fmTab: 'mgmt' }),
   dmto: t => { const id = t.dataset.id; const p = [...(state.officers || []), ...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === id); if (!p) return; state.contacts ||= [];
@@ -5915,6 +5955,7 @@ const setPhoto = (id, url) => { if (state.user?.id === id) state.user.photo_url 
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
+    if (el.matches('[data-todock]')){ await api.setTodo(Number(el.dataset.todock), el.checked); state.todos = await api.listTodos(); render(); return; }
     if (el.matches('[data-photofor]') && el.files?.[0]){ const id = el.dataset.photofor; toast('Adding photo…'); const url = await api.uploadPhoto(await squarePhoto(el.files[0]), id); setPhoto(id, url); toast('Photo saved'); openMyProfile(id); render(); return; }
     if (el.matches('[data-pushpref]')){ const p = { ...pushPrefs(), [el.dataset.pushpref]: el.checked }; await api.setPushPrefs(p); state.user.push_prefs = p; toast('Saved'); return; }
     if (el.matches('[data-nlimg]') && el.files?.[0] && state.nlDraft){ const k = el.dataset.nlimg; toast('Adding picture…');
@@ -6086,6 +6127,7 @@ const forms = {
     openSheet(`<div class="sheet-h"><div><h2>Message sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
       <div class="sentok"><span class="tick">✓</span><p>The manager has your message.</p><p class="muted">${topic === 'cant_work' ? 'You stay on the shift until the manager decides. You’ll see the answer under the 🔔 bell at the top.' : 'When they reply, the 💬 icon at the top turns yellow. Tap it to read the reply.'}</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
+  async todoadd(f){ const body = f.body.value.trim(); if (!body) return; await api.addTodo(body, null); state.todos = await api.listTodos(); render(); setTimeout(() => document.querySelector('.tdadd .in')?.focus(), 30); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString(), ...(LIVE ? {} : { replied_by: state.user.id }) }).catch(async e => { throw e; }); toast('Done'); refresh(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
     const id = Number(f.dataset.id); await api.staffSetShift(id, 'cannot_work', why); state.sheet = null; await refresh();
