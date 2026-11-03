@@ -1,5 +1,5 @@
 -- Club officers: logins (password: railway) with their roles and permissions.
---   Stuart Fraser  stuart@railway.com  Secretary                 (admin side)
+--   Stewart Fraser stewart@railway.com Secretary                 (admin side)
 --   Sam Ashman     sam@railway.com     Bar Manager               (admin: rota, staff, bookings, tickets, messages, notices, jobs, What's On)
 --   Jason Wilson   jason@railway.com   Entertainments committee  (member + manage What's On)
 --   Jackie Apps    jackie@railway.com  Entertainments committee  (member + manage What's On)
@@ -9,7 +9,7 @@ declare
   r record; uid uuid;
 begin
   for r in select * from (values
-      ('stuart@railway.com', 'Stuart', 'Fraser', 'admin', 'Secretary',      array[]::text[]),
+      ('stewart@railway.com', 'Stewart', 'Fraser', 'admin', 'Secretary',      array[]::text[]),
       ('sam@railway.com',    'Sam',    'Ashman', 'admin', 'Bar Manager',    array['bookings','rota','staff','tickets','messages','notices','jobs','whatson']),
       ('jason@railway.com',  'Jason',  'Wilson', 'user',  'Entertainments', array['whatson']),
       ('jackie@railway.com', 'Jackie', 'Apps',   'user',  'Entertainments', array['whatson'])
