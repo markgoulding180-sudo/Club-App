@@ -1691,6 +1691,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .whochip b{color:#fff3c4}
 .whohead{font-size:12.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#f6c850;margin:16px 2px 8px}
 .mgrmsg[role=button]{cursor:pointer}
+.mgrmsg{position:relative;padding-right:44px!important}
+.mclose{position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--muted);cursor:pointer;font-size:13px;display:grid;place-items:center;padding:0;z-index:2}
 </style>
 
 </head>
@@ -2126,6 +2128,8 @@ function makeSupabaseApi(){
     async markRead(friend){ await sb.rpc('mark_messages_read', { friend }); },
     async msgContacts(){ const r = await sb.rpc('msg_contacts'); return r.error ? [] : r.data; },
     async clubOfficers(){ const r = await sb.rpc('club_officers'); return r.error ? [] : r.data; },
+    async hiddenList(){ const r = await sb.from('hidden_messages').select('item_key'); return r.error ? [] : r.data.map(x => x.item_key); },
+    async hideItem(key){ const r = await sb.from('hidden_messages').upsert({ item_key: key }, { onConflict: 'user_id,item_key', ignoreDuplicates: true }); if (r.error && /hidden_messages/.test(r.error.message)) throw new Error('Run the hide-messages SQL in Supabase first.'); },
     async deleteDm(id){ ok(await sb.from('member_messages').delete().eq('id', id)); },
     async myRsvps(){ const { data } = await sb.auth.getSession(); if (!data.session) return []; const r = await sb.from('event_rsvps').select('event_key,status').eq('user_id', data.session.user.id); return r.error ? [] : r.data; },
     async setRsvp(key, date, status){ const { data } = await sb.auth.getSession(); const uid = data.session.user.id;
@@ -2442,6 +2446,8 @@ function makeDemoApi(){
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
     async msgContacts(){ const ids = new Set((s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => m.sender === s.session ? m.recipient : m.sender));
       return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin' }; }); },
+    async hiddenList(){ return ((s.hidden ||= {})[s.session] || []).slice(); },
+    async hideItem(key){ ((s.hidden ||= {})[s.session] ||= []).push(key); save(); },
     async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club' })); },
     async markRead(friend){ (s.dms ||= []).filter(m => m.recipient === s.session && m.sender === friend && !m.read_at).forEach(m => m.read_at = new Date().toISOString()); save(); },
     async deleteDm(id){ s.dms = (s.dms ||= []).filter(m => m.id !== id); save(); },
@@ -2803,7 +2809,7 @@ async function load(view){
     if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
     if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
-    if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
+    if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
   }
   if (view === 'whatson') await loadWhatsOn();
@@ -4673,20 +4679,21 @@ const whoOf = uid => { const o = (state.officers || []).find(x => x.id === uid);
   return /secretary/.test(t) ? 'secretary' : /manager/.test(t) ? 'manager' : o ? 'club' : 'manager'; };
 function fromMgr(){
   const me = state.user?.id; if (!me) return []; const seen = lsGet('mgrseen-' + me) || ''; const recent = new Date(Date.now() - 14 * 864e5).toISOString();
-  const out = []; const add = (who, when, icon, title, body, tone, go) => out.push({ who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > seen && (when || '') > recent });
+  const out = []; const hid = new Set(state.hidden || []); let key = '';
+  const add = (who, when, icon, title, body, tone, go) => { if (hid.has(key)) return; out.push({ key, who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > seen && (when || '') > recent }); };
   const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const nm = id => esc(pfirst(map[id]) || 'A colleague');
-  (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h =>
+  (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h => (key = 'h' + h.id) &&
     add(h.decided_by ? whoOf(h.decided_by) : 'manager', h.decided_at || h.created_at, h.status === 'approved' ? '🌴' : '❌', `Holiday ${dayRanges(h.days)}: ${h.status === 'approved' ? 'approved' : 'declined'}`, h.admin_note || (h.status === 'approved' ? 'Enjoy your time off.' : ''), h.status === 'approved' ? 'ok' : 'no'));
-  (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && x.decided_at).forEach(x =>
+  (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && x.decided_at).forEach(x => (key = 'c' + x.id) &&
     add('manager', x.decided_at, x.decision === 'approved' ? '✅' : '❌', `Can’t work ${shiftLine(x)}: ${x.decision === 'approved' ? 'you’re off this shift' : 'declined, you’re still on'}`, '', x.decision === 'approved' ? 'ok' : 'no'));
-  (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m =>
+  (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m => (key = 'm' + m.id) &&
     add(m.replied_by ? whoOf(m.replied_by) : 'manager', m.replied_at || m.created_at, '💬', `Reply about “${MSG_TOPICS[m.topic] || m.topic}”`, `You: “${m.body}”\nReply: “${m.reply}”`, ''));
-  visibleNotices().forEach(n => add(n.created_by ? whoOf(n.created_by) : 'club', n.created_at, n.to_user ? '✉️' : '📢', n.title.replace(/^Message from [^:]+?$/, 'Message for you'), n.body, n.to_user ? 'me' : ''));
+  visibleNotices().forEach(n => (key = 'n' + n.id) && add(n.created_by ? whoOf(n.created_by) : 'club', n.created_at, n.to_user ? '✉️' : '📢', n.title.replace(/^Message from [^:]+?$/, 'Message for you'), n.body, n.to_user ? 'me' : ''));
   // from other staff: swaps
-  (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => add('staff', r.created_at, '🙋', `${nm(r.staff_id)} needs a swap`, `${shiftLine(r.sh)}${r.note ? ` · “${r.note}”` : ''}. Can you help?`, 'me', 'swaps'));
-  (state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).forEach(o => add('staff', o.created_at, '🔄', `${nm(o.staff_id)} offered to swap`, 'Tap to see the offer and pick one.', 'me', 'swaps'));
-  (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => add('staff', w.created_at, '🔄', `${nm(w.from_staff)} wants to swap with you`, 'Tap to answer.', 'me', 'swaps'));
-  (state.swaps || []).filter(w => w.status === 'approved' && w.to_staff === me && (w.decided_at || '') > recent).forEach(w => add('staff', w.decided_at, '🤝', `${nm(w.from_staff)} picked your swap offer`, 'Thanks for swapping! The rota is updated.', 'ok'));
+  (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => (key = 'r' + r.id) && add('staff', r.created_at, '🙋', `${nm(r.staff_id)} needs a swap`, `${shiftLine(r.sh)}${r.note ? ` · “${r.note}”` : ''}. Can you help?`, 'me', 'swaps'));
+  (state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).forEach(o => (key = 'o' + o.id) && add('staff', o.created_at, '🔄', `${nm(o.staff_id)} offered to swap`, 'Tap to see the offer and pick one.', 'me', 'swaps'));
+  (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => (key = 'w' + w.id) && add('staff', w.created_at, '🔄', `${nm(w.from_staff)} wants to swap with you`, 'Tap to answer.', 'me', 'swaps'));
+  (state.swaps || []).filter(w => w.status === 'approved' && w.to_staff === me && (w.decided_at || '') > recent).forEach(w => (key = 't' + w.id) && add('staff', w.decided_at, '🤝', `${nm(w.from_staff)} picked your swap offer`, 'Thanks for swapping! The rota is updated.', 'ok'));
   return out.sort((a, b) => b.when.localeCompare(a.when));
 }
 const whoChips = items => { const c = {}; items.filter(x => x.isNew).forEach(x => c[x.who] = (c[x.who] || 0) + 1);
@@ -4698,7 +4705,7 @@ function fromMgrView(){
   if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
   return page('Messages', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">From the manager, the secretary and other staff: holiday and can’t-work answers, replies, notices and swaps.</p>
     ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
-      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><div class="ntop"><b>${x.icon} ${x.title}</b><small>${x.when ? fmtWhen(x.when) : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')}</div>`).join('')
+      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="ntop"><b>${x.icon} ${x.title}</b><small>${x.when ? fmtWhen(x.when) : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')}</div>`).join('')
       || '<div class="empty">No messages yet.</div>'}
     <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`;
 }
@@ -5579,6 +5586,7 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  hidemsg: async (t, e) => { e?.stopPropagation?.(); const k = t.dataset.key; t.closest('.mgrmsg')?.remove(); (state.hidden ||= []).push(k); try { await api.hideItem(k); } catch(err){ toast(err.message); } toast('Message closed'); render(); },
   holblockback: () => { const ps = state.sheet?.start; const end = periodEnd(ps); openHolBlock(ps, (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end))); },
   holblockdecide: async t => { const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), state.sheet?.start); await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
     state.holidays = await api.listHolidays(); const ps = state.sheet?.start; const end = ps && periodEnd(ps);
