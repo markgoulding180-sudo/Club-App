@@ -1,7 +1,7 @@
 -- Clears ALL messages (staff messages, notices, member messages, read/hidden marks), then sends a fresh set,
 -- each with the right sender so the photos show. If there's no Secretary yet, his messages are skipped. Holidays, shifts and swaps are left alone. Safe to run again.
 do $$
-declare heather uuid; adam uuid; luis uuid; sam uuid; stuart uuid; mark uuid; jason uuid; chloe uuid;
+declare heather uuid; adam uuid; luis uuid; sam uuid; stuart uuid; mark uuid; jason uuid; jackie uuid; joe uuid; chloe uuid;
 begin
   select id into heather from public.profiles where lower(email) = 'heather@railway.com';
   select id into adam    from public.profiles where lower(email) = 'adam@railway.com';
@@ -11,6 +11,8 @@ begin
   if stuart is null then select id into stuart from public.profiles where role = 'admin' and title ilike '%secretary%' limit 1; end if;
   select id into mark    from public.profiles where lower(email) = 'markgoulding180@gmail.com';
   select id into jason   from public.profiles where lower(email) like 'jason%@railway.com' limit 1;
+  select id into jackie  from public.profiles where lower(email) like 'jackie%@railway.com' limit 1;
+  select id into joe     from public.profiles where lower(email) = 'joe@railway.com';
   select id into chloe   from public.profiles where lower(email) = 'chloe.martin@members.test';
 
   if sam is null then raise exception 'Can''t find Sam the Bar Manager.'; end if;
@@ -24,40 +26,53 @@ begin
 
   -- 📋 Secretary (Stuart) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
-  select 'Staff Christmas party', 'The staff Christmas do is Sun 10 Jan, 7pm in the Function Room. Partners welcome. Let Sam know numbers by 20 Dec. Stuart', 'staff', stuart, now() - interval '50 minutes' where stuart is not null;
+  select 'New uniform polo shirts', 'New black polo shirts with the club badge are in the office. Please collect two each before Fri 13 Nov and wear them from then on. Stuart', 'staff', stuart, now() - interval '55 minutes' where stuart is not null;
+
+  -- 📋 Secretary (Stuart) to members
+  insert into public.club_notices (title, body, audience, created_by, created_at)
+  select 'AGM date set', 'The club AGM is Sun 6 Dec at 2pm in the Function Room. All full members are welcome to come and vote. Stuart, Secretary', 'members', stuart, now() - interval '50 minutes' where stuart is not null;
 
   -- 🏛 The club (Mark) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
-  values ('Add your photo', 'Tap the circle at the top of Home to add a photo of yourself. It shows next to your messages so everyone knows who''s who. Mark', 'staff', mark, now() - interval '40 minutes');
+  values ('Try the new staff chat', 'You can now message each other: tap 💬 Message staff on Home. Use Message the manager for anything that needs to go on record. Mark', 'staff', mark, now() - interval '45 minutes');
 
   -- 🍺 Manager (Sam) to Heather only, and a reply to her message
   insert into public.club_notices (title, body, audience, to_user, created_by, created_at)
-  values ('Extra shift?', 'Hi Heather, could you do Sat 28 Nov evening on the Lounge Bar? Let me know. Sam', 'staff', heather, sam, now() - interval '30 minutes');
+  values ('Training on the new till', 'Hi Heather, the till company are in Wed 11 Nov at 4pm to show us the new card machine. Can you come in for an hour? Paid, of course. Sam', 'staff', heather, sam, now() - interval '35 minutes');
   insert into public.staff_messages (staff_id, topic, body, status, reply, replied_at, replied_by, created_at)
-  values (heather, 'other', 'Can I start at 7pm on Friday instead of 6pm?', 'done', 'Yes that''s fine, Luis will cover the first hour. Sam', now() - interval '20 minutes', sam, now() - interval '2 hours');
+  values (heather, 'club_problem', 'The ice machine in the Lounge Bar isn''t making ice.', 'done', 'Thanks Heather, I''ve reset it and it''s working again. Use the cellar one if it stops. Sam', now() - interval '25 minutes', sam, now() - interval '90 minutes');
 
   -- 🍺 Manager (Sam) to Adam only, and a reply to his message
   insert into public.club_notices (title, body, audience, to_user, created_by, created_at)
-  values ('Cellar delivery', 'Hi Adam, the beer delivery is Thu morning. Could you be in at 10 to take it? Sam', 'staff', adam, sam, now() - interval '25 minutes');
+  values ('Key holder', 'Hi Adam, from next week you''ll be a key holder for Sunday lock-up. I''ll go through the alarm with you on Saturday. Sam', 'staff', adam, sam, now() - interval '30 minutes');
   insert into public.staff_messages (staff_id, topic, body, status, reply, replied_at, replied_by, created_at)
-  values (adam, 'club_problem', 'The glass washer in the Lounge Bar is leaking again.', 'done', 'Thanks Adam, engineer booked for Wednesday. Sam', now() - interval '15 minutes', sam, now() - interval '3 hours');
+  values (adam, 'complaint', 'A guest was rude to Yannika on the door on Saturday when she asked for his card.', 'done', 'Thanks for telling me Adam. I''ve spoken to the member who signed him in, he won''t be back. Sam', now() - interval '20 minutes', sam, now() - interval '4 hours');
 
-  -- New from Luis, waiting for the manager
+  -- New from Joe, waiting for the manager
   insert into public.staff_messages (staff_id, topic, body, status, created_at)
-  values (luis, 'other', 'Could I have Sat 19 Dec off? It''s my brother''s wedding.', 'new', now() - interval '10 minutes');
+  values (joe, 'ill', 'Feeling rough with a cold, should be fine for my shift Thursday but letting you know.', 'new', now() - interval '12 minutes');
 
-  -- Member messages: the Secretary to Chloe about her booking, and her reply
+  -- 👥 Staff chat: Luis and Heather
+  if luis is not null and heather is not null then
+    insert into public.member_messages (sender, recipient, body, created_at, read_at)
+    values (luis, heather, 'Hi Heather, could you cover the first hour of my shift on Sat 14th? I''ll do your Sunday close in return.', now() - interval '40 minutes', null);
+  end if;
+  -- 👥 Staff chat: Adam to Sam (manager)
+  insert into public.member_messages (sender, recipient, body, created_at)
+  values (adam, sam, 'Sam, the Guinness is running low, only one keg left in the cellar.', now() - interval '8 minutes');
+
+  -- Member messages: the Secretary to Chloe, and her reply
   if chloe is not null and stuart is not null then
     insert into public.member_messages (sender, recipient, body, created_at)
-    values (stuart, chloe, 'Hi Chloe, your Function Room booking for Fri 6 Nov is all set. The DJ can set up from 6:30pm. Stuart, Secretary', now() - interval '45 minutes');
+    values (stuart, chloe, 'Hi Chloe, just a reminder the Function Room needs to be clear by midnight on Fri 6 Nov. Have a great party! Stuart, Secretary', now() - interval '42 minutes');
     insert into public.member_messages (sender, recipient, body, created_at)
-    values (chloe, stuart, 'Brilliant, thank you Stuart!', now() - interval '35 minutes');
+    values (chloe, stuart, 'Will do, thanks for the reminder Stuart.', now() - interval '33 minutes');
   end if;
 
-  -- Committee: Jason (Entertainments) to Sam
-  if jason is not null then
+  -- Committee: Jackie (Entertainments) to Stuart
+  if jackie is not null and stuart is not null then
     insert into public.member_messages (sender, recipient, body, created_at)
-    values (jason, sam, 'Hi Sam, for race night on the 21st can we have two on the bar from 7pm? Jason', now() - interval '5 minutes');
+    values (jackie, stuart, 'Hi Stuart, can we put the Christmas raffle on the AGM agenda? Jackie', now() - interval '6 minutes');
   end if;
 end $$;
 
