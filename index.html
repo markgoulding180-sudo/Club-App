@@ -1709,6 +1709,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .mtitle{display:block;margin-top:2px;font-weight:600;font-size:14.5px}.avatar.wic{font-size:22px;background:var(--surface-2)}
 .offchip{display:inline-flex;align-items:center;gap:8px;padding-left:5px}.upd > .avatar{margin-right:8px}.holline > .avatar{margin-right:2px}
 .conv > .avatar{flex:none}.frname > .avatar{flex:none}
+.msgbtns{display:flex;gap:8px;margin-bottom:6px}.msgbtns .btn{flex:1;padding-left:8px;padding-right:8px}
+.replyby{display:flex;gap:10px;align-items:flex-start;background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.25);border-radius:12px;padding:8px 10px;margin-top:4px;font-size:14px}
+.replyby b{display:block;font-size:12.5px;color:#f6c850}.conv > .avatar{flex:none}
 </style>
 
 </head>
@@ -2463,7 +2466,7 @@ function makeDemoApi(){
     async withdrawApp(id){ s.apps = (s.apps ||= []).filter(a => a.id !== id); save(); },
     async jobApplicants(jid){ return (s.apps ||= []).filter(a => a.job_id === jid).map(a => { const u = s.users.find(x => x.id === a.user_id) || {}; return { ...a, first_name: u.first_name, last_name: u.last_name, email: u.email, phone: a.phone || u.phone, membership_no: u.membership_no }; }); },
     async myInbox(){ return (s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => ({ ...m })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
-    async sendDm(to, body){ const ok2 = meU()?.role === 'admin' || ((meU()?.perms || []).length && s.users.find(u => u.id === to)?.role === 'admin') || (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)) || (s.dms || []).some(m => m.sender === to && m.recipient === s.session && s.users.find(u => u.id === to)?.role === 'admin'); if (!ok2) throw new Error('You can only message friends, or reply to the club.');
+    async sendDm(to, body){ const ok2 = meU()?.role === 'admin' || ((meU()?.perms || []).length && s.users.find(u => u.id === to)?.role === 'admin') || (s.friends ||= []).some(f => f.status === 'accepted' && [f.requester, f.addressee].includes(s.session) && [f.requester, f.addressee].includes(to)) || (s.dms || []).some(m => m.sender === to && m.recipient === s.session) || (meU()?.role === 'staff' && ['staff', 'admin'].includes(s.users.find(u => u.id === to)?.role)); if (!ok2) throw new Error('You can’t message them from here.');
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
     async msgContacts(){ const ids = new Set((s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => m.sender === s.session ? m.recipient : m.sender));
       return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin', photo_url: u.photo_url || null }; }); },
@@ -2832,7 +2835,7 @@ async function load(view){
     if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
     if (isAdmin()){ state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
-    if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
+    if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
     if (isAdmin() || isStaff()) state.holidays = await api.listHolidays();
   }
   if (view === 'whatson') await loadWhatsOn();
@@ -3386,11 +3389,12 @@ function homeView(){
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
       + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
-      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from the manager, secretary and other staff are in <b>Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
+      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from the manager, secretary and other staff are in <b>Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem, and <b>Message staff</b> to chat with colleagues.</p>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
         ${(() => { const n = fromMgr().filter(x => x.isNew).length; return `<button class="tile" data-action="go" data-view="frommgr"><span class="ic">${ICONS.bell}</span><b>Messages</b><span class="sub">${n ? `<span class="whochips">${whoChips(fromMgr())}</span>` : 'From the manager, secretary and staff'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
+        ${(() => { const n = (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="openmsgs"><span class="ic">${ICONS.chat}</span><b>Message staff</b><span class="sub">Chat with other staff or the manager</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       </div>`;
     return h;
   }
@@ -4523,7 +4527,7 @@ function notifItems(){
 function msgItems(){
   const uid = state.user?.id; const since = lsGet('mseen-' + uid) || '';
   if (isAdmin()) return [...(canArea('messages') ? (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').map(m => ({ unseen: m.created_at > since })) : []), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
-  if (isStaff()) return (state.msgs || []).filter(m => m.staff_id === uid && m.reply).map(m => ({ unseen: (m.replied_at || m.created_at || '') > since }));
+  if (isStaff()) return [...(state.msgs || []).filter(m => m.staff_id === uid && m.reply).map(m => ({ unseen: (m.replied_at || m.created_at || '') > since })), ...(state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }))];
   return (state.inbox || []).filter(m => m.recipient === uid && !m.read_at).map(m => ({ unseen: m.created_at > since }));
 }
 function headIcons(){
@@ -4556,18 +4560,33 @@ function clubClashes(list){ const today = todayStr(); const live = list.filter(b
   return out; }
 /* Bosses: send a message from the 💬 popup */
 function sendBoxHtml(){
-  return `<div class="sendbox"><b>✉ Send a message</b>
-    <input class="in" id="msg-q" placeholder="Type a name, email or membership number" data-msgsearch autocomplete="off">
+  return `<div class="sendbox"><b>✉ Send a message</b>${msgKind(state.user) === 'manager' ? '<span class="muted" style="font-size:12.5px">To staff, the secretary and the other officers.</span>' : ''}
+    <input class="in" id="msg-q" placeholder="${msgKind(state.user) === 'manager' ? 'Type a name' : 'Type a name, email or membership number'}" data-msgsearch autocomplete="off">
     <div id="msgres" class="msgres"></div>
     <div class="bar" style="margin:0">${canArea('notices') ? '<button class="chipbtn" data-action="go" data-view="notices">📢 Message all staff or everyone</button>' : ''}</div></div>`;
 }
+/* Who can message whom: App admin and Secretary anyone; Manager staff and officers; staff other staff and the manager */
+const msgKind = p => !p ? 'member' : p.role === 'admin' ? ((p.perms || []).includes('owner') || /app admin/i.test(p.title || '') ? 'owner' : /secretary/i.test(p.title || '') ? 'secretary' : 'manager')
+  : p.role === 'staff' ? 'staff' : (p.perms || []).length ? 'committee' : 'member';
+const MSG_TO = { owner: null, secretary: null, manager: ['staff', 'manager', 'secretary', 'owner'], staff: ['staff', 'manager'], committee: ['manager', 'secretary', 'owner'], member: [] };
+const canMsg = p => { const allow = MSG_TO[msgKind(state.user)]; return !allow || allow.includes(msgKind(p)); };
 function msgSearch(q){
   const el = document.getElementById('msgres'); if (!el) return; q = q.trim().toLowerCase();
   if (q.length < 2){ el.innerHTML = ''; return; }
   if (!(state.profiles || []).length){ el.innerHTML = '<p class="muted">Loading…</p>'; api.listProfiles().then(ps => { state.profiles = ps; msgSearch(q); }); return; }
   const kind = p => p.role === 'staff' ? 'Staff' : p.role === 'admin' ? (p.title || 'Club') : (p.perms || []).length ? 'Committee' : 'Member';
-  const hits = (state.profiles || []).filter(p => p.id !== state.user.id && `${p.first_name} ${p.last_name} ${p.email} ${p.membership_no}`.toLowerCase().includes(q)).slice(0, 8);
-  el.innerHTML = hits.map(p => `<button class="conv" data-action="quickmsg" data-id="${p.id}"><span class="av">${esc((p.first_name || '?')[0])}</span><span class="ctxt"><b>${esc(pname(p))}</b><span>${kind(p)}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</span></span><i aria-hidden="true">›</i></button>`).join('') || '<p class="muted" style="margin:4px 0">No one found.</p>';
+  const hits = (state.profiles || []).filter(p => p.id !== state.user.id && canMsg(p) && `${p.first_name} ${p.last_name} ${p.email} ${p.membership_no}`.toLowerCase().includes(q)).slice(0, 8);
+  el.innerHTML = hits.map(p => `<button class="conv" data-action="quickmsg" data-id="${p.id}">${avatar(p, 42)}<span class="ctxt"><b>${esc(pname(p))}</b><span>${kind(p)}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</span></span><i aria-hidden="true">›</i></button>`).join('') || '<p class="muted" style="margin:4px 0">No one found.</p>';
+}
+function openStaffDm(){
+  state.sheet = { type: 'staffdm' }; const me = state.user.id;
+  const mgrs = (state.officers || []).filter(o => !/secretary|app admin/i.test(o.title || ''));
+  const staff = (state.ops?.staff || []).filter(p => p.id !== me).slice().sort(byName);
+  const row = (p, sub) => `<button class="conv" data-action="dmto" data-id="${p.id}">${avatar(p, 42)}<span class="ctxt"><b>${esc(p.first_name || '')}${p.last_name ? ' ' + esc(p.last_name) : p.last_initial ? ' ' + esc(p.last_initial) + '.' : ''}</b><span>${esc(sub)}</span></span><i aria-hidden="true">›</i></button>`;
+  openSheet(`<div class="sheet-h"><div><h2>💬 Message staff</h2><p class="muted">A chat with another member of staff or the manager. Only the two of you see it.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    ${mgrs.length ? `<div class="isub">Manager</div><div class="list">${mgrs.map(o => row(o, o.title || 'Manager')).join('')}</div>` : ''}
+    <div class="isub">Staff</div><div class="list">${staff.map(p => row(p, p.skill === 'door' ? 'Door' : p.skill === 'bar' ? 'Bar' : 'Bar & door')).join('') || '<p class="muted">No other staff yet.</p>'}</div>
+    <p class="muted" style="font-size:12.5px;margin:12px 0 0">Ill, can’t work, or a problem at the club? Use <button class="linkbtn" data-action="msgstart">Message the manager</button> instead, so it goes on record.</p>`);
 }
 function openQuickMsg(id){
   const p = (state.profiles || []).find(x => x.id === id); if (!p) return;
@@ -4629,8 +4648,10 @@ function openMsgs(){
     api.clubOfficers().then(list => { const el = document.getElementById('offpick'); if (!el) return; state.officers = list;
       el.innerHTML = list.map(o => `<button class="chipbtn offchip" data-action="dmofficer" data-id="${o.id}">${avatar(o, 28)}${esc(o.first_name)} · ${esc(o.title)}</button>`).join('') || '<span class="muted">No officers found.</span>'; });
     render(); return; }
-  if (isStaff()) openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">Your messages to the manager, and their replies.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    <button class="btn" data-action="msgstart" style="width:100%;margin-bottom:12px">✉ New message to the manager</button>${myMessagesHtml().replace('Use “Message the manager” at the top of this page.', 'Tap the button above to send one.')}`);
+  if (isStaff()) openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">Chats with staff and the manager, and your reports to the manager.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="msgbtns"><button class="btn" data-action="staffdm">💬 Message staff</button><button class="btn ghost" data-action="msgstart">✉ Message the manager</button></div>
+    <div class="isub">Chats</div>${boardHtml().replace('Add friends first, then you can message them here. Messages from the club also show here.', 'No chats yet. Tap “Message staff” to start one.')}
+    <div class="isub">Your reports to the manager</div>${myMessagesHtml().replace('Use “Message the manager” at the top of this page.', 'Ill, can’t work or a problem? Tap “Message the manager”.')}`);
   else openSheet(`<div class="sheet-h"><div><h2>💬 Messages</h2><p class="muted">From your friends and the club.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     ${boardHtml()}<button class="btn ghost" data-action="openboard" style="width:100%;margin-top:12px">Open the message board</button>`);
   render();
@@ -4731,7 +4752,7 @@ function fromMgrView(){
     ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
       <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`).join('')}</div>`).join('')
       || '<div class="empty">No messages yet.</div>'}
-    <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`;
+    <div class="msgbtns" style="margin-top:16px"><button class="btn ghost" data-action="msgstart">✉ Message the manager</button><button class="btn ghost" data-action="staffdm">💬 Message staff</button></div>`;
 }
 /* Profile photos: a round photo, or the first letter when there isn't one */
 const photoOf = id => { if (!id) return null; if (state.user?.id === id) return state.user.photo_url || null;
@@ -5041,7 +5062,7 @@ function myMessagesHtml(){
   return `<div class="stack" style="gap:8px">${list.map(m => `<div class="panel stack" style="gap:4px;padding:12px 14px">
     <div class="holline"><b>${esc(MSG_TOPICS[m.topic] || m.topic)}</b><span class="grow"></span><span class="pill ${m.status === 'done' ? 'approved' : m.status === 'seen' ? 'pending' : 'waiting'}">${m.status === 'new' ? 'Sent' : m.status === 'seen' ? 'Seen' : 'Dealt with'}</span></div>
     <span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { weekday:'short', day:'numeric', month:'short' })}</span><span style="font-size:14px">${esc(m.body)}</span>
-    ${m.reply ? `<span class="cwnote ok">Manager: “${esc(m.reply)}”</span>` : ''}</div>`).join('')}</div>`;
+    ${m.reply ? (() => { const w = whoP(m.replied_by); return `<div class="replyby">${avatar(w || { first_name: 'M' }, 34)}<span><b>${w ? esc(pfirst(w)) + (w.title ? ` · ${esc(w.title)}` : '') : 'Manager'}</b>“${esc(m.reply)}”</span></div>`; })() : ''}</div>`).join('')}</div>`;
 }
 /* Manager: messages from staff */
 function messagesView(){
@@ -5063,7 +5084,7 @@ function convPeople(){
   (state.contacts || []).filter(c => !fr.some(f => f.other === c.id)).forEach(c => fr.push({ other: c.id, first_name: c.first_name, last_initial: c.last_initial, club: c.is_club, title: c.title, photo_url: c.photo_url }));
   return fr;
 }
-const personName = f => f.club ? (isAdmin() || (state.user?.perms || []).length ? `${esc(f.first_name)} · ${esc(f.title || 'Club')}` : `${esc(CONFIG.CLUB_NAME)} · ${esc(f.title || 'Club')}`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`;
+const personName = f => f.club ? `${esc(f.first_name)} · ${esc(f.title || 'Club')}` : `${esc(f.first_name)} ${esc(f.last_initial)}.`;
 function boardHtml(){
   const me = state.user.id; const fr = convPeople(); const all = state.inbox || [];
   const convs = fr.map(f => { const ms = all.filter(m => m.sender === f.other || m.recipient === f.other); return { f, last: ms[0], unread: ms.filter(m => m.recipient === me && !m.read_at).length }; })
@@ -5645,6 +5666,10 @@ const actions = {
     if (wait.length) openHolBlock(ps, wait); else { closeSheet(); toast('All answered. You can publish the rota now.'); } refresh(); },
   bkreqjump: () => document.getElementById('bkreqs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   quickmsg: t => openQuickMsg(t.dataset.id),
+  staffdm: () => openStaffDm(),
+  dmto: t => { const id = t.dataset.id; const p = [...(state.officers || []), ...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === id); if (!p) return; state.contacts ||= [];
+    if (!state.contacts.some(c => c.id === id)) state.contacts.push({ id, first_name: p.first_name, last_initial: p.last_initial || (p.last_name || '').slice(0, 1), title: p.title, is_club: msgKind(p) !== 'staff' && !!p.title, photo_url: p.photo_url });
+    openDm(id); },
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
   dmofficer: t => { const o = (state.officers || []).find(x => x.id === t.dataset.id); if (!o) return; state.contacts ||= [];

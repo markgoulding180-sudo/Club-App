@@ -376,3 +376,11 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Photos show on Home, the Staff list, Roles, and next to the sender on staff Messages (manager, secretary, colleagues).
 - Stored in the Supabase storage bucket `photos` (public), one folder per person; `profiles.photo_url`. SQL: `update-profile-photos.sql`. Photos are never put in GitHub (the repo is public).
 - Messages show the sender's photo: staff Messages page (photo, name and title, e.g. "Stuart · SECRETARY", then the message), members' message board and conversations (the officer who wrote to them), the committee's "Message a club officer" buttons, and the bosses' Messages from staff list and 💬 popup. Messages with no known sender show the 🍺/📋/🏛 icon. SQL: `update-message-photos.sql` (adds `photo_url` to `msg_contacts()`).
+
+## Who can message whom (Nov 2026)
+- App admin and Secretary: anyone (members, committee, staff, officers).
+- Manager (e.g. Bar Manager): staff, the Secretary and the other officers.
+- Staff: other staff and the manager — **💬 Message staff** (Home tile, 💬 popup, Messages page) opens a picker with photos, then a private chat. **✉ Message the manager** stays for ill / can't work / problems (on record).
+- Committee: the officers, and friends. Members: friends. Anyone can reply to someone who messaged them.
+- Staff 💬 popup: Message staff / Message the manager buttons, Chats, and reports with the manager's reply and photo.
+- SQL: `update-message-rules.sql` (`msg_kind()`, new `can_message()`, phone alert says "💬 Stuart (Secretary)").
