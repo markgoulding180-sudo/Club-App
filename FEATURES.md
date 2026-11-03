@@ -392,3 +392,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 
 ## Staff bell
 - Staff 🔔 shows shift things only, plus one line "💬 You have new messages. Check Your Messages." when there's anything new (tap opens Your Messages). Messages themselves only show in Your Messages.
+
+## Chat titles (Nov 2026)
+- Every new chat message needs a **Title** (what it's about). Replies keep the title, so each topic is its own conversation.
+- Chat card: TO/FROM tag, name · role, the **title** in yellow with the message count, the first message (what started it), "··· N more messages ···", then the latest message and its status.
+- Opening someone with no title picked shows "New message to X" (Title + Message) and their existing conversations to carry on.
+- Phone alert: "💬 Sam (Bar Manager): Card machine". SQL: `update-message-titles.sql` (`member_messages.subject`).

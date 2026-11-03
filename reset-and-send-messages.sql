@@ -1,3 +1,4 @@
+-- Run update-message-titles.sql first.
 -- Clears ALL messages (staff messages, notices, member messages, read/hidden marks), then sends a fresh set,
 -- each with the right sender so the photos show. If there's no Secretary yet, his messages are skipped. Holidays, shifts and swaps are left alone. Safe to run again.
 do $$
@@ -104,9 +105,18 @@ begin
     insert into public.member_messages (sender, recipient, body, created_at)
     values (jason, stuart, 'Hi Stuart, the band for New Year''s Eve have confirmed. Can you pay their deposit? Jason', now() - interval '5 minutes');
   end if;
+
+  -- Titles for each conversation (needs update-message-titles.sql)
+  update public.member_messages set subject = 'Card machine' where (sender = adam and recipient = sam) or (sender = sam and recipient = adam);
+  update public.member_messages set subject = 'Changing the Carling barrel' where (sender = joe and recipient = adam) or (sender = adam and recipient = joe);
+  update public.member_messages set subject = 'Lift on Friday' where (sender = luis and recipient = heather) or (sender = heather and recipient = luis);
+  update public.member_messages set subject = 'Your black jacket' where sender = yannika and recipient = heather;
+  update public.member_messages set subject = 'Staff Christmas do' where sender = heather and recipient = sam;
+  update public.member_messages set subject = 'Your party on Fri 6 Nov' where (sender = stuart and recipient = chloe) or (sender = chloe and recipient = stuart);
+  update public.member_messages set subject = 'New Year''s Eve band' where sender = jason and recipient = stuart;
 end $$;
 
 select 'notice' as kind, n.title as what, coalesce(p.first_name, '?') as from_who, coalesce(t.first_name, 'all ' || n.audience) as to_who
 from public.club_notices n left join public.profiles p on p.id = n.created_by left join public.profiles t on t.id = n.to_user
 union all select 'staff msg', left(m.body, 40), s.first_name, coalesce('reply by ' || r.first_name, 'waiting') from public.staff_messages m join public.profiles s on s.id = m.staff_id left join public.profiles r on r.id = m.replied_by
-union all select 'member msg', left(m.body, 40), a.first_name, b.first_name from public.member_messages m join public.profiles a on a.id = m.sender join public.profiles b on b.id = m.recipient;
+union all select 'member msg', coalesce(m.subject, '') || ': ' || left(m.body, 30), a.first_name, b.first_name from public.member_messages m join public.profiles a on a.id = m.sender join public.profiles b on b.id = m.recipient;
