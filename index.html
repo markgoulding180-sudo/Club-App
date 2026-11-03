@@ -1670,6 +1670,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .myact{position:relative;display:grid;gap:3px;text-align:left;padding:13px 14px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .myact .qi{font-size:24px;line-height:1}.myact b{font-size:15.5px}.myact span:last-of-type{color:var(--muted);font-size:12.5px;line-height:1.3}
 .myact .badge{position:absolute;top:8px;right:10px;font-style:normal}
+.myrota{margin:-6px 0 10px;font-size:14.5px;color:var(--muted)}.myrota b{color:var(--ink)}
+.attn{margin:0 0 14px;padding:11px 14px;border-radius:14px;border:1px solid rgba(61,220,132,.45);background:rgba(61,220,132,.08);font-size:14.5px;font-weight:600}
+.attn.has{border-color:rgba(246,200,80,.7);background:rgba(246,200,80,.10);display:grid;gap:4px;padding:6px 8px}
+.attn.has button{text-align:left;background:none;border:0;color:var(--ink);font-size:14.5px;padding:7px 6px;cursor:pointer;border-radius:10px}
+.attn.has button:hover{background:rgba(255,255,255,.05)}
 </style>
 
 </head>
@@ -4601,6 +4606,16 @@ function staffInboxHtml(){
       ${!ns.length && !upd.length ? '<p class="muted" style="margin:0">No messages yet. When the manager or secretary messages you, it shows here.</p>' : ''}
     </div>` : ''}</div>`;
 }
+/* My shifts: one line saying whether anything needs them */
+function myAttention(sc){
+  const msgs = msgItems().filter(x => x.unseen).length; const notes = notifItems().filter(x => x.unseen).length;
+  const items = [];
+  if (sc.mine) items.push(`<button data-action="go" data-view="swaps">🔄 You have <b>${plural(sc.mine, 'offer')}</b> to swap a shift. Tap to pick one.</button>`);
+  if (sc.help) items.push(`<button data-action="go" data-view="swaps">🙋 <b>${plural(sc.help, 'colleague needs', 'colleagues need')}</b> a swap. Can you help?</button>`);
+  if (msgs) items.push(`<button data-action="openmsgs">💬 You have <b>${plural(msgs, 'message')}</b> from the manager. Tap to read.</button>`);
+  if (notes) items.push(`<button data-action="opennotif">🔔 You have <b>${plural(notes, 'new update')}</b>. Tap to see.</button>`);
+  return items.length ? `<div class="attn has">${items.join('')}</div>` : `<div class="attn">✅ Nothing needs your attention: no swaps, messages or updates.</div>`;
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
@@ -4653,7 +4668,8 @@ function myShiftsView(){
   const view = state.myView === 'cal' ? 'cal' : 'list'; const hs = holStats(me);
   const sc = swapCounts();
   return `<div class="head"><h1>My shifts</h1></div>
-    <p class="muted myrota">Rota ${periodLabel(cur)} · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
+    <p class="myrota">This rota runs from <b>${fmtDate(cur, { weekday: 'short', day: 'numeric', month: 'short' })}</b> to <b>${fmtDate(periodEnd(cur), { weekday: 'short', day: 'numeric', month: 'short' })}</b> · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
+    ${myAttention(sc)}
     <div class="myacts">
       <button class="myact" data-action="go" data-view="swaps"><span class="qi">🔄</span><b>Swap shifts</b><span>${sc.help ? `${plural(sc.help, 'colleague needs', 'colleagues need')} a swap` : sc.mine ? `${plural(sc.mine, 'offer')} for your shift` : 'Can’t make one? Swap it'}</span>${sc.unseen ? `<em class="badge">${sc.unseen}</em>` : ''}</button>
       <button class="myact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${hs.left} of ${HOLIDAY_DAYS} days left${hs.pending ? ` · ${hs.pending} waiting` : ''}</span></button>
