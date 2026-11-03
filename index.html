@@ -4644,6 +4644,18 @@ function openHolBlock(st, wait){
         <span class="swapbtns"><button class="btn sm" data-action="holblockdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holblockdecide" data-id="${h.id}" data-status="declined">Decline</button></span></div>`; }).join('')}</div>
     <p class="muted" style="font-size:13px;margin:12px 0 0">When they’re all answered, tap Publish again.</p>`);
 }
+/* Declining holiday: say why, and it goes to them */
+function openHolDecline(id, blockStart){
+  const h = (state.holidays || []).find(x => x.id === id); if (!h) return;
+  const map = Object.fromEntries((state.ops?.staff || state.profiles || []).map(p => [p.id, p])); const who = pfirst(map[h.staff_id]) || 'them';
+  state.sheet = { type: 'holdecline', id, start: blockStart };
+  openSheet(`<div class="sheet-h"><div><h2>Decline ${esc(who)}’s holiday</h2><p class="muted">${dayRanges(h.days)} (${plural(h.days.length, 'day')})${h.note ? ` · “${esc(h.note)}”` : ''}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="holdecline" data-id="${id}">
+      <label class="f">Message to ${esc(who)}<textarea class="in" name="why" rows="3" maxlength="300" placeholder="e.g. Sorry, we’re short that weekend with the Christmas party. Could you take the week after?"></textarea></label>
+      <p class="muted" style="font-size:12.5px;margin:-4px 0 0">${esc(who)} sees this with the answer, in their 🔔 notifications and on their phone. Optional, but it helps.</p>
+      <div class="err"></div><button class="btn" type="submit">Decline and send</button>
+      ${blockStart ? `<button class="btn ghost" type="button" data-action="holblockback">‹ Back</button>` : ''}</form>`);
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
@@ -5238,7 +5250,7 @@ function myUpdatesHtml(mine){
     const when = dayRanges(h.days); const fresh = (h.decided_at || h.created_at || '').slice(0, 10) >= recent;
     if (h.status === 'pending') add('wait', `Holiday ${when}: waiting for approval`, 'holiday');
     else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
-    else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined`, 'holiday');
+    else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined${h.admin_note ? `. Manager: “${esc(h.admin_note)}”` : ''}`, 'holiday');
   });
   { const pubAt = ds => (state.periods || []).find(pp => pp.start_date === periodStart(ds))?.published_at || '';
     mine.filter(x => ACTIVE(x) && x.created_at && x.created_at.slice(0, 10) >= recent && pubAt(x.shift_date) && x.created_at > pubAt(x.shift_date)
@@ -5521,7 +5533,8 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
-  holblockdecide: async t => { const st = t.dataset.status; await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
+  holblockback: () => { const ps = state.sheet?.start; const end = periodEnd(ps); openHolBlock(ps, (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end))); },
+  holblockdecide: async t => { const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), state.sheet?.start); await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
     state.holidays = await api.listHolidays(); const ps = state.sheet?.start; const end = ps && periodEnd(ps);
     const wait = (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end));
     if (wait.length) openHolBlock(ps, wait); else { closeSheet(); toast('All answered. You can publish the rota now.'); } refresh(); },
@@ -5729,7 +5742,7 @@ const actions = {
   },
   holcancel: async t => { if (!armed(t)) return; await api.cancelHoliday(Number(t.dataset.id)); toast('Request withdrawn'); refresh(); },
   holdecide: async t => {
-    const st = t.dataset.status; if (st === 'cancelled' && !armed(t)) return;
+    const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), null); if (st === 'cancelled' && !armed(t)) return;
     await api.decideHoliday(Number(t.dataset.id), st);
     toast(st === 'approved' ? 'Approved. They’re off the rota on those days.' : st === 'declined' ? 'Declined' : 'Holiday cancelled'); refresh();
   },
@@ -5885,6 +5898,10 @@ const forms = {
   async quickmsg(f){ const p = (state.profiles || []).find(x => x.id === f.dataset.id); const body = f.body.value.trim(); if (!body) throw new Error('Write a message first.');
     await api.sendNotice({ title: `Message from ${pfirst(state.user)}${state.user.title ? ' (' + state.user.title + ')' : ''}`, body, audience: 'staff', to_user: f.dataset.id });
     toast(`Sent to ${pfirst(p)} only`); openMsgs(); },
+  async holdecline(f){ const id = Number(f.dataset.id); const ps = state.sheet?.start; await api.decideHoliday(id, 'declined', f.why.value.trim());
+    toast('Declined. They’ve been told.'); state.holidays = await api.listHolidays();
+    if (ps){ const end = periodEnd(ps); const wait = state.holidays.filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end)); if (wait.length){ openHolBlock(ps, wait); return refresh(); } }
+    closeSheet(); refresh(); },
   async sendnotice(f){ const a = f.querySelector('[name=audience]:checked').value; const to = a === 'one' ? f.to_user.value : null;
     if (a === 'one' && !to) throw new Error('Pick the staff member to send it to.');
     await api.sendNotice({ title: f.title.value.trim(), body: f.body.value.trim(), audience: a === 'one' ? 'staff' : a, ...(to ? { to_user: to } : {}) });
