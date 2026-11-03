@@ -1678,6 +1678,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .pbar > .pbtns{display:flex;gap:8px;width:100%}.pbar > .pbtns .btn{flex:1;justify-content:center;white-space:nowrap}
 .pbar > div span{white-space:nowrap}
 .pbar.cur{box-shadow:inset 4px 0 0 #f6c850}
+.pbar .pbhelp{width:100%;margin:2px 0 0;font-size:13px;color:var(--muted)}
+.pbar > .pbhol{width:100%;display:grid;gap:8px;padding-top:10px;border-top:1px dashed rgba(246,210,122,.4)}
+.pbh{display:grid;gap:6px;font-size:14px}.pbh small{color:var(--muted)}.pbh em{font-style:normal;color:var(--muted)}
+.pbh.ok{gap:3px;color:var(--green,#3ddc84)}.pbh.ok b{color:var(--ink)}
 </style>
 
 </head>
@@ -3791,8 +3795,7 @@ function rotaView(){
   if (inPeriods){
     const wk = Math.round((parseYmd(ymd(ws)) - parseYmd(pst)) / 864e5 / 7) + 1;
     h += `<div class="pbar ${pub ? 'pub' : 'draft'}"><div><b>${admin ? rotaWhich(pst) + ': ' : 'Rota '}${periodLabel(pst)}</b><span>${admin ? (pub ? '✓ Published · staff can see it' : 'Draft · staff can’t see it yet') : `Week ${wk} of 4 · ${pub ? 'published' : 'not published yet'}`}</span></div>
-      ${admin ? (pub ? `<button class="btn ghost sm" data-action="publishrota" data-start="${pst}" data-on="0">Unpublish</button>` : `<div class="pbtns"><button class="btn sm" data-action="openfill">1 · Fill from regular shifts</button><button class="btn sm gold" data-action="publishrota" data-start="${pst}" data-on="1">2 · Publish rota</button></div>`) : ''}</div>`;
-    if (admin && !pub) h += `<p class="muted" style="font-size:13px;margin:-4px 0 12px">To set up this rota: <b>1</b> fill it from everyone’s regular shifts, fill any gaps below, then <b>2</b> publish it so staff can see it. Regular days are set on each person in Staff.</p>`;
+      ${admin ? (pub ? `<button class="btn ghost sm" data-action="publishrota" data-start="${pst}" data-on="0">Unpublish</button>` : `<div class="pbtns"><button class="btn sm" data-action="openfill">1 · Fill from regular shifts</button><button class="btn sm gold" data-action="publishrota" data-start="${pst}" data-on="1">2 · Publish rota</button></div>`) : ''}${admin && !pub ? `<p class="pbhelp">To set up this rota: <b>1</b> fill it from everyone’s regular shifts, fill any gaps below, then <b>2</b> publish it so staff can see it. Regular days are set on each person in Staff.</p>${rotaHolHtml(pst)}` : ''}</div>`;
   }
   if (!admin && inPeriods && !pub) return h + `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>
     <div class="empty">The rota for ${periodLabel(pst)} hasn’t been published yet. You’ll see it here once the manager publishes it. Mark any days you’re unavailable in My shifts before then.</div>`;
@@ -4618,6 +4621,19 @@ function myAttention(sc){
 /* Which rota is this, compared with today */
 const rotaWhich = st => { const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr()); const n = Math.round((parseYmd(st) - parseYmd(cur)) / (28 * 864e5));
   return n === 0 ? 'This rota' : n === 1 ? 'Next rota' : n === -1 ? 'Last rota' : n > 1 ? 'Future rota' : 'Old rota'; };
+/* Holiday requests that fall in a rota, shown while it's being made */
+function rotaHolHtml(st){
+  const end = periodEnd(st); const map = Object.fromEntries((state.ops?.staff || state.profiles || []).map(p => [p.id, p]));
+  const inIt = (state.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.days.some(d => d >= st && d <= end));
+  const pend = inIt.filter(h => h.status === 'pending'), ok = inIt.filter(h => h.status === 'approved');
+  const days = h => h.days.filter(d => d >= st && d <= end);
+  return `<div class="pbhol"><b>🌴 Holiday in this rota</b>
+    ${pend.map(h => `<div class="pbh"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}</span>
+      <span class="swapbtns"><button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">Decline</button></span></div>`).join('')}
+    ${ok.length ? `<div class="pbh ok">${ok.map(h => `<span>✓ <b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> off ${dayRanges(days(h))}</span>`).join('')}</div>` : ''}
+    ${!inIt.length ? '<span class="muted">No holiday booked or asked for in this rota.</span>' : ''}
+    ${pend.length ? '<small class="muted">Approve holiday before you fill the rota, so those days are left free.</small>' : ''}</div>`;
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
