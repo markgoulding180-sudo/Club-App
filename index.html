@@ -1742,6 +1742,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .conv .ctxt .cmore{font-size:12px!important;color:var(--muted)!important;text-align:center}
 .conv .ctxt span.ctheirs i,.conv .ctxt span.cmine i{font-style:normal;font-weight:700}
 .dmsubj{font-weight:800;font-size:16px;color:#f6c850;margin:-4px 0 10px;padding:8px 12px;border-radius:12px;background:rgba(246,200,80,.08);border:1px solid rgba(246,200,80,.3)}
+.conv .cto{font-weight:600;color:var(--muted);font-size:13px;margin-right:2px}.conv .cmeta small{text-align:right;line-height:1.3}
+.dmsubj small{display:block;font-weight:600;font-size:12.5px;color:#aebbd8;margin-top:2px}
+.bub .bwho{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}.bub.me .bwho{color:#7ff3df;text-align:right}.bub.them .bwho{color:#f6c850}
+.conv .ctxt .cdirl{display:block}.conv .cdirl .cdir{margin:0 0 2px}
+.conv{position:relative}.conv > .mclose{position:absolute;top:8px;right:8px}.conv .cmeta{margin-top:30px}
 </style>
 
 </head>
@@ -2869,6 +2874,7 @@ async function load(view){
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
     state.news = await api.listNewsletters(); await checkPush().catch(() => {});
+    if (!isStaff() && !state.hidden) state.hidden = await api.hiddenList().catch(() => []);
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
     if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
     if (isAdmin()){ state.todos = await api.listTodos().catch(() => null); state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
@@ -5146,18 +5152,20 @@ function boardHtml(){
   fr.forEach(f => { const ms = all.filter(m => m.sender === f.other || m.recipient === f.other); const subs = [...new Set(ms.map(m => m.subject || ''))];
     subs.forEach(sj => { const t = ms.filter(m => (m.subject || '') === sj); convs.push({ f, sj, last: t[0], first: t[t.length - 1], n: t.length, unread: t.filter(m => m.recipient === me && !m.read_at).length }); });
     if (!ms.length) convs.push({ f, sj: null, last: null, n: 0, unread: 0 }); });
+  const hidC = new Set(state.hidden || []); for (let k = convs.length - 1; k >= 0; k--) if (convs[k].last && hidC.has('d' + convs[k].last.id)) convs.splice(k, 1);
   convs.sort((a, b) => (b.last?.created_at || '').localeCompare(a.last?.created_at || ''));
   if (!fr.length) return '<div class="empty">Add friends first, then you can message them here. Messages from the club also show here.</div>';
   const roleOf = f => f.club ? esc(f.title || 'Club') : (() => { const pr = [...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === f.other); return pr ? (pr.role === 'staff' ? 'Staff' : (pr.perms || []).length ? 'Committee' : 'Member') : isStaff() ? 'Staff' : ''; })();
   return `<div class="list">${convs.map(({ f, sj, last, first, n, unread }) => { const mine = last?.sender === me; const nm = f.club ? esc(f.first_name) : `${esc(f.first_name)} ${esc(f.last_initial || '')}${f.last_initial ? '.' : ''}`; const rl = roleOf(f);
-    return `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}" ${sj !== null ? `data-subj="${esc(sj)}"` : ''}>${photoOf(f.other) ? avatarId(f.other, f.first_name, 42) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}
-      <span class="ctxt"><b><span class="cdir ${mine ? 'to' : 'from'}">${mine ? 'To' : last ? 'From' : ''}</span>${nm}${rl ? ' · ' + rl : ''}</b>
+    return `<div class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" role="button" tabindex="0" data-action="dmopen" data-id="${f.other}" ${sj !== null ? `data-subj="${esc(sj)}"` : ''}>${last ? `<button class="mclose" data-action="hidemsg" data-key="d${last.id}" aria-label="Remove this conversation from the list">✕</button>` : ''}${photoOf(f.other) ? avatarId(f.other, f.first_name, 42) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}
+      <span class="ctxt">${first ? `<span class="cdirl"><span class="cdir ${first.sender === me ? 'to' : 'from'}">${first.sender === me ? `From you to ${esc(f.first_name)}` : `From ${esc(f.first_name)} to you`}</span></span>` : ''}<b>${nm}${rl ? ' · ' + rl : ''}</b>
         ${last ? `<span class="csubj">${sj ? esc(sj) : 'Message'}${n > 1 ? ` <small>· ${n} messages</small>` : ''}</span>` : ''}
         ${first && n > 1 ? `<span class="cfirst"><i>${first.sender === me ? 'You' : esc(f.first_name)}:</i> ${esc(first.body)}</span>${n > 2 ? `<span class="cmore">··· ${plural(n - 2, 'more message')} ···</span>` : ''}` : ''}
         <span class="${mine ? 'cmine' : 'ctheirs'}">${last ? `${n > 1 ? `<i>${mine ? 'You' : esc(f.first_name)}:</i> ` : ''}${esc(last.body)}` : 'No messages yet. Say hello!'}</span>
         ${mine ? `<em class="cwait${last.read_at ? ' seen' : ''}">${last.read_at ? `✓ Seen by ${esc(f.first_name || 'them')} · no reply yet` : `Not seen yet · waiting for ${esc(f.first_name || 'them')} to reply`}</em>` : last ? `<em class="ctap">${last.read_at ? 'Tap to reply ›' : 'New from them · tap to reply ›'}</em>` : ''}</span>
-      <span class="cmeta">${last ? `<small>${fmtWhen(last.created_at)}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></button>`; }).join('')}</div>`;
+      <span class="cmeta">${last ? `<small>${fmtFull(last.created_at).replace(' · ', '<br>')}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></div>`; }).join('')}</div>`;
 }
+const fmtFull = iso => { const d = new Date(iso); return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
 const fmtWhen = iso => { const d = new Date(iso); return ymd(d) === todayStr() ? d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString('en-GB', { day:'numeric', month:'short' }); };
 async function openDm(uid, subj){
   let f = convPeople().find(x => x.other === uid);
@@ -5176,9 +5184,9 @@ async function openDm(uid, subj){
       ${subs.length ? `<div class="isub" style="margin-top:16px">Or carry on a conversation with ${esc(f.first_name)}</div><div class="list">${subs.map(sj => { const t = allm.filter(m => (m.subject || '') === sj); return `<button class="upd" data-action="dmopen" data-id="${uid}" data-subj="${esc(sj)}"><span><b>${sj ? esc(sj) : 'Message'}</b> · ${plural(t.length, 'message')} · ${fmtWhen(t[0].created_at)}</span><i aria-hidden="true">›</i></button>`; }).join('')}</div>` : ''}`);
     render(); return; }
   const ms = allm.filter(m => (m.subject || '') === subj).slice().reverse();
-  openSheet(`<div class="sheet-h"><div class="frname">${photoOf(uid) ? avatarId(uid, f.first_name, 52) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}<div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? `From ${esc(f.first_name)}` : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : isStaff() ? 'Staff' : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    <div class="dmsubj">${subj ? esc(subj) : 'Message'}</div>
-    <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><p>${esc(m.body)}</p><small>${fmtWhen(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : isAdmin() ? ` · <button class="linkbtn" data-action="todofrom" data-dm="${m.id}">+ To-do</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
+  openSheet(`<div class="sheet-h"><div class="frname">${photoOf(uid) ? avatarId(uid, f.first_name, 52) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}<div><h2 style="margin:0">${f.club ? personName(f) : isAdmin() ? esc(f.full || `${f.first_name} ${f.last_initial}.`) : `${esc(f.first_name)} ${esc(f.last_initial)}.`}</h2><span>${f.club ? '' : isAdmin() ? `Member${f.member ? ' · ' + esc(f.member) : ''}` : isStaff() ? 'Staff' : 'Friend'}</span></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="dmsubj">${subj ? esc(subj) : 'Message'}${ms.length ? `<small>${ms[0].sender === uid ? `From ${esc(f.first_name)} to you` : `From you to ${esc(f.first_name)}`} · started ${fmtFull(ms[0].created_at)}</small>` : ''}</div>
+    <div class="thread" id="thread">${ms.map(m => `<div class="bub ${m.sender === uid ? 'them' : 'me'}"><b class="bwho">${m.sender === uid ? esc(f.first_name) : 'You'}</b><p>${esc(m.body)}</p><small>${fmtFull(m.created_at)}${m.sender !== uid ? ` · <button class="linkbtn" data-action="dmdel" data-id="${m.id}">Delete</button>` : isAdmin() ? ` · <button class="linkbtn" data-action="todofrom" data-dm="${m.id}">+ To-do</button>` : ''}</small></div>`).join('') || '<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>
     <form class="dmform" data-form="senddm" data-to="${uid}" data-subj="${esc(subj)}"><textarea class="in" name="body" rows="2" maxlength="500" required placeholder="Reply…"></textarea><button class="btn" type="submit">Send</button><div class="err"></div></form>
     <button class="linkbtn" data-action="dmopen" data-id="${uid}" style="margin-top:8px">+ New message to ${esc(f.first_name)} with a different title</button>`);
   setTimeout(() => { const t = document.getElementById('thread'); if (t) t.scrollTop = t.scrollHeight; }, 30);
@@ -5746,7 +5754,7 @@ const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth
 const actions = {
   myprofile: t => openMyProfile(t.dataset.id || null),
   photoremove: async t => { const id = t.dataset.id; await api.removePhoto(id); setPhoto(id, null); toast('Photo removed'); openMyProfile(id); render(); },
-  hidemsg: async (t, e) => { e?.stopPropagation?.(); const k = t.dataset.key; t.closest('.mgrmsg')?.remove(); (state.hidden ||= []).push(k); try { await api.hideItem(k); } catch(err){ toast(err.message); } toast('Message closed'); render(); },
+  hidemsg: async (t, e) => { e?.stopPropagation?.(); const k = t.dataset.key; (t.closest('.mgrmsg') || t.closest('.conv'))?.remove(); (state.hidden ||= []).push(k); try { await api.hideItem(k); } catch(err){ toast(err.message); } toast(k[0] === 'd' ? 'Removed from the list. It comes back if they message again.' : 'Message closed'); render(); },
   holblockback: () => { const ps = state.sheet?.start; const end = periodEnd(ps); openHolBlock(ps, (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end))); },
   holblockdecide: async t => { const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), state.sheet?.start); await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
     state.holidays = await api.listHolidays(); const ps = state.sheet?.start; const end = ps && periodEnd(ps);
