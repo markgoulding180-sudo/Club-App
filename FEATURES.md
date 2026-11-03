@@ -369,3 +369,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - While it's a draft, the box holds **1 · Fill from regular shifts**, **2 · Publish rota**, the setup help, and **🌴 Holiday in this rota** (requests to approve/decline, and approved holiday).
 - **A rota can't be published while a holiday request in it is still waiting.** Tapping Publish shows "⚠️ Answer the holiday requests first" with Approve / Decline for each; the database refuses too. SQL: `update-publish-needs-holidays.sql`.
 - Swap history and swap-done alerts for the bosses were removed (`update-remove-swap-alerts.sql`).
+
+## Profile photos (Nov 2026)
+- Everyone can add their own photo: tap the round picture above "Good morning" on Home → My profile → Add/Change photo. Photos are cropped square and shrunk before upload.
+- The app admin can set anyone's photo from **Roles & access** (tap the round picture) or from a staff member's profile on **Staff**.
+- Photos show on Home, the Staff list, Roles, and next to the sender on staff Messages (manager, secretary, colleagues).
+- Stored in the Supabase storage bucket `photos` (public), one folder per person; `profiles.photo_url`. SQL: `update-profile-photos.sql`. Photos are never put in GitHub (the repo is public).

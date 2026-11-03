@@ -1693,6 +1693,15 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .mgrmsg[role=button]{cursor:pointer}
 .mgrmsg{position:relative;padding-right:44px!important}
 .mclose{position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--muted);cursor:pointer;font-size:13px;display:grid;place-items:center;padding:0;z-index:2}
+.avatar{border-radius:50%;object-fit:cover;flex:none;display:inline-block;border:2px solid rgba(255,255,255,.18);background:var(--surface-2)}
+.avatar.ini{display:inline-grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(140deg,#2ee6c8,#1b6f8f)}
+.hello{display:grid;justify-items:center;gap:8px}
+.helloav{position:relative;background:none;border:0;padding:0;cursor:pointer;border-radius:50%}
+.helloav .addph{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#f6c850;color:#1a1300;font-weight:900;font-size:14px;display:grid;place-items:center;line-height:1}
+.profbig{display:grid;justify-items:center;gap:10px;margin:6px 0 16px}
+.profh{display:flex;align-items:center;gap:12px}
+.rowwho{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mfrom{display:inline-flex;align-items:center;gap:6px;margin-right:8px}.mgrmsg .ntop{align-items:center}
 </style>
 
 </head>
@@ -2128,6 +2137,11 @@ function makeSupabaseApi(){
     async markRead(friend){ await sb.rpc('mark_messages_read', { friend }); },
     async msgContacts(){ const r = await sb.rpc('msg_contacts'); return r.error ? [] : r.data; },
     async clubOfficers(){ const r = await sb.rpc('club_officers'); return r.error ? [] : r.data; },
+    async uploadPhoto(blob, pid){ const path = `${pid}/${Date.now()}.jpg`;
+      const r = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (r.error) throw new Error(/bucket/i.test(r.error.message) ? 'Run the profile photos SQL in Supabase first.' : r.error.message);
+      const url = sb.storage.from('photos').getPublicUrl(path).data.publicUrl; ok(await sb.rpc('set_profile_photo', { pid, url })); return url; },
+    async removePhoto(pid){ ok(await sb.rpc('set_profile_photo', { pid, url: null })); },
     async hiddenList(){ const r = await sb.from('hidden_messages').select('item_key'); return r.error ? [] : r.data.map(x => x.item_key); },
     async hideItem(key){ const r = await sb.from('hidden_messages').upsert({ item_key: key }, { onConflict: 'user_id,item_key', ignoreDuplicates: true }); if (r.error && /hidden_messages/.test(r.error.message)) throw new Error('Run the hide-messages SQL in Supabase first.'); },
     async deleteDm(id){ ok(await sb.from('member_messages').delete().eq('id', id)); },
@@ -2446,6 +2460,8 @@ function makeDemoApi(){
       (s.dms ||= []).push({ id: nextId(), sender: s.session, recipient: to, body, read_at: null, created_at: new Date().toISOString() }); save(); },
     async msgContacts(){ const ids = new Set((s.dms ||= []).filter(m => m.sender === s.session || m.recipient === s.session).map(m => m.sender === s.session ? m.recipient : m.sender));
       return [...ids].map(id => { const u = s.users.find(x => x.id === id) || {}; return { id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title, is_club: u.role === 'admin' }; }); },
+    async uploadPhoto(blob, pid){ const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = url; save(); } return url; },
+    async removePhoto(pid){ const u = s.users.find(x => x.id === pid); if (u){ u.photo_url = null; save(); } },
     async hiddenList(){ return ((s.hidden ||= {})[s.session] || []).slice(); },
     async hideItem(key){ ((s.hidden ||= {})[s.session] ||= []).push(key); save(); },
     async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club' })); },
@@ -3321,7 +3337,7 @@ setInterval(() => {
 /* ---------- Home ---------- */
 function homeView(){
   const first = state.user.first_name || ''; const today = todayStr();
-  let h = `<div class="hello"><h2>${greeting()}${first ? `, ${esc(first)}` : ''}</h2></div>`;
+  let h = `<div class="hello"><button class="helloav" data-action="myprofile" aria-label="My profile">${avatar(state.user, 54)}${state.user?.photo_url ? '' : '<span class="addph">+</span>'}</button><h2>${greeting()}${first ? `, ${esc(first)}` : ''}</h2></div>`;
   const next = state.events[0];
   const nextTxt = next ? `Next: ${next.title}, ${fmtDate(ymd(new Date(next.starts_at)))}` : 'Nothing listed yet';
   if (isAdmin()){
@@ -3910,7 +3926,7 @@ function staffView(){
     + `<p class="muted" style="margin:-6px 0 14px;font-size:14px">Full-time staff have regular shifts that Fill from regular shifts puts on the rota. Part-time staff have days they can work, and the rota suggests them on those days. Figures are for the last ${WEEKS_BACK} weeks. Tap someone to change their days or see their record.</p>
     <div class="list">${staff.map(p => { const st = staffStats(p.id);
       const reg = regOf(p), av = availOf(p);
-      return `<div class="row" role="button" tabindex="0" data-action="staffprofile" data-id="${p.id}"><div class="row-main"><b>${esc(pname(p))} <span class="ftpt ${reg.length ? 'ft' : 'pt'}">${reg.length ? 'Full time' : 'Part time'}</span></b>
+      return `<div class="row" role="button" tabindex="0" data-action="staffprofile" data-id="${p.id}"><div class="row-main"><b class="rowwho">${avatar(p, 40)}<span>${esc(pname(p))}</span> <span class="ftpt ${reg.length ? 'ft' : 'pt'}">${reg.length ? 'Full time' : 'Part time'}</span></b>
         <span class="days">${reg.length ? `<b>Works:</b> ${regSummary(reg)}` : av.length ? `<b>Can work:</b> ${availSummary(av)}` : '<i>No days set yet</i>'}</span>
         <span class="sub">${SKILLS[p.skill] || '—'} · ${st.worked} shifts · ${st.sick} sick · ${st.noShow} didn’t turn up · ${st.late} late · Holiday ${holStats(p.id).used}/${HOLIDAY_DAYS}</span></div>${relBadge(st)}<span class="go" aria-hidden="true">›</span></div>`; }).join('') || '<div class="empty">No staff yet. Use “Add staff”.</div>'}</div>`;
 }
@@ -3926,7 +3942,7 @@ function openStaffProfile(pid){
     ...r.unavail.filter(u => u.staff_id === pid).map(u => ({ date: u.off_date, kind: 'assigned', label: u.holiday_id || u.reason === 'Holiday' ? 'Holiday' : 'Unavailable', text: u.holiday_id || u.reason === 'Holiday' ? '' : u.reason || '' }))
   ].sort((a, b) => b.date.localeCompare(a.date));
   const num = (v, k, bad) => `<div class="num ${bad ? 'bad' : ''}"><b>${v}</b><span>${k}</span></div>`;
-  openSheet(`<div class="sheet-h"><div><h2>${esc(pname(p))}</h2><p class="muted">${esc(p.phone || '')} ${esc(p.email || '')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+  openSheet(`<div class="sheet-h"><div class="profh"><button class="helloav" data-action="myprofile" data-id="${p.id}" aria-label="Photo">${avatar(p, 56)}${p.photo_url ? '' : '<span class="addph">+</span>'}</button><div><h2>${esc(pname(p))}</h2><p class="muted">${esc(p.phone || '')} ${esc(p.email || '')}</p></div></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <div class="grid2"><label class="f">Account<select id="role-${p.id}" data-profile="${p.id}" ${p.id === me ? 'disabled' : ''}>${Object.entries(ROLES).map(([k, l]) => `<option value="${k}" ${k === p.role ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="f">Can work<select id="skill-${p.id}" data-profile="${p.id}">${p.role === 'admin' ? `<option value="" ${!p.skill ? 'selected' : ''}>Not on the rota</option>` : ''}${Object.entries(SKILLS).map(([k, l]) => `<option value="${k}" ${k === p.skill ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     <div class="title-row" style="margin:0">${relBadge(st)}<span class="muted" style="font-size:13px">Last ${WEEKS_BACK} weeks</span></div>
@@ -4675,25 +4691,26 @@ function openHolDecline(id, blockStart){
 }
 /* Staff: messages to them, grouped by who sent them: the manager, the secretary, the club, or other staff */
 const WHO = { manager: ['🍺', 'Manager'], secretary: ['📋', 'Secretary'], club: ['🏛', 'The club'], staff: ['👥', 'Staff'] };
+const whoP = uid => (state.officers || []).find(x => x.id === uid);
 const whoOf = uid => { const o = (state.officers || []).find(x => x.id === uid); const t = (o?.title || '').toLowerCase();
   return /secretary/.test(t) ? 'secretary' : /manager/.test(t) ? 'manager' : o ? 'club' : 'manager'; };
 function fromMgr(){
   const me = state.user?.id; if (!me) return []; const seen = lsGet('mgrseen-' + me) || ''; const recent = new Date(Date.now() - 14 * 864e5).toISOString();
   const out = []; const hid = new Set(state.hidden || []); let key = '';
-  const add = (who, when, icon, title, body, tone, go) => { if (hid.has(key)) return; out.push({ key, who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > seen && (when || '') > recent }); };
+  let from = null; const add = (who, when, icon, title, body, tone, go) => { if (hid.has(key)) return; out.push({ key, from, who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > seen && (when || '') > recent }); from = null; };
   const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const nm = id => esc(pfirst(map[id]) || 'A colleague');
-  (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h => (key = 'h' + h.id) &&
+  (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h => (key = 'h' + h.id) && ((from = whoP(h.decided_by)), 1) &&
     add(h.decided_by ? whoOf(h.decided_by) : 'manager', h.decided_at || h.created_at, h.status === 'approved' ? '🌴' : '❌', `Holiday ${dayRanges(h.days)}: ${h.status === 'approved' ? 'approved' : 'declined'}`, h.admin_note || (h.status === 'approved' ? 'Enjoy your time off.' : ''), h.status === 'approved' ? 'ok' : 'no'));
   (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && x.decided_at).forEach(x => (key = 'c' + x.id) &&
     add('manager', x.decided_at, x.decision === 'approved' ? '✅' : '❌', `Can’t work ${shiftLine(x)}: ${x.decision === 'approved' ? 'you’re off this shift' : 'declined, you’re still on'}`, '', x.decision === 'approved' ? 'ok' : 'no'));
-  (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m => (key = 'm' + m.id) &&
+  (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m => (key = 'm' + m.id) && ((from = whoP(m.replied_by)), 1) &&
     add(m.replied_by ? whoOf(m.replied_by) : 'manager', m.replied_at || m.created_at, '💬', `Reply about “${MSG_TOPICS[m.topic] || m.topic}”`, `You: “${m.body}”\nReply: “${m.reply}”`, ''));
-  visibleNotices().forEach(n => (key = 'n' + n.id) && add(n.created_by ? whoOf(n.created_by) : 'club', n.created_at, n.to_user ? '✉️' : '📢', n.title.replace(/^Message from [^:]+?$/, 'Message for you'), n.body, n.to_user ? 'me' : ''));
+  visibleNotices().forEach(n => (key = 'n' + n.id) && ((from = whoP(n.created_by)), 1) && add(n.created_by ? whoOf(n.created_by) : 'club', n.created_at, n.to_user ? '✉️' : '📢', n.title.replace(/^Message from [^:]+?$/, 'Message for you'), n.body, n.to_user ? 'me' : ''));
   // from other staff: swaps
-  (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => (key = 'r' + r.id) && add('staff', r.created_at, '🙋', `${nm(r.staff_id)} needs a swap`, `${shiftLine(r.sh)}${r.note ? ` · “${r.note}”` : ''}. Can you help?`, 'me', 'swaps'));
-  (state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).forEach(o => (key = 'o' + o.id) && add('staff', o.created_at, '🔄', `${nm(o.staff_id)} offered to swap`, 'Tap to see the offer and pick one.', 'me', 'swaps'));
-  (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => (key = 'w' + w.id) && add('staff', w.created_at, '🔄', `${nm(w.from_staff)} wants to swap with you`, 'Tap to answer.', 'me', 'swaps'));
-  (state.swaps || []).filter(w => w.status === 'approved' && w.to_staff === me && (w.decided_at || '') > recent).forEach(w => (key = 't' + w.id) && add('staff', w.decided_at, '🤝', `${nm(w.from_staff)} picked your swap offer`, 'Thanks for swapping! The rota is updated.', 'ok'));
+  (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => (key = 'r' + r.id) && ((from = map[r.staff_id]), 1) && add('staff', r.created_at, '🙋', `${nm(r.staff_id)} needs a swap`, `${shiftLine(r.sh)}${r.note ? ` · “${r.note}”` : ''}. Can you help?`, 'me', 'swaps'));
+  (state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).forEach(o => (key = 'o' + o.id) && ((from = map[o.staff_id]), 1) && add('staff', o.created_at, '🔄', `${nm(o.staff_id)} offered to swap`, 'Tap to see the offer and pick one.', 'me', 'swaps'));
+  (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').forEach(w => (key = 'w' + w.id) && ((from = map[w.from_staff]), 1) && add('staff', w.created_at, '🔄', `${nm(w.from_staff)} wants to swap with you`, 'Tap to answer.', 'me', 'swaps'));
+  (state.swaps || []).filter(w => w.status === 'approved' && w.to_staff === me && (w.decided_at || '') > recent).forEach(w => (key = 't' + w.id) && ((from = map[w.from_staff]), 1) && add('staff', w.decided_at, '🤝', `${nm(w.from_staff)} picked your swap offer`, 'Thanks for swapping! The rota is updated.', 'ok'));
   return out.sort((a, b) => b.when.localeCompare(a.when));
 }
 const whoChips = items => { const c = {}; items.filter(x => x.isNew).forEach(x => c[x.who] = (c[x.who] || 0) + 1);
@@ -4705,9 +4722,31 @@ function fromMgrView(){
   if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
   return page('Messages', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">From the manager, the secretary and other staff: holiday and can’t-work answers, replies, notices and swaps.</p>
     ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
-      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="ntop"><b>${x.icon} ${x.title}</b><small>${x.when ? fmtWhen(x.when) : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')}</div>`).join('')
+      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="ntop">${x.from ? `<span class="mfrom">${avatar(x.from, 30)}<small>${esc(pfirst(x.from))}</small></span>` : ''}<b>${x.icon} ${x.title}</b><small>${x.when ? fmtWhen(x.when) : ''}</small></div>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div>`).join('')}</div>`).join('')
       || '<div class="empty">No messages yet.</div>'}
     <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`;
+}
+/* Profile photos: a round photo, or the first letter when there isn't one */
+const avatar = (p, size = 40) => p?.photo_url ? `<img class="avatar" src="${esc(p.photo_url)}" alt="" style="width:${size}px;height:${size}px" loading="lazy">`
+  : `<span class="avatar ini" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px">${esc((p?.first_name || '?')[0])}</span>`;
+async function squarePhoto(file, px = 480){
+  const url = URL.createObjectURL(file);
+  try { const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('That file isn’t a picture we can use.')); i.src = url; });
+    const side = Math.min(img.width, img.height); const sx = (img.width - side) / 2, sy = Math.max(0, (img.height - side) * 0.3);
+    const c = document.createElement('canvas'); c.width = c.height = Math.min(px, side); c.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.85)); }
+  finally { URL.revokeObjectURL(url); }
+}
+function openMyProfile(pid){
+  const mine = !pid || pid === state.user.id; const p = mine ? state.user : (state.profiles || []).find(x => x.id === pid); if (!p) return;
+  state.sheet = { type: 'myprofile', id: p.id };
+  const role = p.role === 'admin' ? (p.title || 'Club officer') : p.role === 'staff' ? 'Staff' : (p.perms || []).includes('whatson') ? 'Entertainments committee' : 'Member';
+  openSheet(`<div class="sheet-h"><div><h2>${mine ? 'My profile' : esc(pname(p))}</h2><p class="muted">${esc(role)}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="profbig">${avatar(p, 120)}<div class="bar" style="margin:0;justify-content:center">
+      <label class="btn sm">${p.photo_url ? 'Change photo' : 'Add a photo'}<input type="file" accept="image/*" data-photofor="${p.id}" hidden></label>
+      ${p.photo_url ? `<button class="btn ghost sm" data-action="photoremove" data-id="${p.id}">Remove</button>` : ''}</div>
+      <p class="muted" style="font-size:12.5px;margin:0;text-align:center">${mine ? 'Your photo shows to the club and staff next to your name.' : `Shows next to ${esc(pfirst(p))}’s name in the app.`} Use a clear photo of the face.</p></div>
+    <dl class="kv"><dt>Name</dt><dd>${esc(pname(p))}</dd>${p.email ? `<dt>Email</dt><dd>${esc(p.email)}</dd>` : ''}${p.phone ? `<dt>Phone</dt><dd>${esc(p.phone)}</dd>` : ''}${p.membership_no ? `<dt>Membership</dt><dd>${esc(p.membership_no)}</dd>` : ''}</dl>`);
 }
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
@@ -5119,7 +5158,7 @@ function rolesView(){
   return page('Roles & access') + `<p class="muted" style="margin:-8px 0 14px">Who can do what. Only the app admin can change these.</p>
     <div class="rolekey">${Object.entries(ROLE_PRESETS).map(([k, r]) => `<div><b>${r.label}</b><span>${{ member: 'Members’ app: What’s On, tickets, bookings, friends', ent: 'Members’ app plus adding and removing What’s On events', staff: 'Their shifts, swaps, holiday and the rota', manager: 'Rota, staff, bookings, tickets, staff messages, notices and jobs', secretary: 'Everything to run the club', owner: 'Everything, plus roles and viewing the app as anyone' }[k]}</span></div>`).join('')}</div>
     <div class="bar" style="margin-top:14px"><input class="in" id="role-q" placeholder="Search by name, email or number" value="${esc(state.roleQ || '')}" data-rolesearch style="flex:1 1 240px"></div>
-    <div class="list">${ps.slice(0, 200).map(p => `<div class="row rolerow"><div class="row-main"><b>${esc(pname(p))}${p.title ? ` <span class="ftpt ft">${esc(p.title)}</span>` : ''}</b><span class="sub">${esc(p.email || '')}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</span></div>
+    <div class="list">${ps.slice(0, 200).map(p => `<div class="row rolerow"><div class="row-main"><b class="rowwho"><button class="helloav" data-action="myprofile" data-id="${p.id}" aria-label="Photo for ${esc(pname(p))}">${avatar(p, 36)}</button><span>${esc(pname(p))}</span>${p.title ? ` <span class="ftpt ft">${esc(p.title)}</span>` : ''}</b><span class="sub">${esc(p.email || '')}${p.membership_no ? ' · ' + esc(p.membership_no) : ''}</span></div>
       <select data-roleset="${p.id}" aria-label="Role for ${esc(pname(p))}">${Object.entries(ROLE_PRESETS).map(([k, r]) => `<option value="${k}" ${presetOf(p) === k ? 'selected' : ''}>${r.label}</option>`).join('')}</select></div>`).join('')}</div>`;
 }
 /* Notices from the club */
@@ -5586,6 +5625,8 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  myprofile: t => openMyProfile(t.dataset.id || null),
+  photoremove: async t => { const id = t.dataset.id; await api.removePhoto(id); setPhoto(id, null); toast('Photo removed'); openMyProfile(id); render(); },
   hidemsg: async (t, e) => { e?.stopPropagation?.(); const k = t.dataset.key; t.closest('.mgrmsg')?.remove(); (state.hidden ||= []).push(k); try { await api.hideItem(k); } catch(err){ toast(err.message); } toast('Message closed'); render(); },
   holblockback: () => { const ps = state.sheet?.start; const end = periodEnd(ps); openHolBlock(ps, (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end))); },
   holblockdecide: async t => { const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), state.sheet?.start); await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
@@ -5813,9 +5854,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') return closeSheet();
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[role="button"][data-action]')){ e.preventDefault(); e.target.click(); }
 });
+const setPhoto = (id, url) => { if (state.user?.id === id) state.user.photo_url = url; [state.profiles, state.ops?.staff, state.officers].forEach(l => (l || []).forEach(p => { if (p.id === id) p.photo_url = url; })); };
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
+    if (el.matches('[data-photofor]') && el.files?.[0]){ const id = el.dataset.photofor; toast('Adding photo…'); const url = await api.uploadPhoto(await squarePhoto(el.files[0]), id); setPhoto(id, url); toast('Photo saved'); openMyProfile(id); render(); return; }
     if (el.matches('[data-pushpref]')){ const p = { ...pushPrefs(), [el.dataset.pushpref]: el.checked }; await api.setPushPrefs(p); state.user.push_prefs = p; toast('Saved'); return; }
     if (el.matches('[data-nlimg]') && el.files?.[0] && state.nlDraft){ const k = el.dataset.nlimg; toast('Adding picture…');
       const url = await api.uploadImage(await shrinkImage(el.files[0]));
