@@ -4576,7 +4576,7 @@ function headIcons(){
   if (!state.user) return '';
   const n = notifItems().filter(x => x.unseen).length, m = msgItems().filter(x => x.unseen).length;
   const btn = (act, ic, c, label) => `<button class="hicon${c ? ' on' : ''}" data-action="${act}" aria-label="${label}${c ? `, ${c} new` : ''}">${ICONS[ic]}${c ? `<span class="hnum">${c}</span>` : ''}</button>`;
-  return `<div class="hicons">${btn('opennotif', 'bell', n, 'Notifications')}${btn('openmsgs', 'chat', m, 'Messages')}</div>`;
+  return `<div class="hicons">${btn('opennotif', 'bell', n, 'Notifications')}${isStaff() ? '' : btn('openmsgs', 'chat', m, 'Messages')}</div>`;
 }
 const swShift = x => x ? `${JOBS[x.job]} ${SESS[x.session]?.toLowerCase() || ''} ${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'a shift';
 /* Bosses: record of every swap, to look back on if there's a problem */
