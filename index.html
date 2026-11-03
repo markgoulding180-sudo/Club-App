@@ -1712,6 +1712,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .msgbtns{display:flex;gap:8px;margin-bottom:6px}.msgbtns .btn{flex:1;padding-left:8px;padding-right:8px}
 .replyby{display:flex;gap:10px;align-items:flex-start;background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.25);border-radius:12px;padding:8px 10px;margin-top:4px;font-size:14px}
 .replyby b{display:block;font-size:12.5px;color:#f6c850}.conv > .avatar{flex:none}
+.myline{color:#aebbd8}.myline b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:#8a97b5}
+.rpline{color:#7ff3df;margin-top:8px!important}.rpline b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:#f6c850}
+.rptxt{color:#7ff3df}.rptxt b{color:#f6c850}
+.bub.me p{color:#bff7ec}.bub.them p{color:#ffffff}
 </style>
 
 </head>
@@ -4732,7 +4736,7 @@ function fromMgr(){
   (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && x.decided_at).forEach(x => (key = 'c' + x.id) &&
     add('manager', x.decided_at, x.decision === 'approved' ? '✅' : '❌', `Can’t work ${shiftLine(x)}: ${x.decision === 'approved' ? 'you’re off this shift' : 'declined, you’re still on'}`, '', x.decision === 'approved' ? 'ok' : 'no'));
   (state.msgs || []).filter(m => m.staff_id === me && m.reply).forEach(m => (key = 'm' + m.id) && ((from = whoP(m.replied_by)), 1) &&
-    add(m.replied_by ? whoOf(m.replied_by) : 'manager', m.replied_at || m.created_at, '💬', `Reply about “${MSG_TOPICS[m.topic] || m.topic}”`, `You: “${m.body}”\nReply: “${m.reply}”`, ''));
+    add(m.replied_by ? whoOf(m.replied_by) : 'manager', m.replied_at || m.created_at, '💬', `Reply about “${MSG_TOPICS[m.topic] || m.topic}”`, { you: m.body, reply: m.reply, by: whoP(m.replied_by) }, ''));
   visibleNotices().forEach(n => (key = 'n' + n.id) && ((from = whoP(n.created_by)), 1) && add(n.created_by ? whoOf(n.created_by) : 'club', n.created_at, n.to_user ? '✉️' : '📢', n.title.replace(/^Message from [^:]+?$/, 'Message for you'), n.body, n.to_user ? 'me' : ''));
   // from other staff: swaps
   (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => (key = 'r' + r.id) && ((from = map[r.staff_id]), 1) && add('staff', r.created_at, '🙋', `${nm(r.staff_id)} needs a swap`, `${shiftLine(r.sh)}${r.note ? ` · “${r.note}”` : ''}. Can you help?`, 'me', 'swaps'));
@@ -4750,7 +4754,7 @@ function fromMgrView(){
   if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
   return page('Messages', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">From the manager, the secretary and other staff: holiday and can’t-work answers, replies, notices and swaps.</p>
     ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
-      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`).join('')}</div>`).join('')
+      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body?.you ? `<p class="myline"><b>You</b>${esc(x.body.you)}</p><p class="rpline"><b>${x.body.by ? esc(pfirst(x.body.by)) : 'Reply'}</b>${esc(x.body.reply)}</p>` : x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`).join('')}</div>`).join('')
       || '<div class="empty">No messages yet.</div>'}
     <div class="msgbtns" style="margin-top:16px"><button class="btn ghost" data-action="msgstart">✉ Message the manager</button><button class="btn ghost" data-action="staffdm">💬 Message staff</button></div>`;
 }
@@ -5061,8 +5065,8 @@ function myMessagesHtml(){
   if (!list.length) return '<div class="empty">No messages yet. Use “Message the manager” at the top of this page.</div>';
   return `<div class="stack" style="gap:8px">${list.map(m => `<div class="panel stack" style="gap:4px;padding:12px 14px">
     <div class="holline"><b>${esc(MSG_TOPICS[m.topic] || m.topic)}</b><span class="grow"></span><span class="pill ${m.status === 'done' ? 'approved' : m.status === 'seen' ? 'pending' : 'waiting'}">${m.status === 'new' ? 'Sent' : m.status === 'seen' ? 'Seen' : 'Dealt with'}</span></div>
-    <span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { weekday:'short', day:'numeric', month:'short' })}</span><span style="font-size:14px">${esc(m.body)}</span>
-    ${m.reply ? (() => { const w = whoP(m.replied_by); return `<div class="replyby">${avatar(w || { first_name: 'M' }, 34)}<span><b>${w ? esc(pfirst(w)) + (w.title ? ` · ${esc(w.title)}` : '') : 'Manager'}</b>“${esc(m.reply)}”</span></div>`; })() : ''}</div>`).join('')}</div>`;
+    <span class="muted" style="font-size:13px">${fmtDate(m.created_at.slice(0, 10), { weekday:'short', day:'numeric', month:'short' })}</span><span class="myline" style="font-size:14px"><b>You</b>${esc(m.body)}</span>
+    ${m.reply ? (() => { const w = whoP(m.replied_by); return `<div class="replyby">${avatar(w || { first_name: 'M' }, 34)}<span class="rptxt"><b>${w ? esc(pfirst(w)) + (w.title ? ` · ${esc(w.title)}` : '') : 'Manager'}</b>${esc(m.reply)}</span></div>`; })() : ''}</div>`).join('')}</div>`;
 }
 /* Manager: messages from staff */
 function messagesView(){
