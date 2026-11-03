@@ -6,11 +6,15 @@ begin
   select id into heather from public.profiles where lower(email) = 'heather@railway.com';
   select id into adam    from public.profiles where lower(email) = 'adam@railway.com';
   select id into luis    from public.profiles where lower(email) = 'luis@railway.com';
-  select id into sam     from public.profiles where lower(email) = 'sam@railway.com';
-  select id into stuart  from public.profiles where lower(email) = 'stuart@railway.com';
+  select id into sam     from public.profiles where role = 'admin' and (lower(email) like 'sam%@railway.com' or title ilike '%bar manager%') order by (lower(email) like 'sam%') desc limit 1;
+  select id into stuart  from public.profiles where lower(email) = 'stuart.fraser@railway.com';
+  if stuart is null then select id into stuart from public.profiles where role = 'admin' and title ilike '%secretary%' limit 1; end if;
   select id into mark    from public.profiles where lower(email) = 'markgoulding180@gmail.com';
-  select id into jason   from public.profiles where lower(email) = 'jason@railway.com';
+  select id into jason   from public.profiles where lower(email) like 'jason%@railway.com' limit 1;
   select id into chloe   from public.profiles where lower(email) = 'chloe.martin@members.test';
+
+  if stuart is null then raise exception 'Can''t find Stuart (stuart.fraser@railway.com). Check his email in Authentication.'; end if;
+  if sam is null then raise exception 'Can''t find Sam the Bar Manager.'; end if;
 
   -- Clear everything
   delete from public.hidden_messages;
