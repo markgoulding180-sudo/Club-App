@@ -1,5 +1,5 @@
 -- Clears ALL messages (staff messages, notices, member messages, read/hidden marks), then sends a fresh set,
--- each with the right sender so the photos show. Holidays, shifts and swaps are left alone. Safe to run again.
+-- each with the right sender so the photos show. If there's no Secretary yet, his messages are skipped. Holidays, shifts and swaps are left alone. Safe to run again.
 do $$
 declare heather uuid; adam uuid; luis uuid; sam uuid; stuart uuid; mark uuid; jason uuid; chloe uuid;
 begin
@@ -13,7 +13,6 @@ begin
   select id into jason   from public.profiles where lower(email) like 'jason%@railway.com' limit 1;
   select id into chloe   from public.profiles where lower(email) = 'chloe.martin@members.test';
 
-  if stuart is null then raise exception 'Can''t find Stewart (stewart@railway.com). Check his email in Authentication.'; end if;
   if sam is null then raise exception 'Can''t find Sam the Bar Manager.'; end if;
 
   -- Clear everything
@@ -25,7 +24,7 @@ begin
 
   -- 📋 Secretary (Stewart) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
-  values ('Staff Christmas party', 'The staff Christmas do is Sun 10 Jan, 7pm in the Function Room. Partners welcome. Let Sam know numbers by 20 Dec. Stewart', 'staff', stuart, now() - interval '50 minutes');
+  select 'Staff Christmas party', 'The staff Christmas do is Sun 10 Jan, 7pm in the Function Room. Partners welcome. Let Sam know numbers by 20 Dec. Stewart', 'staff', stuart, now() - interval '50 minutes' where stuart is not null;
 
   -- 🏛 The club (Mark) to all staff
   insert into public.club_notices (title, body, audience, created_by, created_at)
@@ -48,7 +47,7 @@ begin
   values (luis, 'other', 'Could I have Sat 19 Dec off? It''s my brother''s wedding.', 'new', now() - interval '10 minutes');
 
   -- Member messages: the Secretary to Chloe about her booking, and her reply
-  if chloe is not null then
+  if chloe is not null and stuart is not null then
     insert into public.member_messages (sender, recipient, body, created_at)
     values (stuart, chloe, 'Hi Chloe, your Function Room booking for Fri 6 Nov is all set. The DJ can set up from 6:30pm. Stewart, Secretary', now() - interval '45 minutes');
     insert into public.member_messages (sender, recipient, body, created_at)
