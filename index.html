@@ -1667,9 +1667,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .nobar{align-items:flex-start;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px}.nobar span{display:grid}.nobar small{color:var(--muted);font-size:12.5px}
 .addclubev{margin-bottom:16px}.addclubev summary{cursor:pointer;display:grid;gap:2px;list-style:none}.addclubev summary::-webkit-details-marker{display:none}
 .myacts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 16px}
-.myact{position:relative;display:grid;gap:3px;text-align:left;padding:13px 14px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
-.myact .qi{font-size:24px;line-height:1}.myact b{font-size:15.5px}.myact span:last-of-type{color:var(--muted);font-size:12.5px;line-height:1.3}
-.myact .badge{position:absolute;top:8px;right:10px;font-style:normal}
+.myact{position:relative;display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center;text-align:left;padding:9px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.myact .qi{font-size:18px;line-height:1;grid-row:1/3}.myact b{font-size:14.5px;line-height:1.2}.myact span:last-of-type{color:var(--muted);font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.myact .badge{position:absolute;top:-6px;right:-4px;font-style:normal}
 .myrota{margin:-6px 0 10px;font-size:14.5px;color:var(--muted)}.myrota b{color:var(--ink)}
 .attn{margin:0 0 14px;padding:11px 14px;border-radius:14px;border:1px solid rgba(61,220,132,.45);background:rgba(61,220,132,.08);font-size:14.5px;font-weight:600}
 .attn.has{border-color:rgba(246,200,80,.7);background:rgba(246,200,80,.10);display:grid;gap:4px;padding:6px 8px}
@@ -4671,8 +4671,8 @@ function myShiftsView(){
     <p class="myrota">This rota runs from <b>${fmtDate(cur, { weekday: 'short', day: 'numeric', month: 'short' })}</b> to <b>${fmtDate(periodEnd(cur), { weekday: 'short', day: 'numeric', month: 'short' })}</b> · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
     ${myAttention(sc)}
     <div class="myacts">
-      <button class="myact" data-action="go" data-view="swaps"><span class="qi">🔄</span><b>Swap shifts</b><span>${sc.help ? `${plural(sc.help, 'colleague needs', 'colleagues need')} a swap` : sc.mine ? `${plural(sc.mine, 'offer')} for your shift` : 'Can’t make one? Swap it'}</span>${sc.unseen ? `<em class="badge">${sc.unseen}</em>` : ''}</button>
-      <button class="myact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${hs.left} of ${HOLIDAY_DAYS} days left${hs.pending ? ` · ${hs.pending} waiting` : ''}</span></button>
+      <button class="myact" data-action="go" data-view="swaps"><span class="qi">🔄</span><b>Swap shifts</b><span>${sc.help ? `${plural(sc.help, 'colleague needs', 'colleagues need')} a swap` : sc.mine ? `${plural(sc.mine, 'offer')} for your shift` : 'Swap a shift'}</span>${sc.unseen ? `<em class="badge">${sc.unseen}</em>` : ''}</button>
+      <button class="myact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${hs.left} days left${hs.pending ? ` · ${hs.pending} waiting` : ''}</span></button>
     </div>
     <div class="bar">${seg('myview', view, [['list', '☰ List'], ['cal', '📅 Calendar']], 'Show')}</div>
     ${view === 'list' ? `<p class="muted" style="font-size:14px;margin:0 0 10px">Tap a shift to swap it or say you can’t work it.</p>
