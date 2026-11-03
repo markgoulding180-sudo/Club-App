@@ -1666,6 +1666,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .pill.nobartag{background:rgba(246,200,80,.15);color:#f6c850}
 .nobar{align-items:flex-start;gap:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px}.nobar span{display:grid}.nobar small{color:var(--muted);font-size:12.5px}
 .addclubev{margin-bottom:16px}.addclubev summary{cursor:pointer;display:grid;gap:2px;list-style:none}.addclubev summary::-webkit-details-marker{display:none}
+.myacts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 16px}
+.myact{position:relative;display:grid;gap:3px;text-align:left;padding:13px 14px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.myact .qi{font-size:24px;line-height:1}.myact b{font-size:15.5px}.myact span:last-of-type{color:var(--muted);font-size:12.5px;line-height:1.3}
+.myact .badge{position:absolute;top:8px;right:10px;font-style:normal}
 </style>
 
 </head>
@@ -3331,14 +3335,12 @@ function homeView(){
     h += staffQuickStart() + pushHomeCard()
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
       + nextRotaHtml() + nextShiftCard();
-    h += `<div class="label" style="margin-top:20px">What do you need?</div>
+    h += `<div class="label" style="margin-top:20px">Your staff links</div>
+      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
       <div class="tiles">
-        ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · your diary`, 'myshifts')}
-        ${tile('swap', 'Swap shifts', (() => { const c = swapCounts(); return c.help ? `${plural(c.help, 'colleague needs', 'colleagues need')} a swap` : c.mine ? `${plural(c.mine, 'offer')} for your shift` : 'Can’t make a shift? Swap it'; })(), 'swaps', swapCounts().unseen)}
-        <button class="tile" data-action="holnew"><span class="ic">${ICONS.cal}</span><b>Book holiday</b><span class="sub">${holLeftTxt()}</span></button>
+        ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
-      </div>
-      <div class="qlinks">${[['news', '📰 Newsletter'], ['alerts', state.push === 'on' ? '🔔 Notifications on' : '🔔 Turn on notifications'], ['staffhelp', '❓ How it works'], ...((state.jobs || []).some(j => j.status === 'open') ? [['jobs', '💼 Jobs']] : [])].map(([v, l]) => `<button data-action="go" data-view="${v}">${l}</button>`).join('')}</div>`;
+      </div>`;
     return h;
   }
   if (false){ const me = state.user.id; const mine = [];
@@ -4441,9 +4443,9 @@ function staffQuickStart(){
   try { if (localStorage.getItem('qs-staff-' + state.user.id)) return ''; } catch(e){ return ''; }
   return `<div class="qstart"><div class="ntop"><b>👋 Welcome to the staff app</b><button class="linkbtn" data-action="qsdone">Got it</button></div>
     <ol><li><b>Your shifts</b> are on <b>My shifts</b>. Your next one is always at the top of Home.</li>
-      <li><b>Can’t make a shift?</b> Tap it and press <b>Ask everyone to swap</b>. If no one can, message the manager.</li>
+      <li><b>Can’t make a shift?</b> On <b>My shifts</b>, tap it or tap <b>Swap shifts</b>. If no one can swap, message the manager.</li>
       <li><b>🔔 and 💬 at the top</b> turn yellow when something’s new: 🔔 for your shifts and the manager’s notices, 💬 for replies from the manager.</li>
-      <li><b>Holiday:</b> tap <b>Book holiday</b>, pick your first and last day, then send it.</li>
+      <li><b>Holiday:</b> on <b>My shifts</b> tap <b>Book holiday</b>, pick your first and last day, then send it.</li>
       <li>Turn on <b>notifications</b> so you hear when the rota is out or someone needs a swap.</li></ol></div>`;
 }
 const firstHolDay = () => { let d = todayStr(); for (let k = 0; k < 120 && isPublished(d); k++) d = ymd(addDays(parseYmd(d), 1)); return d; };
@@ -4649,8 +4651,13 @@ function myShiftsView(){
     return hd + `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
       <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
   const view = state.myView === 'cal' ? 'cal' : 'list'; const hs = holStats(me);
+  const sc = swapCounts();
   return `<div class="head"><h1>My shifts</h1></div>
     <p class="muted myrota">Rota ${periodLabel(cur)} · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
+    <div class="myacts">
+      <button class="myact" data-action="go" data-view="swaps"><span class="qi">🔄</span><b>Swap shifts</b><span>${sc.help ? `${plural(sc.help, 'colleague needs', 'colleagues need')} a swap` : sc.mine ? `${plural(sc.mine, 'offer')} for your shift` : 'Can’t make one? Swap it'}</span>${sc.unseen ? `<em class="badge">${sc.unseen}</em>` : ''}</button>
+      <button class="myact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${hs.left} of ${HOLIDAY_DAYS} days left${hs.pending ? ` · ${hs.pending} waiting` : ''}</span></button>
+    </div>
     <div class="bar">${seg('myview', view, [['list', '☰ List'], ['cal', '📅 Calendar']], 'Show')}</div>
     ${view === 'list' ? `<p class="muted" style="font-size:14px;margin:0 0 10px">Tap a shift to swap it or say you can’t work it.</p>
       <div class="clist">${rows || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}</div>
@@ -4661,7 +4668,6 @@ function myShiftsView(){
       ${cal}
       <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span></div>
     </div>`}
-    <div class="holmini"><div><b>🌴 Holiday</b><span>${hs.left} of ${HOLIDAY_DAYS} days left${hs.pending ? ` · ${hs.pending} waiting for approval` : ''}</span></div><button class="btn sm" data-action="holnew">Book holiday</button></div>
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
 /* ---------- Staff: how it all works ---------- */
