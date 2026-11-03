@@ -1695,7 +1695,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .mclose{position:absolute;top:9px;right:9px;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--muted);cursor:pointer;font-size:13px;display:grid;place-items:center;padding:0;z-index:2}
 .avatar{border-radius:50%;object-fit:cover;flex:none;display:inline-block;border:2px solid rgba(255,255,255,.18);background:var(--surface-2)}
 .avatar.ini{display:inline-grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(140deg,#2ee6c8,#1b6f8f)}
-.hello{display:grid;justify-items:center;gap:8px}
+.hello{display:flex;align-items:center;justify-content:center;gap:20px}
+.hello h2{text-align:left;line-height:1.08;margin:0}.hello .hname{display:block;font-size:1.15em}
+.helloav .avatar{border-width:3px;box-shadow:0 6px 22px rgba(0,0,0,.35)}.helloav .addph{width:26px;height:26px;font-size:17px}
 .helloav{position:relative;background:none;border:0;padding:0;cursor:pointer;border-radius:50%}
 .helloav .addph{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#f6c850;color:#1a1300;font-weight:900;font-size:14px;display:grid;place-items:center;line-height:1}
 .profbig{display:grid;justify-items:center;gap:10px;margin:6px 0 16px}
@@ -3337,7 +3339,7 @@ setInterval(() => {
 /* ---------- Home ---------- */
 function homeView(){
   const first = state.user.first_name || ''; const today = todayStr();
-  let h = `<div class="hello"><button class="helloav" data-action="myprofile" aria-label="My profile">${avatar(state.user, 54)}${state.user?.photo_url ? '' : '<span class="addph">+</span>'}</button><h2>${greeting()}${first ? `, ${esc(first)}` : ''}</h2></div>`;
+  let h = `<div class="hello"><h2>${greeting()}${first ? `,<span class="hname">${esc(first)}</span>` : ''}</h2><button class="helloav" data-action="myprofile" aria-label="My profile">${avatar(state.user, 96)}${state.user?.photo_url ? '' : '<span class="addph">+</span>'}</button></div>`;
   const next = state.events[0];
   const nextTxt = next ? `Next: ${next.title}, ${fmtDate(ymd(new Date(next.starts_at)))}` : 'Nothing listed yet';
   if (isAdmin()){
