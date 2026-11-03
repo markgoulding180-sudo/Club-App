@@ -363,3 +363,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - **Day popup**: a teal-bordered **Function Room** box and a violet-bordered **Lounge Bar** box, each listing its bookings with time, name, member/club, "Not confirmed" and "No bar" tags.
 - **No bar needed** tick box on member and club bookings (manager): no bar staff go on the rota for it.
 - **Committee** (What's On access) can add club events with room and times from What's On (+ Add a club event). SQL: `update-committee-bookings.sql`.
+
+## Rota setup (Nov 2026)
+- The rota box says **This rota / Next rota / Future rota: dates** and "Draft · staff can't see it yet" or "✓ Published · staff can see it".
+- While it's a draft, the box holds **1 · Fill from regular shifts**, **2 · Publish rota**, the setup help, and **🌴 Holiday in this rota** (requests to approve/decline, and approved holiday).
+- **A rota can't be published while a holiday request in it is still waiting.** Tapping Publish shows "⚠️ Answer the holiday requests first" with Approve / Decline for each; the database refuses too. SQL: `update-publish-needs-holidays.sql`.
+- Swap history and swap-done alerts for the bosses were removed (`update-remove-swap-alerts.sql`).

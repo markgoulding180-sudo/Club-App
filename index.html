@@ -4634,6 +4634,16 @@ function rotaHolHtml(st){
     ${!inIt.length ? '<span class="muted">No holiday booked or asked for in this rota.</span>' : ''}
     ${pend.length ? '<small class="muted">Approve holiday before you fill the rota, so those days are left free.</small>' : ''}</div>`;
 }
+/* Publishing is blocked until every holiday request in the rota is answered */
+function openHolBlock(st, wait){
+  const end = periodEnd(st); const map = Object.fromEntries((state.ops?.staff || state.profiles || []).map(p => [p.id, p]));
+  state.sheet = { type: 'holblock', start: st };
+  openSheet(`<div class="sheet-h"><div><h2>⚠️ Answer the holiday requests first</h2><p class="muted">The rota for ${periodLabel(st)} can’t be published while these are waiting, so staff know where they stand.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <div class="stack" style="gap:10px">${wait.map(h => { const d = h.days.filter(x => x >= st && x <= end);
+      return `<div class="panel stack" style="gap:8px;padding:12px 14px"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}:</b> ${dayRanges(d)} (${plural(d.length, 'day')})${h.note ? `<br><small class="muted">“${esc(h.note)}”</small>` : ''}</span>
+        <span class="swapbtns"><button class="btn sm" data-action="holblockdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holblockdecide" data-id="${h.id}" data-status="declined">Decline</button></span></div>`; }).join('')}</div>
+    <p class="muted" style="font-size:13px;margin:12px 0 0">When they’re all answered, tap Publish again.</p>`);
+}
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
   const me = state.user.id; const today = todayStr();
@@ -5511,6 +5521,10 @@ function armed(btn){ // tap twice to delete, since the viewer can't show confirm
 }
 const stepMonth = (m, step) => { const x = new Date(m); x.setDate(1); x.setMonth(x.getMonth() + Number(step)); return x; };
 const actions = {
+  holblockdecide: async t => { const st = t.dataset.status; await api.decideHoliday(Number(t.dataset.id), st); toast(st === 'approved' ? 'Approved' : 'Declined');
+    state.holidays = await api.listHolidays(); const ps = state.sheet?.start; const end = ps && periodEnd(ps);
+    const wait = (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= ps && d <= end));
+    if (wait.length) openHolBlock(ps, wait); else { closeSheet(); toast('All answered. You can publish the rota now.'); } refresh(); },
   bkreqjump: () => document.getElementById('bkreqs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   quickmsg: t => openQuickMsg(t.dataset.id),
   sltab: t => { state.slTab = t.dataset.val; render(); },
@@ -5566,7 +5580,10 @@ const actions = {
   openfill: async () => { if (!state.profiles?.length) state.profiles = await api.listProfiles(); state.fillStart = null; openFillRota(); },
   fillperiod: t => { state.fillStart = ymd(addDays(parseYmd(state.fillStart), 28 * Number(t.dataset.step))); openFillRota(); },
   fillrota: t => fillRota(t),
-  publishrota: async t => { const on = t.dataset.on === '1'; if (!on && !armed(t)) return; await api.publishRota(t.dataset.start, on);
+  publishrota: async t => { const on = t.dataset.on === '1'; if (!on && !armed(t)) return;
+    if (on){ const st = t.dataset.start, end = periodEnd(st); const wait = (state.holidays || []).filter(h => h.status === 'pending' && h.days.some(d => d >= st && d <= end));
+      if (wait.length) return openHolBlock(st, wait); }
+    await api.publishRota(t.dataset.start, on);
     toast(on ? 'Rota published. Staff can see it now.' : 'Rota back to draft. Staff can’t see it.'); refresh(); },
   swapdecide: async t => { const yes = t.dataset.yes === '1'; if (!yes && !armed(t)) return; await api.decideSwap(Number(t.dataset.id), yes); toast(yes ? 'Swap approved. The rota is updated.' : 'Swap declined'); refresh(); },
   swapanswer: async t => { const yes = t.dataset.yes === '1'; await api.answerSwap(Number(t.dataset.id), yes); toast(yes ? 'Swapped. The rota is updated.' : 'You said no'); refresh(); },
