@@ -1734,6 +1734,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .tdck input:checked + span::after{content:'✓';display:grid;place-items:center;height:100%;color:#04212a;font-weight:900}
 .conv .ctxt .cyou{font-size:11.5px!important;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a97b5!important}
 .conv .cwait{font-style:normal;font-size:12px;color:#f6c850;margin-top:2px}.conv .cwait.seen{color:#9fb0d0}
+.conv .cdir{display:inline-block;margin-right:6px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#04212a;background:#7ff3df;border-radius:6px;padding:1px 6px;vertical-align:2px}
+.conv .cdir:empty{display:none}
+.conv .cdir.to{background:#aebbd8;color:#101a33}
 </style>
 
 </head>
@@ -5135,7 +5138,7 @@ function boardHtml(){
     .sort((a, b) => (b.last?.created_at || '').localeCompare(a.last?.created_at || ''));
   if (!fr.length) return '<div class="empty">Add friends first, then you can message them here. Messages from the club also show here.</div>';
   return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}">${photoOf(f.other) ? avatarId(f.other, f.first_name, 42) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}
-      <span class="ctxt"><b>${personName(f)}</b>${last?.sender === me ? `<span class="cyou">You sent</span>` : ''}<span class="${last?.sender === me ? 'cmine' : 'ctheirs'}">${last ? esc(last.body) : 'No messages yet. Say hello!'}</span>${last?.sender === me ? `<em class="cwait${last.read_at ? ' seen' : ''}">${last.read_at ? `✓ Seen by ${esc(f.first_name || 'them')} · no reply yet` : `Not seen yet · waiting for ${esc(f.first_name || 'them')} to reply`}</em>` : last ? `<em class="ctap">${last.read_at ? 'Tap to reply ›' : 'New from them · tap to reply ›'}</em>` : ''}</span>
+      <span class="ctxt"><b><span class="cdir ${last?.sender === me ? 'to' : 'from'}">${last?.sender === me ? 'To' : last ? 'From' : ''}</span>${f.club ? `${esc(f.first_name)} · ${esc(f.title || 'Club')}` : `${esc(f.first_name)} ${esc(f.last_initial || '')}${f.last_initial ? '.' : ''}${(() => { const pr = [...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === f.other); const k = pr ? (pr.role === 'staff' ? 'Staff' : (pr.perms || []).length ? 'Committee' : 'Member') : isStaff() ? 'Staff' : ''; return k ? ' · ' + k : ''; })()}`}</b><span class="${last?.sender === me ? 'cmine' : 'ctheirs'}">${last ? esc(last.body) : 'No messages yet. Say hello!'}</span>${last?.sender === me ? `<em class="cwait${last.read_at ? ' seen' : ''}">${last.read_at ? `✓ Seen by ${esc(f.first_name || 'them')} · no reply yet` : `Not seen yet · waiting for ${esc(f.first_name || 'them')} to reply`}</em>` : last ? `<em class="ctap">${last.read_at ? 'Tap to reply ›' : 'New from them · tap to reply ›'}</em>` : ''}</span>
       <span class="cmeta">${last ? `<small>${fmtWhen(last.created_at)}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></button>`).join('')}</div>`;
 }
 const fmtWhen = iso => { const d = new Date(iso); return ymd(d) === todayStr() ? d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString('en-GB', { day:'numeric', month:'short' }); };

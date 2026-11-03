@@ -54,22 +54,42 @@ begin
   insert into public.staff_messages (staff_id, topic, body, status, created_at)
   values (jamie, 'other', 'Could I swap to door on Fridays instead of bar? I''ve done my door badge.', 'new', now() - interval '11 minutes');
 
-  -- 👥 Staff chats
-  if yannika is not null and heather is not null then
-    insert into public.member_messages (sender, recipient, body, created_at)
-    values (yannika, heather, 'Hey Heather, did you leave your black jacket in the staff room? It''s on the hook by the door.', now() - interval '38 minutes');
+  -- 👥 Staff chats, as back-and-forth conversations (older ones already read)
+  -- Adam and Sam: card machine
+  insert into public.member_messages (sender, recipient, body, created_at, read_at) values
+    (adam, sam,   'Sam, the card machine in the Lounge Bar keeps dropping signal.', now() - interval '70 minutes', now() - interval '65 minutes'),
+    (sam,  adam,  'Thanks Adam. Try moving it nearer the till, the signal is better there. I''ll ring the bank tomorrow.', now() - interval '60 minutes', now() - interval '55 minutes'),
+    (adam, sam,   'Moved it, working fine now. Cheers.', now() - interval '50 minutes', now() - interval '45 minutes'),
+    (sam,  adam,  'Great, nice one. Can you keep an eye on it tonight and let me know if it drops again?', now() - interval '9 minutes', null);
+
+  -- Joe and Adam: Carling barrel
+  if joe is not null then
+    insert into public.member_messages (sender, recipient, body, created_at, read_at) values
+      (joe,  adam, 'Adam, how do you change the Carling barrel? I''m on my own Thursday.', now() - interval '80 minutes', now() - interval '75 minutes'),
+      (adam, joe,  'Turn the gas off at the wall first, then twist the coupler off the old keg and onto the new one. Gas back on and pull through till it runs clear.', now() - interval '72 minutes', now() - interval '68 minutes'),
+      (joe,  adam, 'Where are the spare kegs kept?', now() - interval '66 minutes', now() - interval '64 minutes'),
+      (adam, joe,  'Left side of the cellar, behind the Guinness. Shout if you get stuck!', now() - interval '62 minutes', null);
   end if;
+
+  -- Luis and Heather: lift on Friday
   if luis is not null and heather is not null then
-    insert into public.member_messages (sender, recipient, body, created_at)
-    values (luis, heather, 'Heather, are you on Friday? I can give you a lift if you want.', now() - interval '14 minutes');
+    insert into public.member_messages (sender, recipient, body, created_at, read_at) values
+      (luis,    heather, 'Heather, are you on Friday? I can give you a lift if you want.', now() - interval '40 minutes', now() - interval '36 minutes'),
+      (heather, luis,    'Yes please! I start at 6. Could you pick me up at 5:40?', now() - interval '34 minutes', now() - interval '30 minutes'),
+      (luis,    heather, 'No problem, see you at 5:40 outside yours.', now() - interval '13 minutes', null);
   end if;
-  if joe is not null and adam is not null then
-    insert into public.member_messages (sender, recipient, body, created_at)
-    values (joe, adam, 'Adam, how do you change the Carling barrel? I''m on my own Thursday.', now() - interval '26 minutes');
+
+  -- Yannika and Heather: jacket (Heather hasn't replied yet)
+  if yannika is not null and heather is not null then
+    insert into public.member_messages (sender, recipient, body, created_at, read_at) values
+      (yannika, heather, 'Hey Heather, did you leave your black jacket in the staff room? It''s on the hook by the door.', now() - interval '20 minutes', null);
   end if;
-  -- Adam to Sam (manager)
-  insert into public.member_messages (sender, recipient, body, created_at)
-  values (adam, sam, 'Sam, the card machine in the Lounge Bar keeps dropping signal.', now() - interval '7 minutes');
+
+  -- Heather to Sam: no reply yet
+  if heather is not null then
+    insert into public.member_messages (sender, recipient, body, created_at, read_at) values
+      (heather, sam, 'Sam, can I bring my sister to the staff Christmas do?', now() - interval '16 minutes', null);
+  end if;
 
   -- Member: the Secretary to Chloe, and her reply
   if chloe is not null and stuart is not null then
