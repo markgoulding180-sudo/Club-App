@@ -4529,7 +4529,7 @@ function notifItems(){
   const cleared = new Set(lsGet('ncleared-' + uid) || []); const seen = new Set(lsGet('nseen-' + uid) || []); const read = new Set(state.nRead || []);
   const items = [];
   if (isAdmin()){ adminNotifs().forEach(x => { if (!cleared.has(x.key)) items.push({ ...x, unseen: !seen.has(x.key), upd: true }); }); return items; }
-  visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
+  if (!isStaff()) visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
     items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop">${whoP(n.created_by) ? `<span class="mfrom">${avatar(whoP(n.created_by), 30)}</span>` : ''}<b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
   if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
     (state.myUpdates || []).forEach(h => { const key = hashTxt(h); if (cleared.has(key)) return; items.push({ key, unseen: !seen.has(key), upd: true, html: h }); }); }
@@ -5377,7 +5377,7 @@ function myUpdatesHtml(mine){
   (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
   (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'going through'}`, 'swaps'));
   coverCallsForMe().forEach(c => add('act', `<b>📣 Cover needed</b> ${shiftLine(c)}. Can you work it?`, 'swaps'));
-  (state.msgs || []).filter(m => m.staff_id === me && m.reply && (m.replied_at || '').slice(0, 10) >= recent).forEach(m => add('ok', `The manager replied about “${esc(MSG_TOPICS[m.topic] || m.topic)}”`, 'msgs'));
+  if (!isStaff()) (state.msgs || []).filter(m => m.staff_id === me && m.reply && (m.replied_at || '').slice(0, 10) >= recent).forEach(m => add('ok', `The manager replied about “${esc(MSG_TOPICS[m.topic] || m.topic)}”`, 'msgs'));
   (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => add('act', `<b>${esc(pfirst(map[r.staff_id]))} needs a swap</b> for ${shiftLine(r.sh)}. Can you help?`, 'swaps'));
   (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').forEach(r => { const n = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length;
     add(n ? 'act' : 'wait', n ? `<b>${plural(n, 'offer')}</b> for your swap on ${shiftLine(r.sh)}. Pick one.` : `Swap asked for ${shiftLine(r.sh)}: no offers yet`, 'swaps'); });
