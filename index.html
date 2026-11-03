@@ -1716,6 +1716,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .rpline{color:#7ff3df;margin-top:8px!important}.rpline b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:#f6c850}
 .rptxt{color:#7ff3df}.rptxt b{color:#f6c850}
 .bub.me p{color:#bff7ec}.bub.them p{color:#ffffff}
+.conv{align-items:flex-start}.conv .ctxt span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;font-size:14.5px;line-height:1.4}
+.conv .ctxt span.ctheirs{color:#ffffff}.conv .ctxt span.cmine{color:#aebbd8}.conv .ctxt span i{font-style:normal;font-weight:700;color:#8a97b5}
+.conv .ctap{font-style:normal;font-size:12px;color:#7ff3df;margin-top:2px}.conv .cmeta{align-self:flex-start}
 </style>
 
 </head>
@@ -4523,7 +4526,7 @@ function notifItems(){
   const items = [];
   if (isAdmin()){ adminNotifs().forEach(x => { if (!cleared.has(x.key)) items.push({ ...x, unseen: !seen.has(x.key), upd: true }); }); return items; }
   visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
-    items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop"><b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
+    items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop">${whoP(n.created_by) ? `<span class="mfrom">${avatar(whoP(n.created_by), 30)}</span>` : ''}<b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
   if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
     (state.myUpdates || []).forEach(h => { const key = hashTxt(h); if (cleared.has(key)) return; items.push({ key, unseen: !seen.has(key), upd: true, html: h }); }); }
   return items;
@@ -4631,7 +4634,7 @@ async function openNotif(){
   state.sheet = { type: 'notif' };
   const ns = items.filter(x => !x.upd), us = items.filter(x => x.upd);
   openSheet(`<div class="sheet-h"><div><h2>🔔 Notifications</h2><p class="muted">${items.length ? 'Tap ✕ to clear one.' : 'You’re all caught up.'}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    ${ns.length ? `<div class="isub">${isStaff() ? 'From the manager' : 'From the club'}</div>${ns.map(x => `<div class="nitem${x.unseen ? ' new' : ''}">${x.html}<button class="nx" data-action="nclear" data-key="${x.key}" aria-label="Clear">✕</button></div>`).join('')}` : ''}
+    ${ns.length ? `<div class="isub">${isStaff() ? 'From the manager, secretary and club' : 'From the club'}</div>${ns.map(x => `<div class="nitem${x.unseen ? ' new' : ''}">${x.html}<button class="nx" data-action="nclear" data-key="${x.key}" aria-label="Clear">✕</button></div>`).join('')}` : ''}
     ${us.length ? `<div class="isub">Your shifts</div>${us.map(x => `<div class="nitem upd${x.unseen ? ' new' : ''}">${x.html}<button class="nx" data-action="nclear" data-key="${x.key}" aria-label="Clear">✕</button></div>`).join('')}` : ''}
     ${!items.length ? '<div class="empty">No notifications. When the club or the manager sends you something, it shows here.</div>' : `<button class="linkbtn" data-action="nclearall" style="margin-top:6px">Clear all</button>`}`);
   render();
@@ -5095,7 +5098,7 @@ function boardHtml(){
     .sort((a, b) => (b.last?.created_at || '').localeCompare(a.last?.created_at || ''));
   if (!fr.length) return '<div class="empty">Add friends first, then you can message them here. Messages from the club also show here.</div>';
   return `<div class="list">${convs.map(({ f, last, unread }) => `<button class="conv${unread ? ' new' : ''}${f.club ? ' club' : ''}" data-action="dmopen" data-id="${f.other}">${photoOf(f.other) ? avatarId(f.other, f.first_name, 42) : `<span class="av">${f.club ? '🏛' : esc((f.first_name || '?')[0])}</span>`}
-      <span class="ctxt"><b>${personName(f)}</b><span>${last ? `${last.sender === me ? 'You: ' : ''}${esc(last.body.slice(0, 70))}${last.body.length > 70 ? '…' : ''}` : 'No messages yet. Say hello!'}</span></span>
+      <span class="ctxt"><b>${personName(f)}</b><span class="${last?.sender === me ? 'cmine' : 'ctheirs'}">${last ? `${last.sender === me ? '<i>You:</i> ' : ''}${esc(last.body)}` : 'No messages yet. Say hello!'}</span><em class="ctap">${last && last.sender !== me ? 'Tap to reply ›' : 'Tap to open ›'}</em></span>
       <span class="cmeta">${last ? `<small>${fmtWhen(last.created_at)}</small>` : ''}${unread ? `<span class="badge">${unread}</span>` : ''}</span></button>`).join('')}</div>`;
 }
 const fmtWhen = iso => { const d = new Date(iso); return ymd(d) === todayStr() ? d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : d.toLocaleDateString('en-GB', { day:'numeric', month:'short' }); };
