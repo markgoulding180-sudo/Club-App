@@ -1719,6 +1719,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .conv{align-items:flex-start}.conv .ctxt span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;font-size:14.5px;line-height:1.4}
 .conv .ctxt span.ctheirs{color:#ffffff}.conv .ctxt span.cmine{color:#aebbd8}.conv .ctxt span i{font-style:normal;font-weight:700;color:#8a97b5}
 .conv .ctap{font-style:normal;font-size:12px;color:#7ff3df;margin-top:2px}.conv .cmeta{align-self:flex-start}
+.fmhead{margin:-8px 0 12px;font-weight:700;color:var(--muted)}
+.fmtabs{display:flex;gap:8px;margin-bottom:16px}.fmtab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 6px;border-radius:14px;border:1px solid var(--edge);background:rgba(20,30,62,.6);color:var(--ink);font-weight:800;font-size:15.5px;cursor:pointer}
+.fmtab.on{background:linear-gradient(140deg,#2ee6c8,#1fb8d6);color:#04212a;border-color:transparent}
+.fmnew{white-space:nowrap;background:#f6c850;color:#1a1300;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900}
 </style>
 
 </head>
@@ -3396,12 +3400,11 @@ function homeView(){
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
       + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
-      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from the manager, secretary and other staff are in <b>Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem, and <b>Message staff</b> to chat with colleagues.</p>
+      <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from management and other staff are in <b>Your Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
       <div class="tiles">
         ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
-        ${(() => { const c = (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; const n = fromMgr().filter(x => x.isNew).length + c; return `<button class="tile" data-action="go" data-view="frommgr"><span class="ic">${ICONS.bell}</span><b>Messages</b><span class="sub">${n ? `<span class="whochips">${c ? `<span class="whochip">💬 Chat <b>${c}</b></span>` : ''}${whoChips(fromMgr())}</span>` : 'Chats, and from the manager, secretary and staff'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
+        ${(() => { const n = fromMgr().filter(x => x.isNew).length + (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="yourmsgs"><span class="ic">${ICONS.bell}</span><b>Your Messages</b><span class="sub">From management and staff</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
-        <button class="tile" data-action="staffdm"><span class="ic">${ICONS.chat}</span><b>Message staff</b><span class="sub">Start a chat with staff or the manager. Replies show in Messages.</span></button>
       </div>`;
     return h;
   }
@@ -4730,9 +4733,9 @@ const whoP = uid => (state.officers || []).find(x => x.id === uid);
 const whoOf = uid => { const o = (state.officers || []).find(x => x.id === uid); const t = (o?.title || '').toLowerCase();
   return /secretary/.test(t) ? 'secretary' : /manager/.test(t) ? 'manager' : o ? 'club' : 'manager'; };
 function fromMgr(){
-  const me = state.user?.id; if (!me) return []; const seen = lsGet('mgrseen-' + me) || ''; const recent = new Date(Date.now() - 14 * 864e5).toISOString();
+  const me = state.user?.id; if (!me) return []; const seen = lsGet('mgrseen-' + me) || '', seenS = lsGet('stfseen-' + me) || ''; const recent = new Date(Date.now() - 14 * 864e5).toISOString();
   const out = []; const hid = new Set(state.hidden || []); let key = '';
-  let from = null; const add = (who, when, icon, title, body, tone, go) => { if (hid.has(key)) return; out.push({ key, from, who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > seen && (when || '') > recent }); from = null; };
+  let from = null; const add = (who, when, icon, title, body, tone, go) => { if (hid.has(key)) return; out.push({ key, from, who, when: when || '', icon, title, body, tone, go, isNew: (when || '') > (who === 'staff' ? seenS : seen) && (when || '') > recent }); from = null; };
   const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const nm = id => esc(pfirst(map[id]) || 'A colleague');
   (state.holidays || []).filter(h => h.staff_id === me && ['approved', 'declined'].includes(h.status)).forEach(h => (key = 'h' + h.id) && ((from = whoP(h.decided_by)), 1) &&
     add(h.decided_by ? whoOf(h.decided_by) : 'manager', h.decided_at || h.created_at, h.status === 'approved' ? '🌴' : '❌', `Holiday ${dayRanges(h.days)}: ${h.status === 'approved' ? 'approved' : 'declined'}`, h.admin_note || (h.status === 'approved' ? 'Enjoy your time off.' : ''), h.status === 'approved' ? 'ok' : 'no'));
@@ -4751,17 +4754,24 @@ function fromMgr(){
 const whoChips = items => { const c = {}; items.filter(x => x.isNew).forEach(x => c[x.who] = (c[x.who] || 0) + 1);
   return Object.keys(WHO).filter(k => c[k]).map(k => `<span class="whochip">${WHO[k][0]} ${WHO[k][1]} <b>${c[k]}</b></span>`).join(''); };
 function fromMgrView(){
-  const items = fromMgr();
-  try { localStorage.setItem('mgrseen-' + state.user.id, JSON.stringify(new Date().toISOString())); } catch(e){}
-  const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id);
-  if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); }
-  const chats = (state.inbox || []).length ? `<div class="whohead">💬 Chats</div>${boardHtml()}` : '';
-  return page('Messages', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Chats with other staff, and messages from the manager, the secretary and the club: holiday and can’t-work answers, replies, notices and swaps.</p>
-    ${chats}
-    ${Object.keys(WHO).filter(k => items.some(x => x.who === k)).map(k => `<div class="whohead">${WHO[k][0]} From ${k === 'staff' ? 'other staff' : k === 'club' ? 'the club' : 'the ' + WHO[k][1].toLowerCase()}</div>
-      <div class="stack" style="gap:10px">${items.filter(x => x.who === k).map(x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body?.you ? `<p class="myline"><b>You</b>${esc(x.body.you)}</p><p class="rpline"><b>${x.body.by ? esc(pfirst(x.body.by)) : 'Reply'}</b>${esc(x.body.reply)}</p>` : x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`).join('')}</div>`).join('')
-      || '<div class="empty">No messages yet.</div>'}
-    <div class="msgbtns" style="margin-top:16px"><button class="btn ghost" data-action="msgstart">✉ Message the manager</button><button class="btn ghost" data-action="staffdm">💬 Message staff</button></div>`;
+  const items = fromMgr(); const me = state.user.id; const tab = state.fmTab === 'staff' ? 'staff' : 'mgmt';
+  const unreadChats = (state.inbox || []).filter(m => m.recipient === me && !m.read_at).length;
+  const nM = items.filter(x => x.who !== 'staff' && x.isNew).length, nS = items.filter(x => x.who === 'staff' && x.isNew).length + unreadChats;
+  try { localStorage.setItem((tab === 'staff' ? 'stfseen-' : 'mgrseen-') + me, JSON.stringify(new Date().toISOString())); } catch(e){}
+  if (tab === 'mgmt'){ const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id);
+    if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); } }
+  const card = x => `<div class="mgrmsg ${x.tone}${x.isNew ? ' new' : ''}" ${x.go ? `role="button" data-action="go" data-view="${x.go}"` : ''}><button class="mclose" data-action="hidemsg" data-key="${x.key}" aria-label="Close this message">✕</button><div class="mrow">${x.from ? avatar(x.from, 46) : `<span class="avatar ini wic" style="width:46px;height:46px">${WHO[x.who]?.[0] || '💬'}</span>`}<div class="mtext"><div class="mby"><b>${x.from ? esc(pfirst(x.from)) : esc(WHO[x.who]?.[1] || 'The club')}</b>${x.from ? `<span>${esc(x.from.title || (x.who === 'staff' ? 'Staff' : WHO[x.who]?.[1] || ''))}</span>` : ''}<small>${x.when ? fmtWhen(x.when) : ''}</small></div><b class="mtitle">${x.icon} ${x.title}</b>${x.body?.you ? `<p class="myline"><b>You</b>${esc(x.body.you)}</p><p class="rpline"><b>${x.body.by ? esc(pfirst(x.body.by)) : 'Reply'}</b>${esc(x.body.reply)}</p>` : x.body ? `<p>${esc(x.body)}</p>` : ''}</div></div></div>`;
+  const tabBtn = (k, label, n) => `<button class="fmtab${tab === k ? ' on' : ''}" data-action="fmtab" data-val="${k}">${label}${n ? `<span class="fmnew">${n} new</span>` : ''}</button>`;
+  let body;
+  if (tab === 'mgmt'){ const list = items.filter(x => x.who !== 'staff');
+    body = `<div class="stack" style="gap:10px">${list.map(card).join('') || '<div class="empty">No messages from management.</div>'}</div>
+      <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`; }
+  else { const list = items.filter(x => x.who === 'staff');
+    body = `${(state.inbox || []).length ? boardHtml() : '<div class="empty">No chats yet.</div>'}
+      ${list.length ? `<div class="stack" style="gap:10px;margin-top:10px">${list.map(card).join('')}</div>` : ''}
+      <button class="btn ghost" data-action="staffdm" style="width:100%;margin-top:16px">💬 Message staff</button>`; }
+  return page('Your Messages', '', ['hub', 'Home']) + `<p class="fmhead">Messages from Management and Staff</p>
+    <div class="fmtabs">${tabBtn('mgmt', 'Management', nM)}${tabBtn('staff', 'Staff', nS)}</div>${body}`;
 }
 /* Profile photos: a round photo, or the first letter when there isn't one */
 const photoOf = id => { if (!id) return null; if (state.user?.id === id) return state.user.photo_url || null;
@@ -5676,6 +5686,8 @@ const actions = {
   bkreqjump: () => document.getElementById('bkreqs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   quickmsg: t => openQuickMsg(t.dataset.id),
   staffdm: () => openStaffDm(),
+  fmtab: t => { state.fmTab = t.dataset.val; render(); },
+  yourmsgs: () => go('frommgr', { fmTab: 'mgmt' }),
   dmto: t => { const id = t.dataset.id; const p = [...(state.officers || []), ...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === id); if (!p) return; state.contacts ||= [];
     if (!state.contacts.some(c => c.id === id)) state.contacts.push({ id, first_name: p.first_name, last_initial: p.last_initial || (p.last_name || '').slice(0, 1), title: p.title, is_club: msgKind(p) !== 'staff' && !!p.title, photo_url: p.photo_url });
     openDm(id); },
@@ -5794,7 +5806,7 @@ const actions = {
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
   offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
-  secjump: t => { if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr'); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
+  secjump: t => { if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr', { fmTab: 'mgmt' }); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
