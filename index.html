@@ -1781,6 +1781,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covlist{padding:0 12px 12px;display:grid;gap:8px}.covitem{background:rgba(9,14,32,.55);border:1px solid rgba(255,138,61,.35);border-radius:14px;padding:12px}
 .covwhen{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.covwhen b{font-size:16px}.covwhen span{color:var(--muted);font-size:13.5px}.covwhen em{font-style:normal;background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:900}
 .covbtns{display:flex;gap:8px;margin-top:10px}.covbtns .btn{flex:1}.covnote{margin:2px 4px 0;font-size:12.5px;color:var(--muted)}
+.askall{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid rgba(255,138,61,.6);background:rgba(255,138,61,.1);border-radius:14px;padding:12px 14px;margin:0 0 12px}
+.askall > div{display:grid;gap:2px}.askall b{color:#ffb27a}.askall span{color:var(--muted);font-size:13px}.askall.ok{border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.08);color:#7ee8a8;font-weight:700}
 </style>
 
 </head>
@@ -2057,6 +2059,7 @@ const ROTA_ANCHOR = '2026-11-02'; const CW_NOTICE_DAYS = 2, CW_MAX = 2;
 const periodStart = ds => { const a = parseYmd(ROTA_ANCHOR); const n = Math.floor(Math.round((parseYmd(ds) - a) / 864e5) / 28); return ymd(addDays(a, n * 28)); };
 const adminRotaStart = () => state.rotaStart || periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr());
 const periodEnd = st => ymd(addDays(parseYmd(st), 27));
+const periodDays = st => rangeDays(st, periodEnd(st));
 const isPublished = (ds, periods = state.periods || []) => ds < ROTA_ANCHOR || periods.some(p => p.start_date === periodStart(ds) && p.published_at);
 const periodLabel = st => `${fmtDate(st, { day:'numeric', month:'short' })} – ${fmtDate(periodEnd(st), { day:'numeric', month:'short', year:'numeric' })}`;
 const shiftLine = x => x ? `${fmtDate(x.shift_date, { weekday:'short', day:'numeric', month:'short' })} ${x.session === 'day' ? 'daytime' : 'evening'} · ${JOBS[x.job]}` : 'a shift';
@@ -3879,6 +3882,22 @@ function coverStatusHtml(){
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
       <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; }).join('')}</div>`;
 }
+/* Gaps still to fill on a rota, from today on: one entry per shift (day · session · job) with how many people */
+function rotaGapList(days){
+  const today = todayStr(); const out = [];
+  days.filter(ds => ds >= today).forEach(ds => dayInfo(ds, state.ops).sessions.forEach(x => JOB_ORDER.forEach(job => {
+    const short = Math.max(0, (x.need[job] || 0) - (x.have[job] || 0)); if (short) out.push({ ds, sess: x.sess, job, short }); })));
+  return out;
+}
+function askAllHtml(days){
+  if (!featOn('cover')) return '';
+  const gaps = rotaGapList(days); if (!gaps.length) return `<div class="askall ok">✓ Every shift on this rota is filled from today on.</div>`;
+  const open = c => (state.covers || []).some(x => x.status === 'open' && x.shift_date === c.ds && x.session === c.sess && x.job === c.job);
+  const asked = gaps.filter(open), todo = gaps.filter(c => !open(c));
+  const ppl = a => a.reduce((n, c) => n + c.short, 0);
+  return `<div class="askall"><div><b>📣 ${plural(ppl(gaps), 'person', 'people')} still needed on this rota</b><span>${plural(gaps.length, 'shift')} from today on${asked.length ? ` · ${plural(asked.length, 'shift')} already asked` : ''}</span></div>
+    ${todo.length ? `<button class="btn sm" data-action="askall" data-days="${days[0]}">Ask everyone for ${todo.length === gaps.length ? 'all' : `the other ${todo.length}`}</button>` : `<button class="btn ghost sm" data-action="go" data-view="covers">See answers</button>`}</div>`;
+}
 function coverLineHtml(){
   if (!canArea('rota')) return '';
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
@@ -3972,6 +3991,7 @@ function rotaView(){
     h += `<div class="pbar ${pub ? 'pub' : 'draft'}"><div><b>${admin ? rotaWhich(pst) + ': ' : 'Rota '}${periodLabel(pst)}</b><span>${admin ? (pub ? '✓ Published · staff can see it' : 'Draft · staff can’t see it yet') : `Week ${wk} of 4 · ${pub ? 'published' : 'not published yet'}`}</span></div>
       ${admin ? (pub ? `<button class="btn ghost sm" data-action="publishrota" data-start="${pst}" data-on="0">Unpublish</button>` : `<div class="pbtns"><button class="btn sm" data-action="openfill">1 · Fill from regular shifts</button><button class="btn sm gold" data-action="publishrota" data-start="${pst}" data-on="1">2 · Publish rota</button></div>`) : ''}${admin && !pub ? `<p class="pbhelp">To set up this rota: <b>1</b> fill it from everyone’s regular shifts, fill any gaps below, then <b>2</b> publish it so staff can see it. Regular days are set on each person in Staff.</p>${rotaHolHtml(pst)}` : ''}</div>`;
   }
+  if (admin && inPeriods && pub) h += askAllHtml(periodDays(pst));
   if (!admin && inPeriods && !pub) return h + `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>
     <div class="empty">The rota for ${periodLabel(pst)} hasn’t been published yet. You’ll see it here once the manager publishes it. Mark any days you’re unavailable in My shifts before then.</div>`;
   h += admin ? `<div class="bar">${stepper('rotaweek', `Rota ${periodLabel(ymd(ws))}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">Current rota</button></div>
@@ -6087,6 +6107,10 @@ const actions = {
   rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)), rotaStart: isAdmin() ? periodStart(ds) : state.rotaStart }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
   cwallow: async t => { const ex = t.dataset.ex === '1' || !!document.getElementById('cwex-' + t.dataset.id)?.checked; await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
     toast(ex ? 'Let off: special circumstances. Now pick someone to cover.' : 'Let off. It goes on their record. Now pick someone to cover.'); refresh(); },
+  askall: async t => { const st = periodStart(t.dataset.days); const todo = rotaGapList(periodDays(st)).filter(c => !(state.covers || []).some(x => x.status === 'open' && x.shift_date === c.ds && x.session === c.sess && x.job === c.job));
+    t.disabled = true; t.textContent = 'Asking…'; let n = 0;
+    for (const c of todo){ try { await api.askCover({ shift_date: c.ds, session: c.sess, job: c.job, needed: c.short }); n++; } catch(e){} }
+    toast(`Asked everyone who could work them: ${plural(n, 'shift')}. Answers show on Cover requests.`); refresh(); },
   askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
   coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('Thanks! You said yes. The manager will let you know if you get it.'); refresh(); },
