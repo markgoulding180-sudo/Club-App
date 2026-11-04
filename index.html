@@ -1772,6 +1772,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .fsw input:focus-visible + span{outline:2px solid #f6c850;outline-offset:2px}
 .fbody{padding:0 16px 14px;font-size:14px}.fbody p{margin:0 0 8px;color:var(--muted)}.fbody ul{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
 #testBar{position:sticky;top:0;z-index:50;background:#ff8a3d;color:#1a0d00;font-weight:900;font-size:13px;text-align:center;padding:6px 10px}
+.cvneed{background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900}
 </style>
 
 </head>
@@ -2243,7 +2244,7 @@ function makeSupabaseApi(){
     async sendMessage(m){ const r = await sb.from('staff_messages').insert(m); if (r.error && /staff_messages/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); ok(r); },
     async updateMessage(id, patch){ ok(await sb.from('staff_messages').update(patch).eq('id', id)); },
     async listCoverCalls(){ const r = await sb.from('cover_calls').select('*').eq('status', 'open'); return r.error ? [] : r.data; },
-    async askCover(c){ const r = await sb.from('cover_calls').insert(c); if (r.error && /cover_calls/.test(r.error.message) && !/duplicate/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); if (r.error && /duplicate/.test(r.error.message)) throw new Error('Everyone has already been asked to cover this shift.'); },
+    async askCover(c){ let r = await sb.from('cover_calls').insert(c); if (r.error && /needed/.test(r.error.message)){ const { needed, ...rest } = c; r = await sb.from('cover_calls').insert(rest); } if (r.error && /cover_calls/.test(r.error.message) && !/duplicate/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); if (r.error && /duplicate/.test(r.error.message)) throw new Error('Everyone has already been asked to cover this shift.'); },
     async cancelCover(id){ ok(await sb.from('cover_calls').update({ status: 'cancelled' }).eq('id', id)); },
     async passCover(d, sess, job){ ok(await sb.rpc('staff_pass_cover', { d, sess, j: job })); },
     async listSwapRequests(){ const r = await sb.from('swap_requests').select('*, sh:shifts(shift_date,session,job,staff_id)').gte('created_at', new Date(Date.now() - 45 * 864e5).toISOString()).order('created_at'); return r.error ? [] : r.data; },
@@ -2622,8 +2623,10 @@ function makeDemoApi(){
       s.shifts.push({ id: nextId(), shift_date: o.shift_date, session: o.session, job: o.job, staff_id: o.staff_id, status: 'assigned', reason: null, covered: false });
       const cw = s.shifts.find(x => x.shift_date === o.shift_date && x.session === o.session && x.job === o.job && PROBLEM.includes(x.status) && !x.covered);
       if (cw){ cw.covered = true; if (cw.status === 'cannot_work') cw.decision = 'approved'; }
-      o.status = 'accepted'; s.offers.filter(x => x.id !== o.id && x.status === 'offered' && x.shift_date === o.shift_date && x.session === o.session && x.job === o.job).forEach(x => x.status = 'declined');
-      (s.covers || []).filter(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job).forEach(c => c.status = 'filled'); save(); },
+      o.status = 'accepted'; const call = (s.covers || []).find(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job);
+      if (call && (call.needed || 1) > 1){ call.needed -= 1; save(); return; }
+      s.offers.filter(x => x.id !== o.id && x.status === 'offered' && x.shift_date === o.shift_date && x.session === o.session && x.job === o.job).forEach(x => x.status = 'declined');
+      if (call) call.status = 'filled'; save(); },
     async publishRota(start, on){ const p = s.periods.find(p => p.start_date === start); const v = on ? new Date().toISOString() : null; if (p) p.published_at = v; else s.periods.push({ start_date: start, published_at: v }); save(); },
     async listSwaps(){ const me = meU(); const sh = id => { const x = s.shifts.find(y => y.id === id); return x ? { shift_date: x.shift_date, session: x.session, job: x.job } : null; };
       return s.swaps.filter(w => me?.role === 'admin' || w.from_staff === s.session || w.to_staff === s.session).map(w => ({ ...w, a: sh(w.from_shift), b: sh(w.to_shift) })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
@@ -3861,7 +3864,7 @@ function coverStatusHtml(){
     const answered = new Set(offs.map(o => o.staff_id));
     const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !answered.has(p.id));
     const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
-    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span></div>
+    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span>${(c.needed || 1) > 1 ? `<span class="cvneed">${c.needed} people needed</span>` : ''}</div>
       ${yes.length ? `<div class="cvl"><span class="cvlab ok">✓ Said yes</span>${yes.map(o => `<span class="cvyes">${chip(map[o.staff_id] || {}, 'ok')}<button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></span>`).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
@@ -3878,13 +3881,14 @@ function coverView(){
   return page('Cover requests', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Shifts you’ve asked everyone to cover. See who said yes, who said no, and who hasn’t answered yet.</p>`
     + (body || '<div class="empty">No cover requests open. Ask from a gap on the Rota with “📣 Ask everyone to cover”.</div>');
 }
-function coverAskHtml(ds, sess, job, offs){
+function coverAskHtml(ds, sess, job, offs, gaps = 1){
   if (ds < todayStr()) return '';
   const call = (state.covers || []).find(c => c.status === 'open' && c.shift_date === ds && c.session === sess && c.job === job);
-  if (!call) return `<div class="covask"><button class="btn ghost sm" data-action="askcover" data-date="${ds}" data-sess="${sess}" data-job="${job}">📣 Ask everyone to cover</button></div>`;
+  if (!call) return `<div class="covask"><button class="btn ghost sm" data-action="askcover" data-date="${ds}" data-sess="${sess}" data-job="${job}" data-need="${gaps}">📣 Ask everyone to cover${gaps > 1 ? ` · ${gaps} people needed` : ''}</button></div>`;
   const yes = (state.offers || []).filter(o => o.status === 'offered' && o.shift_date === ds && o.session === sess && o.job === job).length;
   const no = (state.offers || []).filter(o => o.status === 'passed' && o.shift_date === ds && o.session === sess && o.job === job).length;
-  return `<div class="covask on"><span>📣 Everyone who could work it has been asked · <b>${yes} yes</b> · ${no} no${yes ? ' · pick one below' : ''}</span><button class="linkbtn" data-action="cancelcover" data-id="${call.id}">Stop asking</button></div>`;
+  const need = call.needed || 1;
+  return `<div class="covask on"><span>📣 Asked everyone for <b>${plural(need, 'person', 'people')}</b> · <b>${yes} yes</b> · ${no} no${yes ? ` · pick ${need > 1 ? 'up to ' + need : 'one'} below` : ''}</span><button class="linkbtn" data-action="cancelcover" data-id="${call.id}">Stop asking</button></div>`;
 }
 function offerBtn(ds, sess, job){
   const me = state.user.id; const mine = (state.offers || []).find(o => o.staff_id === me && o.status === 'offered' && o.shift_date === ds && o.session === sess && o.job === job);
@@ -3895,7 +3899,7 @@ function offerBtn(ds, sess, job){
   return `<button class="btn sm" data-action="offershift" data-date="${ds}" data-sess="${sess}" data-job="${job}">I can work this</button>`;
 }
 function slotsHtml(ds, x){
-  const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = ''; const offered = {};
+  const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = ''; const offered = {}; const askShown = {};
   for (const job of JOB_ORDER){
     const on = x.on.filter(s => jobOf(s) === job); const probs = x.problems.filter(s => jobOf(s) === job);
     const n = Math.max(x.need[job], on.length); let c = 0;
@@ -3912,7 +3916,7 @@ function slotsHtml(ds, x){
           ${admin && p.status === 'cannot_work' && !p.decision ? `<div class="cwdecide"><span>Your decision:</span><button class="btn sm" data-action="cwallow" data-id="${p.id}" data-ex="0">Allow · goes on record</button><button class="btn ghost sm" data-action="cwallow" data-id="${p.id}" data-ex="1">Allow · special circumstances</button><button class="btn ghost sm" data-action="cwdecline" data-id="${p.id}">Decline</button></div>` : ''}</div>`;
         const offs = offered[job] ? [] : (state.offers || []).filter(o => o.status === 'offered' && o.shift_date === ds && o.session === x.sess && o.job === job); offered[job] = true;
         h += `<div class="slot gap${p ? ' cover' : ''}"><span class="job">${p ? 'Cover' : label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side">${admin ? '' : offerBtn(ds, x.sess, job)}</span>
-          ${admin ? coverAskHtml(ds, x.sess, job, offs) : ''}
+          ${admin && !askShown[job] && (askShown[job] = true) ? coverAskHtml(ds, x.sess, job, offs, Math.max(1, n - on.length)) : ''}
           ${admin && offs.length ? `<div class="offers">${offs.map(o => `<div class="offer"><span>✋ <b>${esc(pname(map[o.staff_id]))}</b> offered to work this</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></div>`).join('')}</div>` : ''}</div>`;
       }
     }
@@ -5147,7 +5151,7 @@ function coverCallsForMe(){
 }
 function coverCardsHtml(){
   return coverCallsForMe().map(c => `<div class="covcard"><span class="tagk" style="color:var(--amber)">📣 The manager needs cover</span><b style="font-size:17px">${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session).join('–')}</span>
-    <p class="sq">Can you work it? The manager picks from everyone who says yes.</p>
+    <p class="sq">${(c.needed || 1) > 1 ? `<b>${c.needed} people needed.</b> ` : ''}Can you work it? The manager picks from everyone who says yes.</p>
     <div class="bar" style="margin:0"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">Yes, I can work it</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`).join('');
 }
 function swapCounts(){
@@ -6061,7 +6065,7 @@ const actions = {
   rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)), rotaStart: isAdmin() ? periodStart(ds) : state.rotaStart }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
   cwallow: async t => { const ex = t.dataset.ex === '1' || !!document.getElementById('cwex-' + t.dataset.id)?.checked; await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
     toast(ex ? 'Let off: special circumstances. Now pick someone to cover.' : 'Let off. It goes on their record. Now pick someone to cover.'); refresh(); },
-  askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
+  askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
   coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks! The manager will let you know.'); refresh(); },
   coverno: async t => { await api.passCover(t.dataset.date, t.dataset.sess, t.dataset.job); toast('No problem'); refresh(); },
