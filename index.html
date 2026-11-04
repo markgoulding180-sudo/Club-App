@@ -4818,8 +4818,8 @@ function coverBoxHtml(){
 function myAttention(sc){
   const notes = notifItems().filter(x => x.unseen && !/Cover needed|new messages/.test(x.html || '')).length;
   const items = [];
-  if (sc.mine) items.push(`<button data-action="go" data-view="swaps">🔄 You have <b>${plural(sc.mine, 'offer')}</b> to swap a shift. Tap to pick one.</button>`);
-  if (sc.help) items.push(`<button data-action="go" data-view="swaps">🙋 <b>${plural(sc.help, 'colleague needs', 'colleagues need')}</b> a swap. Can you help?</button>`);
+  if (sc.mine && featOn('swaps')) items.push(`<button data-action="go" data-view="swaps">🔄 You have <b>${plural(sc.mine, 'offer')}</b> to swap a shift. Tap to pick one.</button>`);
+  if (sc.help && featOn('swaps')) items.push(`<button data-action="go" data-view="swaps">🙋 <b>${plural(sc.help, 'colleague needs', 'colleagues need')}</b> a swap. Can you help?</button>`);
   if (notes) items.push(`<button data-action="opennotif">🔔 You have <b>${plural(notes, 'shift update')}</b>. Tap to see.</button>`);
   const cov = coverBoxHtml();
   return cov + (items.length ? `<div class="attn has">${items.join('')}</div>` : cov ? '' : `<div class="attn">✅ Nothing needs your attention on your shifts.</div>`);
