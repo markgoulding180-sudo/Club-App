@@ -4642,7 +4642,7 @@ function notifItems(){
   if (isAdmin()){ adminNotifs().forEach(x => { if (!cleared.has(x.key)) items.push({ ...x, unseen: !seen.has(x.key), upd: true }); }); return items; }
   if (!isStaff()) visibleNotices().forEach(n => { const key = 'n' + n.id; if (cleared.has(key)) return;
     items.push({ key, unseen: !read.has(n.id), when: n.created_at, html: `<div class="ntop">${whoP(n.created_by) ? `<span class="mfrom">${avatar(whoP(n.created_by), 30)}</span>` : ''}<b>${esc(n.title)}</b><small>${fmtWhen(n.created_at)}${n.to_user ? ' · just to you' : ''}</small></div><p>${esc(n.body)}</p>${n.job_id ? '<button class="btn sm" data-action="go" data-view="jobs">See the job</button>' : ''}` }); });
-  if (isStaff()){ const fm = fromMgr().filter(x => x.isNew), ch = (state.inbox || []).filter(m => m.recipient === uid && !m.read_at), cv = state.covers ? coverCallsForMe() : []; const n = fm.length + ch.length + cv.length;
+  if (isStaff()){ const fm = fromMgr().filter(x => x.isNew), ch = (state.inbox || []).filter(m => m.recipient === uid && !m.read_at), cv = []; const n = fm.length + ch.length;  // cover requests already have their own line in the bell
     if (n){ const last = [...fm.map(x => x.when), ...ch.map(m => m.created_at)].sort().pop() || ''; const key = 'newmsgs-' + last;
       if (!cleared.has(key)) items.push({ key, unseen: !seen.has(key), upd: true, html: `<button class="upd act" data-action="yourmsgs"><span>${cv.length ? '⚠️ <b>The manager needs cover.</b> Check Your Messages.' : '💬 <b>You have new messages.</b> Check Your Messages.'}</span><i aria-hidden="true">›</i></button>` }); } }
   if (isStaff() && state.ops){ const today = todayStr(); myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === uid && s.shift_date >= today));
