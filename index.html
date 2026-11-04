@@ -1774,6 +1774,13 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 #testBar{position:sticky;top:0;z-index:50;background:#ff8a3d;color:#1a0d00;font-weight:900;font-size:13px;text-align:center;padding:6px 10px}
 .cvneed{background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900}
 .covupd{display:block!important;cursor:default}.covupd .bar .btn{flex:1}
+.covbox{border:2px solid #ff8a3d;border-radius:18px;background:rgba(255,138,61,.1);margin:0 0 14px;overflow:hidden}
+.covhd{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:none;border:0;color:var(--ink);text-align:left;cursor:pointer}
+.covhd .cvic{font-size:24px}.covhd > span:nth-child(2){flex:1;display:grid;gap:2px}.covhd b{font-size:17px;color:#ffb27a}.covhd small{color:var(--ink);font-size:14px}
+.covhd .cvn{background:#ff8a3d;color:#1a0d00;font-weight:900;border-radius:999px;min-width:26px;height:26px;display:grid;place-items:center;font-size:14px}.covhd i{font-style:normal;color:#ffb27a}
+.covlist{padding:0 12px 12px;display:grid;gap:8px}.covitem{background:rgba(9,14,32,.55);border:1px solid rgba(255,138,61,.35);border-radius:14px;padding:12px}
+.covwhen{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.covwhen b{font-size:16px}.covwhen span{color:var(--muted);font-size:13.5px}.covwhen em{font-style:normal;background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:900}
+.covbtns{display:flex;gap:8px;margin-top:10px}.covbtns .btn{flex:1}.covnote{margin:2px 4px 0;font-size:12.5px;color:var(--muted)}
 </style>
 
 </head>
@@ -3481,8 +3488,8 @@ function homeView(){
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
       <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from management and other staff are in <b>Your Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
       <div class="tiles">
-        ${tile('check', 'My shifts', `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen)}
-        ${(() => { const n = fromMgr().filter(x => x.isNew).length + coverCallsForMe().length + (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="yourmsgs"><span class="ic">${ICONS.bell}</span><b>Your Messages</b><span class="sub">From management and staff</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
+        ${tile('check', 'My shifts', featOn('cover') && coverCallsForMe().length ? `📣 ${plural(coverCallsForMe().length, 'cover request')} to answer` : `${plural(mine.length, 'shift')} coming up · swaps · holiday`, 'myshifts', swapCounts().unseen + (featOn('cover') ? coverCallsForMe().length : 0))}
+        ${(() => { const n = fromMgr().filter(x => x.isNew).length + (state.inbox || []).filter(m => m.recipient === state.user.id && !m.read_at).length; return `<button class="tile" data-action="yourmsgs"><span class="ic">${ICONS.bell}</span><b>Your Messages</b><span class="sub">From management and staff</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
         <button class="tile" data-action="msgstart"><span class="ic">${ICONS.mail}</span><b>Message the manager</b><span class="sub">Ill, can’t work, a problem or a complaint</span></button>
       </div>`;
     return h;
@@ -4799,14 +4806,23 @@ function staffInboxHtml(){
     </div>` : ''}</div>`;
 }
 /* My shifts: one line saying whether anything needs them */
+function coverBoxHtml(){
+  if (!featOn('cover')) return '';
+  const cs = coverCallsForMe().sort((a, b) => a.shift_date.localeCompare(b.shift_date)); if (!cs.length) return '';
+  const open = state.covOpen !== false;
+  return `<div class="covbox${open ? ' open' : ''}" id="covbox"><button class="covhd" data-action="covtoggle" aria-expanded="${open}"><span class="cvic">📣</span><span><b>Cover requests</b><small>The manager needs someone for ${plural(cs.length, 'shift')}. Can you work ${cs.length > 1 ? 'any of them' : 'it'}?</small></span><span class="cvn">${cs.length}</span><i aria-hidden="true">${open ? '▾' : '▸'}</i></button>
+    ${open ? `<div class="covlist">${cs.map(c => `<div class="covitem"><div class="covwhen"><b>${fmtDate(c.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}</b><span>${SESS[c.session]} · ${JOBS[c.job]} · ${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span>${(c.needed || 1) > 1 ? `<em>${c.needed} people needed</em>` : ''}</div>
+      <div class="covbtns"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">✓ Yes, I can</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`).join('')}
+      <p class="covnote">Saying yes doesn’t put you on the rota straight away. The manager picks, and you’ll be told.</p></div>` : ''}</div>`;
+}
 function myAttention(sc){
-  const msgs = msgItems().filter(x => x.unseen).length; const notes = notifItems().filter(x => x.unseen).length;
+  const notes = notifItems().filter(x => x.unseen && !/Cover needed|new messages/.test(x.html || '')).length;
   const items = [];
   if (sc.mine) items.push(`<button data-action="go" data-view="swaps">🔄 You have <b>${plural(sc.mine, 'offer')}</b> to swap a shift. Tap to pick one.</button>`);
   if (sc.help) items.push(`<button data-action="go" data-view="swaps">🙋 <b>${plural(sc.help, 'colleague needs', 'colleagues need')}</b> a swap. Can you help?</button>`);
-  if (msgs) items.push(`<button data-action="openmsgs">💬 You have <b>${plural(msgs, 'message')}</b> from the manager. Tap to read.</button>`);
-  if (notes) items.push(`<button data-action="opennotif">🔔 You have <b>${plural(notes, 'new update')}</b>. Tap to see.</button>`);
-  return items.length ? `<div class="attn has">${items.join('')}</div>` : `<div class="attn">✅ Nothing needs your attention: no swaps, messages or updates.</div>`;
+  if (notes) items.push(`<button data-action="opennotif">🔔 You have <b>${plural(notes, 'shift update')}</b>. Tap to see.</button>`);
+  const cov = coverBoxHtml();
+  return cov + (items.length ? `<div class="attn has">${items.join('')}</div>` : cov ? '' : `<div class="attn">✅ Nothing needs your attention on your shifts.</div>`);
 }
 /* Which rota is this, compared with today */
 const rotaWhich = st => { const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr()); const n = Math.round((parseYmd(st) - parseYmd(cur)) / (28 * 864e5));
@@ -4875,8 +4891,8 @@ const whoChips = items => { const c = {}; items.filter(x => x.isNew).forEach(x =
 function fromMgrView(){
   const items = fromMgr(); const me = state.user.id; const tab = state.fmTab === 'staff' ? 'staff' : 'mgmt';
   const unreadChats = (state.inbox || []).filter(m => m.recipient === me && !m.read_at).length;
-  const covers = coverCallsForMe();
-  const nM = items.filter(x => x.who !== 'staff' && x.isNew).length + covers.length, nS = items.filter(x => x.who === 'staff' && x.isNew).length + unreadChats;
+  const covers = [];
+  const nM = items.filter(x => x.who !== 'staff' && x.isNew).length, nS = items.filter(x => x.who === 'staff' && x.isNew).length + unreadChats;
   try { localStorage.setItem((tab === 'staff' ? 'stfseen-' : 'mgrseen-') + me, JSON.stringify(new Date().toISOString())); } catch(e){}
   if (tab === 'mgmt'){ const ids = visibleNotices().filter(n => !(state.nRead || []).includes(n.id)).map(n => n.id);
     if (ids.length && !viewing()){ api.markNoticesRead(ids).catch(() => {}); (state.nRead ||= []).push(...ids); } }
@@ -5094,7 +5110,7 @@ function staffHelpView(){
     <li><b>Ask for holiday before the rota comes out.</b> Tap <b>Book holiday</b> on Home or My shifts. Days already on a published rota show as <b>Out</b> and can’t be picked. For those, swap your shift instead.</li>
     <li>It shows as <b>Hol asked</b> until the manager answers. You can withdraw it until then.</li></ul>`)}
   ${sec('✉', 'Message the manager', `<p>Use <b>Message the manager</b> on Home, or tap the <b>💬</b> icon at the top and <b>New message to the manager</b>. Pick what it’s about: can’t work a shift, feeling ill, a problem at the club, abuse from a member or guest, or a complaint. Then write up to <b>${MSG_WORDS} words</b>.</p><p>Your messages and the manager’s replies are in the <b>💬</b> icon at the top. It turns yellow with a number when the manager replies.</p>`)}
-  ${sec('📣', 'When the manager needs cover', `<p>If a shift needs someone, the manager can ask everyone who could work it. You’ll see <b>📣 Cover needed</b> in your 🔔 bell and at the top of Your Messages, with the buttons right there. Tap <b>Yes, I can work it</b> or <b>No, sorry</b>. The manager picks from the people who said yes.</p>`)}
+  ${sec('📣', 'When the manager needs cover', `<p>If a shift needs someone, the manager can ask everyone who could work it. You’ll see <b>📣 Cover requests</b> at the top of <b>My shifts</b>. Tap it to see each shift, then <b>Yes, I can</b> or <b>No, sorry</b>. The 🔔 bell tells you when there’s one waiting. Tap <b>Yes, I can work it</b> or <b>No, sorry</b>. The manager picks from the people who said yes.</p>`)}
   ${sec('✋', 'Pick up an extra shift', `<p>If a shift still needs someone and you could work it, you’ll see <b>I can work this</b>. It shows on the <b>Rota</b> page and when you tap that day in your diary.</p>
     <p>Tap it and the manager will let you know. If they say yes, it appears in your diary. You can withdraw your offer until they answer.</p>`)}
   ${sec('🔔', 'Updates', `<p>The <b>🔔</b> bell at the top of every page turns yellow with a number when something needs you: someone wants to swap, your holiday is approved, the rota is out, or the manager answered your can’t-work request. Messages from the manager are there too. Tap ✕ to clear one.</p>
@@ -5607,8 +5623,7 @@ function myUpdatesHtml(mine){
   (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).filter(w => !(w.to_staff === me && (state.soffers || []).some(o => o.staff_id === me && o.status === 'accepted' && o.shift_id === w.to_shift))).forEach(w => add('ok', `Swapped with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))}. You now work ${shiftLine(w.from_staff === me ? w.b : w.a)}.`, 'swaps'));
   (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
   (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'going through'}`, 'swaps'));
-  coverCallsForMe().forEach(c => items.push(`<div class="upd act covupd" data-feat="cover"><span><b>📣 Cover needed</b> ${shiftLine(c)} · ${sessTimes(c.shift_date, c.session)?.join('–') || ''}${(c.needed || 1) > 1 ? ` · <b>${c.needed} people needed</b>` : ''}. Can you work it?</span>
-    <div class="bar" style="margin:8px 0 0"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">Yes, I can work it</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`));
+  { const n = coverCallsForMe().length; if (n) items.push(`<button class="upd act" data-feat="cover" data-action="gocover"><span><b>📣 Cover requests:</b> the manager needs someone for ${plural(n, 'shift')}. Tap to answer.</span><i aria-hidden="true">›</i></button>`); }
   if (!isStaff()) (state.msgs || []).filter(m => m.staff_id === me && m.reply && (m.replied_at || '').slice(0, 10) >= recent).forEach(m => add('ok', `The manager replied about “${esc(MSG_TOPICS[m.topic] || m.topic)}”`, 'msgs'));
   (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => add('act', `<b>${esc(pfirst(map[r.staff_id]))} needs a swap</b> for ${shiftLine(r.sh)}. Can you help?`, 'swaps'));
   (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').forEach(r => { const n = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length;
@@ -5926,6 +5941,8 @@ const actions = {
   tododel: async t => { await api.delTodo(Number(t.dataset.id)); state.todos = await api.listTodos(); render(); },
   todoclear: async () => { for (const x of (state.todos || []).filter(x => x.done)) await api.delTodo(x.id); state.todos = await api.listTodos(); render(); },
   featopen: t => { const k = t.dataset.key; const o = new Set(state.featOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.featOpen = [...o]; render(); },
+  covtoggle: () => { state.covOpen = state.covOpen === false; render(); },
+  gocover: () => { state.covOpen = true; go('myshifts'); setTimeout(() => document.getElementById('covbox')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); },
   fmtab: t => { state.fmTab = t.dataset.val; render(); },
   yourmsgs: () => go('frommgr', { fmTab: 'mgmt' }),
   dmto: t => { const id = t.dataset.id; const p = [...(state.officers || []), ...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === id); if (!p) return; state.contacts ||= [];
