@@ -3883,7 +3883,7 @@ function coverLineHtml(){
   if (!canArea('rota')) return '';
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
   const yes = (state.offers || []).filter(o => o.status === 'offered' && calls.some(c => c.shift_date === o.shift_date && c.session === o.session && c.job === o.job)).length;
-  return `<button class="covline${yes ? ' yes' : ''}" data-feat="cover" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.length, 'shift')}${yes ? ` · <b>${yes} said yes</b>` : ' · no one yet'}</span><i aria-hidden="true">›</i></button>`;
+  return `<button class="covline${yes ? ' yes' : ''}" data-feat="cover" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.reduce((n, c) => n + (c.needed || 1), 0), 'person', 'people')} still needed${yes ? ` · <b>${yes} said yes</b>` : ' · no one has said yes yet'}</span><i aria-hidden="true">›</i></button>`;
 }
 function coverView(){
   const body = coverStatusHtml();
