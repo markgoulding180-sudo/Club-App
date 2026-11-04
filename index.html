@@ -3867,12 +3867,13 @@ function coverStatusHtml(){
   const staff = state.ops?.staff || []; const map = Object.fromEntries(staff.map(p => [p.id, p]));
   return `<div class="covstat"><div class="covhead">📣 Cover requests <span>${plural(calls.length, 'shift')} waiting</span></div>${calls.map(c => {
     const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job);
-    const yes = offs.filter(o => o.status === 'offered'), no = offs.filter(o => o.status === 'passed');
+    const yes = offs.filter(o => o.status === 'offered'), no = offs.filter(o => o.status === 'passed'), got = offs.filter(o => o.status === 'accepted');
     const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
     const answered = new Set(offs.map(o => o.staff_id));
     const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !answered.has(p.id));
     const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
-    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span>${(c.needed || 1) > 1 ? `<span class="cvneed">${c.needed} people needed</span>` : ''}</div>
+    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
+      ${got.length ? `<div class="cvl"><span class="cvlab ok">✅ On the rota</span>${got.map(o => chip(map[o.staff_id] || {}, 'ok')).join('')}</div>` : ''}
       ${yes.length ? `<div class="cvl"><span class="cvlab ok">✓ Said yes</span>${yes.map(o => `<span class="cvyes">${chip(map[o.staff_id] || {}, 'ok')}<button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></span>`).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
@@ -5632,7 +5633,7 @@ function myUpdatesHtml(mine){
     add(o.status === 'accepted' ? 'ok' : 'no', o.status === 'accepted' ? `${esc(pfirst(map[r?.staff_id]))} picked your offer. 🤝 Thanks for swapping! The rota is updated.` : `${esc(pfirst(map[r?.staff_id]))} chose a different swap. Thanks for offering, you keep your shift.`, 'swaps'); });
   (state.offers || []).filter(o => o.staff_id === me).forEach(o => { const fresh = (o.decided_at || o.created_at || '').slice(0, 10) >= recent;
     if (o.status === 'offered') add('wait', `You offered to work ${shiftLine(o)}: waiting for the manager`, 'next');
-    else if (o.status === 'accepted' && fresh) add('ok', `Offer accepted: you’re on ${shiftLine(o)}`, 'next');
+    else if (o.status === 'accepted' && fresh) add('ok', `<b>✅ You’ve got the shift:</b> ${shiftLine(o)}`, 'next');
     else if (o.status === 'declined' && fresh) add('no', `Offer for ${shiftLine(o)}: the manager said no thanks`, 'next'); });
   mine.filter(s => s.status === 'cannot_work').forEach(s => add(s.decision === 'approved' || s.covered ? 'ok' : 'wait', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: ${s.decision === 'approved' || s.covered ? 'approved by management' : 'waiting for the manager'}`, 'next'));
   mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: declined, you’re still on`, 'next'));
