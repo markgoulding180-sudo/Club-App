@@ -1771,6 +1771,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .fsw input:checked + span{background:#2ee6c8}.fsw input:checked + span::after{left:25px}.fsw em{font-style:normal;font-weight:800;font-size:13px;width:26px;color:var(--muted)}.feat.on .fsw em{color:#7ff3df}
 .fsw input:focus-visible + span{outline:2px solid #f6c850;outline-offset:2px}
 .fbody{padding:0 16px 14px;font-size:14px}.fbody p{margin:0 0 8px;color:var(--muted)}.fbody ul{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
+#testBar{position:sticky;top:0;z-index:50;background:#ff8a3d;color:#1a0d00;font-weight:900;font-size:13px;text-align:center;padding:6px 10px}
 </style>
 
 </head>
@@ -1786,9 +1787,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
    CONFIG — fill these in once the new Supabase project exists.
    Leave blank to run in demo mode (data kept in this browser).
    ===================================================================== */
+/* The live app is club-app-zeta.vercel.app. Any other vercel.app address (the test copy) uses the TEST database. */
+const IS_TEST = /\.vercel\.app$/.test(location.hostname) && location.hostname !== 'club-app-zeta.vercel.app';
 const CONFIG = {
-  SUPABASE_URL: 'https://tvflgseltbjnkxyfjlem.supabase.co',          // e.g. https://abcd1234.supabase.co
-  SUPABASE_ANON_KEY: 'sb_publishable_4RXO2VIJAVBVS4f80OaQ_Q_sXDoc0WW',     // publishable / anon key
+  SUPABASE_URL: IS_TEST ? 'https://jsrayvxnssulhnhtljyj.supabase.co' : 'https://tvflgseltbjnkxyfjlem.supabase.co',
+  SUPABASE_ANON_KEY: IS_TEST ? 'sb_publishable_5noaNEaJoSnfz0ir0FWTBw_fLgiEGZC' : 'sb_publishable_4RXO2VIJAVBVS4f80OaQ_Q_sXDoc0WW',     // publishable keys only
   CARD_PAYMENTS: false,   // true = show “Pay by card” buttons (needs the Stripe set-up in PAYMENTS-SETUP.md)
   CLUB_NAME: 'Railway Club',
   TOWN: 'Ashford',
@@ -3027,6 +3030,7 @@ const navBadge = v => v === 'news' ? newNews() : v === 'mine' && isMember() ? me
 const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
   $('#demoBar').hidden = LIVE; applyFeatures();
+  if (IS_TEST && !document.getElementById('testBar')){ const b = document.createElement('div'); b.id = 'testBar'; b.textContent = '🧪 TEST APP · test data only · nothing here affects the real club'; document.body.prepend(b); }
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
   if (!state.user && woMobile()){ app.innerHTML = mobileHomeHtml(); initMobileHome(); return; }
