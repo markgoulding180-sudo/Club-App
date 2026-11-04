@@ -1783,6 +1783,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covbtns{display:flex;gap:8px;margin-top:10px}.covbtns .btn{flex:1}.covnote{margin:2px 4px 0;font-size:12.5px;color:var(--muted)}
 .askall{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid rgba(255,138,61,.6);background:rgba(255,138,61,.1);border-radius:14px;padding:12px 14px;margin:0 0 12px}
 .askall > div{display:grid;gap:2px}.askall b{color:#ffb27a}.askall span{color:var(--muted);font-size:13px}.askall.ok{border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.08);color:#7ee8a8;font-weight:700}
+.covsum{margin:0 0 12px;font-size:15px;color:var(--muted)}.covsum b{color:var(--ink)}.covsum b.ok{color:#7ee8a8}
+.covstat.wait{border-color:rgba(174,187,216,.35);background:rgba(20,30,62,.5)}.covstat.wait .covhead{color:#aebbd8}
+.cvline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;width:100%;text-align:left;background:none;border:0;border-top:1px solid rgba(255,255,255,.08);padding:10px 2px;color:var(--ink);cursor:pointer}
+.cvline span{color:var(--muted);font-size:13px;flex:1}.cvline i{font-style:normal;color:var(--muted);margin-left:auto}.cvopen .cvrow{border-top:0;padding-top:0}
 </style>
 
 </head>
@@ -3868,7 +3872,8 @@ function coverStatusHtml(){
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
   if (!calls.length) return '';
   const staff = state.ops?.staff || []; const map = Object.fromEntries(staff.map(p => [p.id, p]));
-  return `<div class="covstat"><div class="covhead">📣 Cover requests <span>${plural(calls.length, 'shift')} waiting</span></div>${calls.map(c => {
+  const yesOf = c => (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job && o.status === 'offered');
+  const row = c => {
     const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job);
     const yes = offs.filter(o => o.status === 'offered'), no = offs.filter(o => o.status === 'passed'), got = offs.filter(o => o.status === 'accepted');
     const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
@@ -3880,7 +3885,17 @@ function coverStatusHtml(){
       ${yes.length ? `<div class="cvl"><span class="cvlab ok">✓ Said yes</span>${yes.map(o => `<span class="cvyes">${chip(map[o.staff_id] || {}, 'ok')}<button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></span>`).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
-      <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; }).join('')}</div>`;
+      <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; };
+  const ready = calls.filter(c => yesOf(c).length), wait = calls.filter(c => !yesOf(c).length);
+  const openK = new Set(state.cvOpen || []); const key = c => `${c.shift_date}|${c.session}|${c.job}`;
+  const short = c => { const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job); const no = offs.filter(o => o.status === 'passed').length;
+    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id)); const ans = new Set(offs.map(o => o.staff_id));
+    const nw = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !ans.has(p.id)).length;
+    return openK.has(key(c)) ? `<div class="cvopen"><button class="cvline on" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><i>▾</i></button>${row(c)}</div>`
+      : `<button class="cvline" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><span>${plural(c.needed || 1, 'person', 'people')} needed · ${nw} not answered${no ? ` · ${no} said no` : ''}</span><i>▸</i></button>`; };
+  return `<div class="covsum"><b>${plural(calls.length, 'shift')}</b> asked · <b class="ok">${ready.length} ready to pick</b> · ${wait.length} waiting for answers</div>
+    ${ready.length ? `<div class="covstat"><div class="covhead">✓ Ready to pick <span>someone said yes</span></div>${ready.map(row).join('')}</div>` : ''}
+    ${wait.length ? `<div class="covstat wait"><div class="covhead">… Waiting for answers <span>tap one to see who</span></div>${wait.map(short).join('')}</div>` : ''}`;
 }
 /* Gaps still to fill on a rota, from today on: one entry per shift (day · session · job) with how many people */
 function rotaGapList(days){
@@ -5962,6 +5977,7 @@ const actions = {
   tododel: async t => { await api.delTodo(Number(t.dataset.id)); state.todos = await api.listTodos(); render(); },
   todoclear: async () => { for (const x of (state.todos || []).filter(x => x.done)) await api.delTodo(x.id); state.todos = await api.listTodos(); render(); },
   featopen: t => { const k = t.dataset.key; const o = new Set(state.featOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.featOpen = [...o]; render(); },
+  cvexp: t => { const k = t.dataset.key; const o = new Set(state.cvOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.cvOpen = [...o]; render(); },
   covtoggle: () => { state.covOpen = state.covOpen === false; render(); },
   gocover: () => { state.covOpen = true; go('myshifts'); setTimeout(() => document.getElementById('covbox')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); },
   fmtab: t => { state.fmTab = t.dataset.val; render(); },
