@@ -403,3 +403,9 @@ If no one can swap, the staff member can still tell the manager they can't work 
 - Slim line "📣 Cover requests: 1 shift · 1 said yes ›" on the manager's Home and the Rota opens the **Cover requests** page: each shift asked about, with **✓ Said yes** (photo + "Give them the shift"), **✕ Said no**, and **… Not answered** (staff who can do that job and aren't working that day). "Open on the rota" / "Stop asking".
 - Staff see the request at the top of Your Messages → Management as **⚠️ Important**, with Yes / No buttons. Sam gets a phone alert when someone says yes.
 - Home shows each person's role under their name (Bar Manager, Secretary, Staff, Member…).
+
+## Feature switches for the roll-out (Nov 2026)
+- App admin Home → **Features on / off**: one row per feature with an On/Off switch; tap the name to see everything it covers.
+- Features: Rota for staff, Shift swaps, Holiday requests, Can't work, Cover requests, Staff chat, To-do list, What's On, Room hire for members, Tickets, Card payments, Newsletter, Friends & member messages, Jobs, Poster, Phone notifications, New member sign-ups.
+- Off = its tabs, tiles and buttons disappear for the roles it applies to, and its pages can't be opened ("That isn't switched on yet"). Managers keep their own tools (rota, bookings diary). "View as" shows exactly what each role sees.
+- SQL: `add-feature-switches.sql` (table `app_features`, everyone reads, only the App admin changes). No row = on.

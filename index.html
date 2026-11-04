@@ -1761,6 +1761,16 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvyes{display:inline-flex;gap:6px;align-items:center}
 .covline{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:11px 14px;margin:0 0 12px;border-radius:14px;border:1px solid rgba(255,138,61,.6);background:rgba(255,138,61,.1);color:var(--ink);font-size:14.5px;cursor:pointer}
 .covline.yes{border-color:#3ddc84;background:rgba(61,220,132,.1)}.covline i{font-style:normal;color:#ffb27a;font-size:18px}
+.feats{display:grid;gap:10px}
+.feat{border:1px solid var(--edge);border-radius:16px;background:rgba(20,30,62,.6)}.feat.on{border-color:rgba(46,230,200,.45)}
+.frow{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.feat .fname{flex:1;display:grid;gap:2px;text-align:left;background:none;border:0;color:var(--ink);padding:2px 0;cursor:pointer}.feat .fname b{font-size:16px}.feat .fname small{color:var(--muted);font-size:12.5px}
+.feat .fname b::before{content:'▸ ';color:var(--muted)}.feat.open .fname b::before{content:'▾ '}
+.fsw{position:relative;display:flex;align-items:center;gap:8px;cursor:pointer}.fsw input{position:absolute;opacity:0;width:52px;height:30px;margin:0;cursor:pointer}
+.fsw span{width:52px;height:30px;border-radius:999px;background:#3a4565;position:relative;transition:background .15s}.fsw span::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.fsw input:checked + span{background:#2ee6c8}.fsw input:checked + span::after{left:25px}.fsw em{font-style:normal;font-weight:800;font-size:13px;width:26px;color:var(--muted)}.feat.on .fsw em{color:#7ff3df}
+.fsw input:focus-visible + span{outline:2px solid #f6c850;outline-offset:2px}
+.fbody{padding:0 16px 14px;font-size:14px}.fbody p{margin:0 0 8px;color:var(--muted)}.fbody ul{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
 </style>
 
 </head>
@@ -2205,6 +2215,8 @@ function makeSupabaseApi(){
     async addTodo(body, from_note){ const r = await sb.from('todos').insert({ body, from_note }); if (r.error && /todos/.test(r.error.message)) throw new Error('Run the to-do list SQL in Supabase first.'); ok(r); },
     async setTodo(id, done){ ok(await sb.from('todos').update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', id)); },
     async delTodo(id){ ok(await sb.from('todos').delete().eq('id', id)); },
+    async listFeatures(){ const r = await sb.from('app_features').select('key, enabled'); return r.error ? null : Object.fromEntries(r.data.map(x => [x.key, x.enabled])); },
+    async setFeature(key, enabled){ const r = await sb.from('app_features').upsert({ key, enabled, updated_at: new Date().toISOString() }); if (r.error && /app_features/.test(r.error.message)) throw new Error('Run add-feature-switches.sql in Supabase first.'); ok(r); },
     async hiddenList(){ const r = await sb.from('hidden_messages').select('item_key'); return r.error ? [] : r.data.map(x => x.item_key); },
     async hideItem(key){ const r = await sb.from('hidden_messages').upsert({ item_key: key }, { onConflict: 'user_id,item_key', ignoreDuplicates: true }); if (r.error && /hidden_messages/.test(r.error.message)) throw new Error('Run the hide-messages SQL in Supabase first.'); },
     async deleteDm(id){ ok(await sb.from('member_messages').delete().eq('id', id)); },
@@ -2529,6 +2541,8 @@ function makeDemoApi(){
     async addTodo(body, from_note){ (s.todos ||= []).push({ id: nextId(), user_id: s.session, body, from_note: from_note || null, done: false, done_at: null, created_at: new Date().toISOString() }); save(); },
     async setTodo(id, done){ const t = (s.todos || []).find(x => x.id === id); if (t){ t.done = done; t.done_at = done ? new Date().toISOString() : null; save(); } },
     async delTodo(id){ s.todos = (s.todos || []).filter(x => x.id !== id); save(); },
+    async listFeatures(){ return { ...(s.features || {}) }; },
+    async setFeature(key, enabled){ (s.features ||= {})[key] = enabled; save(); },
     async hiddenList(){ return ((s.hidden ||= {})[s.session] || []).slice(); },
     async hideItem(key){ ((s.hidden ||= {})[s.session] ||= []).push(key); save(); },
     async clubOfficers(){ const me = meU(); return s.users.filter(u => u.role === 'admin' && u.id !== me?.id).map(u => ({ id: u.id, first_name: u.first_name, last_initial: (u.last_name || '').slice(0, 1), title: u.title || 'Club', photo_url: u.photo_url || null })); },
@@ -2780,6 +2794,8 @@ const ahead = n => ymd(addDays(new Date(), n));
 const WEEKS_BACK = 12;
 
 async function go(view, params = {}){
+  if (state.feat === undefined){ state.feat = await api.listFeatures().catch(() => null); }
+  if (view !== 'features' && viewOff(view)){ toast('That isn’t switched on yet.'); view = 'hub'; }
   Object.assign(state, params, { view });
   closeSheet();
   try { await load(view); } catch(e){ toast(e.message); }
@@ -2885,6 +2901,8 @@ async function loadWhatsOn(){
     state.frGoing = {}; fr.forEach(r => (state.frGoing[r.event_key] ||= []).push(r)); }
 }
 async function load(view){
+  if (state.feat === undefined){ state.feat = await api.listFeatures().catch(() => null); applyFeatures(); }
+  if (view === 'features') return;
   if (view === 'hub'){
     await loadWhatsOn(); await loadNotices();
     state.news = await api.listNewsletters(); await checkPush().catch(() => {});
@@ -3008,7 +3026,7 @@ const isCurrent = v => state.view === v || (v === 'news' && state.view === 'news
 const navBadge = v => v === 'news' ? newNews() : v === 'mine' && isMember() ? memberDues().length : v === 'friends' ? unreadDms() : 0;
 const navBtn = (v, label, ic, withIcon) => { const n = navBadge(v); return `<button data-action="go" data-view="${v}"${v === 'book' ? ` data-room="${state.room}"` : ''}${isCurrent(v) ? ' aria-current="page"' : ''}>${withIcon ? ICONS[ic] : ''}${label}${n ? `<span class="nbadge">${n}</span>` : ''}</button>`; };
 function render(){
-  $('#demoBar').hidden = LIVE;
+  $('#demoBar').hidden = LIVE; applyFeatures();
   document.body.classList.toggle('authpage', !state.user);
   const app = $('#app');
   if (!state.user && woMobile()){ app.innerHTML = mobileHomeHtml(); initMobileHome(); return; }
@@ -3025,7 +3043,7 @@ function render(){
     <section class="mainbody">${landingHtml()}</section></main>`;
     initLanding(); return; }
   const views = { hub: homeView, whatson: whatsOnView, book: bookView, mine: mineView,
-    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, todo: todoView, covers: coverView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
+    bookings: bookingsView, booking: bookingView, newbooking: newBookingView, rota: rotaView, staff: staffView, myshifts: myShiftsView, swaps: swapsView, messages: messagesView, clubmsg: clubMsgView, alerts: alertsView, frommgr: fromMgrView, swaplog: swapLogView, news: newsView, newsedit: newsEditView, friends: friendsView, register: registerView, roles: rolesView, todo: todoView, features: featuresView, covers: coverView, notices: noticesView, jobs: jobsView, holiday: holidayView, staffhelp: staffHelpView, tickets: ticketsView, tkevent: tkEventView };
   app.innerHTML = `<header class="band"><div class="wrap">
       <button class="brand" data-action="go" data-view="hub" aria-label="Home"><img class="logo" src="${LOGO}" alt=""><span class="bname"><b>${esc(CONFIG.CLUB_NAME)}</b><small>${esc(CONFIG.TOWN)}</small></span></button>
       <nav class="nav" aria-label="Main">${navItems().map(([v, l, i]) => navBtn(v, l, i, false)).join('')}</nav>
@@ -3441,6 +3459,7 @@ function homeView(){
       ${tile('team', 'Jobs: staff wanted', (() => { const n = (state.jobs || []).filter(j => j.status === 'open').length; return n ? `${plural(n, 'job')} advertised` : 'Advertise a job'; })(), 'jobs')}
       ${tile('bell', 'Phone alerts', state.push === 'on' ? 'On for this phone' : 'Get requests on your phone', 'alerts')}
       ${isOwnerView() ? tile('star', 'Roles & access', 'Who is admin, secretary, manager…', 'roles') : ''}
+      ${isOwnerView() ? `<button class="tile" data-action="go" data-view="features"><span class="ic">${ICONS.check}</span><b>Features on / off</b><span class="sub">${FEATURES.filter(f => featOn(f.key)).length} of ${FEATURES.length} on · for the roll-out</span></button>` : ''}
     </div>`;
     return h;
   }
@@ -3848,7 +3867,7 @@ function coverLineHtml(){
   if (!canArea('rota')) return '';
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
   const yes = (state.offers || []).filter(o => o.status === 'offered' && calls.some(c => c.shift_date === o.shift_date && c.session === o.session && c.job === o.job)).length;
-  return `<button class="covline${yes ? ' yes' : ''}" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.length, 'shift')}${yes ? ` · <b>${yes} said yes</b>` : ' · no one yet'}</span><i aria-hidden="true">›</i></button>`;
+  return `<button class="covline${yes ? ' yes' : ''}" data-feat="cover" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.length, 'shift')}${yes ? ` · <b>${yes} said yes</b>` : ' · no one yet'}</span><i aria-hidden="true">›</i></button>`;
 }
 function coverView(){
   const body = coverStatusHtml();
@@ -4854,7 +4873,7 @@ function fromMgrView(){
   const tabBtn = (k, label, n) => `<button class="fmtab${tab === k ? ' on' : ''}" data-action="fmtab" data-val="${k}">${label}${n ? `<span class="fmnew">${n} new</span>` : ''}</button>`;
   let body;
   if (tab === 'mgmt'){ const list = items.filter(x => x.who !== 'staff');
-    body = `${covers.length ? `<div class="impbox"><div class="imphead">⚠️ Important · the manager needs cover</div><div class="stack" style="gap:10px">${coverCardsHtml()}</div></div>` : ''}<div class="stack" style="gap:10px">${list.map(card).join('') || (covers.length ? '' : '<div class="empty">No messages from management.</div>')}</div>
+    body = `${covers.length ? `<div class="impbox" data-feat="cover"><div class="imphead">⚠️ Important · the manager needs cover</div><div class="stack" style="gap:10px">${coverCardsHtml()}</div></div>` : ''}<div class="stack" style="gap:10px">${list.map(card).join('') || (covers.length ? '' : '<div class="empty">No messages from management.</div>')}</div>
       <button class="btn ghost" data-action="msgstart" style="width:100%;margin-top:16px">✉ Message the manager</button>`; }
   else { const list = items.filter(x => x.who === 'staff');
     body = `${(state.inbox || []).length ? boardHtml() : '<div class="empty">No chats yet.</div>'}
@@ -4887,6 +4906,82 @@ function openMyProfile(pid){
       ${p.photo_url ? `<button class="btn ghost sm" data-action="photoremove" data-id="${p.id}">Remove</button>` : ''}</div>
       <p class="muted" style="font-size:12.5px;margin:0;text-align:center">${mine ? 'Your photo shows to the club and staff next to your name.' : `Shows next to ${esc(pfirst(p))}’s name in the app.`} Use a clear photo of the face.</p></div>
     <dl class="kv"><dt>Name</dt><dd>${esc(pname(p))}</dd>${p.email ? `<dt>Email</dt><dd>${esc(p.email)}</dd>` : ''}${p.phone ? `<dt>Phone</dt><dd>${esc(p.phone)}</dd>` : ''}${p.membership_no ? `<dt>Membership</dt><dd>${esc(p.membership_no)}</dd>` : ''}</dl>`);
+}
+/* Feature switches (roll-out): the App admin turns parts of the app on or off for everyone.
+   who: which accounts it applies to (admin = managers and officers, staff, user = members and committee).
+   hide: what disappears (buttons, tiles, tabs). views: pages that can't be opened. */
+const FEATURES = [
+  { key: 'rota_staff', name: 'Rota for staff', who: ['staff'], desc: 'Staff see their shifts and the published rota. Managers can always build the rota.',
+    items: ['My shifts page and tab', 'Rota tab for staff', 'Next shift and This month on staff Home', '“The new rota is out” alerts'],
+    hide: ['[data-view="myshifts"]', '[data-view="rota"]'], views: ['myshifts', 'rota'] },
+  { key: 'swaps', name: 'Shift swaps', who: ['staff'], desc: 'Staff swap shifts with each other. The rota changes when both agree.',
+    items: ['Swaps tab and page', 'Swap shifts button on My shifts', '“Swap this shift” on a shift', 'Ask everyone to swap', 'Swap offers and answers'],
+    hide: ['[data-view="swaps"]', '[data-action="swapask"]', '[data-action="swapstart"]', '[data-action="swappick"]', '[data-action="sofmake"]'], views: ['swaps'] },
+  { key: 'holidays', name: 'Holiday requests', who: ['staff'], desc: 'Staff ask for holiday in the app and the manager approves it.',
+    items: ['Book holiday button', 'Holiday calendar', '“Ask for holiday from this day” on the diary'],
+    hide: ['[data-action="holnew"]', '[data-action="holfrom"]', '[data-view="holiday"]'], views: ['holiday'] },
+  { key: 'cantwork', name: 'Can’t work a shift', who: ['staff'], desc: 'Staff tell the manager they can’t work a shift, with a reason.',
+    items: ['“I can’t work it” on a shift', '“No one can swap? Tell the manager” button', 'Can’t work topic in Message the manager'],
+    hide: ['[data-action="cwstart"]', '[data-action="msgstart"][data-topic="cant_work"]'] },
+  { key: 'cover', name: 'Cover requests', who: ['staff', 'admin'], desc: 'The manager asks everyone who could work a gap, and staff answer yes or no.',
+    items: ['📣 Ask everyone to cover (Rota)', 'Cover requests page and line on the manager’s Home', 'Important cover box in staff Your Messages', 'Yes, I can work it / No, sorry', 'I can work this on open shifts'],
+    hide: ['[data-action="askcover"]', '[data-view="covers"]', '[data-feat="cover"]', '[data-action="coveryes"]', '[data-action="coverno"]', '[data-action="offershift"]'], views: ['covers'] },
+  { key: 'staffchat', name: 'Staff chat', who: ['staff'], desc: 'Staff message each other and the manager in titled chats.',
+    items: ['Staff tab in Your Messages', 'Message staff button', 'Starting a chat with a colleague'],
+    hide: ['[data-action="fmtab"][data-val="staff"]', '[data-action="staffdm"]'] },
+  { key: 'todo', name: 'To-do list', who: ['admin'], desc: 'Officers keep their own list of jobs and orders.',
+    items: ['To-do list tile and page', '+ To-do on messages'],
+    hide: ['[data-view="todo"]', '[data-action="todofrom"]'], views: ['todo'] },
+  { key: 'whatson', name: 'What’s On (members and staff)', who: ['user', 'staff'], desc: 'Members and staff see club events and live sport.',
+    items: ['What’s On tab', 'Next event and Picked for you on Home', 'Going / Interested buttons'],
+    hide: ['[data-view="whatson"]', '[data-feat="whatson"]'], views: ['whatson'] },
+  { key: 'member_bookings', name: 'Room hire for members', who: ['user'], desc: 'Members ask to book the Function Room or Lounge Bar. Managers can always add bookings.',
+    items: ['Book tab', 'Book a room tiles on Home', 'Booking request form'],
+    hide: ['[data-view="book"]', '[data-view="newbooking"]'], views: ['book', 'newbooking'] },
+  { key: 'tickets', name: 'Tickets for members', who: ['user'], desc: 'Members reserve tickets for ticketed events. Managers can always see reservations.',
+    items: ['Reserve tickets on events', 'Change or cancel a reservation'],
+    hide: ['[data-action="treserve"]', '[data-action="tqty"]', '[data-feat="tickets"]'] },
+  { key: 'payments', name: 'Card payments', who: ['user'], desc: 'Members pay deposits, balances and tickets by card through Stripe.',
+    items: ['Pay now by card buttons', 'Payments due box on Home'],
+    hide: ['[data-action="paynow"]'] },
+  { key: 'newsletter', name: 'Newsletter', who: ['user', 'staff', 'admin'], desc: 'The monthly club newsletter.',
+    items: ['News tab', 'Newsletter tile on Home', 'Writing and publishing the newsletter'],
+    hide: ['[data-view="news"]', '[data-view="newsedit"]', '[data-action="nlview"]'], views: ['news', 'newsedit'] },
+  { key: 'friends', name: 'Friends and member messages', who: ['user'], desc: 'Members add friends by membership number and message each other and the club.',
+    items: ['Friends tab', 'Message board', '💬 messages icon for members'],
+    hide: ['[data-view="friends"]', '[data-action="openboard"]', 'body[data-role="user"] [data-action="openmsgs"]'], views: ['friends'] },
+  { key: 'jobs', name: 'Jobs (staff wanted)', who: ['user', 'admin'], desc: 'Advertise jobs at the club and see who’s interested.',
+    items: ['Work for us page', 'Jobs tile for managers'],
+    hide: ['[data-view="jobs"]'], views: ['jobs'] },
+  { key: 'poster', name: 'Printable What’s On poster', who: ['admin'], desc: 'An A4 poster of the month’s events for the noticeboard.',
+    items: ['Print What’s On tile', '🖨 Print monthly poster button'],
+    hide: ['[data-action="openposter"]'] },
+  { key: 'alerts', name: 'Phone notifications', who: ['user', 'staff', 'admin'], desc: 'Free alerts on people’s phones.',
+    items: ['Get alerts on your phone card on Home', 'Notifications page', 'Phone alerts tile'],
+    hide: ['[data-view="alerts"]', '[data-feat="alerts"]'], views: ['alerts'] },
+  { key: 'register', name: 'New member sign-ups', who: ['public'], desc: 'People can create their own account from the front page.',
+    items: ['Register button on the front page', 'Register tab on the sign-in box'],
+    hide: ['[data-action="openauth"][data-val="signup"]', '[data-action="authtab"][data-val="signup"]'] },
+];
+const featOn = k => (state.feat || {})[k] !== false;
+const roleKey = () => !state.user ? 'public' : effRole() === 'admin' ? 'admin' : effRole() === 'staff' ? 'staff' : 'user';
+function featOffFor(role){ return FEATURES.filter(f => !featOn(f.key) && f.who.includes(role)); }
+function applyFeatures(){
+  document.body.dataset.role = roleKey();
+  const css = FEATURES.filter(f => !featOn(f.key)).flatMap(f => f.who.flatMap(r => f.hide.map(sel => sel.startsWith('body[') ? sel : `body[data-role="${r}"] ${sel}`))).join(',\n');
+  let el = document.getElementById('featcss'); if (!el){ el = document.createElement('style'); el.id = 'featcss'; document.head.appendChild(el); }
+  el.textContent = css ? css + '{display:none!important}' : '';
+}
+const viewOff = v => featOffFor(roleKey()).some(f => (f.views || []).includes(v));
+function featuresView(){
+  if (!isOwnerView()) return page('Features') + '<div class="empty">Only the App admin can change features.</div>';
+  if (state.feat === null) return page('Features') + '<div class="empty">Run <b>add-feature-switches.sql</b> in Supabase to turn on feature switches.</div>';
+  const WHO = { admin: 'Managers', staff: 'Staff', user: 'Members', public: 'Front page' };
+  const on = FEATURES.filter(f => featOn(f.key)).length;
+  return page('Features', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Turn parts of the app on or off for everyone while you roll it out. Tap a name to see what it covers. <b>${on} of ${FEATURES.length} on.</b> Changes show for others next time they open the app.</p>
+    <div class="feats">${FEATURES.map(f => { const open = (state.featOpen || []).includes(f.key); return `<div class="feat${featOn(f.key) ? ' on' : ''}${open ? ' open' : ''}"><div class="frow"><button class="fname" data-action="featopen" data-key="${f.key}" aria-expanded="${open}"><b>${esc(f.name)}</b><small>${f.who.map(w => WHO[w]).join(' · ')}</small></button>
+      <label class="fsw" aria-label="${esc(f.name)} on or off"><input type="checkbox" data-featset="${f.key}" ${featOn(f.key) ? 'checked' : ''}><span></span><em>${featOn(f.key) ? 'On' : 'Off'}</em></label></div>
+      ${open ? `<div class="fbody"><p>${esc(f.desc)}</p><b>What it switches on and off:</b><ul>${f.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}</div>`; }).join('')}</div>`;
 }
 function holLeftTxt(){ const h = holStats(state.user.id); return `${h.left} days left this year`; }
 function openPickShift(){
@@ -5818,6 +5913,7 @@ const actions = {
     await api.addTodo(body, from); state.todos = await api.listTodos(); t.textContent = '✓ Added'; t.disabled = true; toast('Added to your to-do list'); },
   tododel: async t => { await api.delTodo(Number(t.dataset.id)); state.todos = await api.listTodos(); render(); },
   todoclear: async () => { for (const x of (state.todos || []).filter(x => x.done)) await api.delTodo(x.id); state.todos = await api.listTodos(); render(); },
+  featopen: t => { const k = t.dataset.key; const o = new Set(state.featOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.featOpen = [...o]; render(); },
   fmtab: t => { state.fmTab = t.dataset.val; render(); },
   yourmsgs: () => go('frommgr', { fmTab: 'mgmt' }),
   dmto: t => { const id = t.dataset.id; const p = [...(state.officers || []), ...(state.ops?.staff || []), ...(state.profiles || [])].find(x => x.id === id); if (!p) return; state.contacts ||= [];
@@ -6034,6 +6130,7 @@ const actions = {
 };
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-action]'); if (!t) return;
+  { const offSel = featOffFor(roleKey()).flatMap(f => f.hide.filter(x => !x.startsWith('body['))).join(','); if (offSel && t.matches(offSel)){ toast('That isn’t switched on yet.'); return; } }
   if (t.dataset.action === 'backdrop' && e.target !== t) return;
   const fn = actions[t.dataset.action]; if (!fn) return;
   try { await fn(t, e); } catch(err){ toast(err.message); }
@@ -6046,6 +6143,7 @@ const setPhoto = (id, url) => { if (state.user?.id === id) state.user.photo_url 
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
+    if (el.matches('[data-featset]')){ const k = el.dataset.featset; await api.setFeature(k, el.checked); (state.feat ||= {})[k] = el.checked; applyFeatures(); toast(`${FEATURES.find(f => f.key === k)?.name}: ${el.checked ? 'on' : 'off'}`); render(); return; }
     if (el.matches('[data-todock]')){ await api.setTodo(Number(el.dataset.todock), el.checked); state.todos = await api.listTodos(); render(); return; }
     if (el.matches('[data-photofor]') && el.files?.[0]){ const id = el.dataset.photofor; toast('Adding photo…'); const url = await api.uploadPhoto(await squarePhoto(el.files[0]), id); setPhoto(id, url); toast('Photo saved'); openMyProfile(id); render(); return; }
     if (el.matches('[data-pushpref]')){ const p = { ...pushPrefs(), [el.dataset.pushpref]: el.checked }; await api.setPushPrefs(p); state.user.push_prefs = p; toast('Saved'); return; }
