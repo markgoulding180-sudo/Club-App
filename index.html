@@ -3884,6 +3884,8 @@ function coverView(){
 function coverAskHtml(ds, sess, job, offs, gaps = 1){
   if (ds < todayStr()) return '';
   const call = (state.covers || []).find(c => c.status === 'open' && c.shift_date === ds && c.session === sess && c.job === job);
+  if (!call && !isPublished(ds)) return `<div class="covask"><span class="muted" style="font-size:13px">📣 Publish this rota first, then you can ask everyone to cover. Staff can’t see a draft rota.</span></div>`;
+  if (call && !isPublished(ds)) return `<div class="covask on"><span>📣 <b>Staff can’t see this yet:</b> the rota is still a draft. Publish it and everyone who could work it is asked.</span><button class="linkbtn" data-action="cancelcover" data-id="${call.id}">Stop asking</button></div>`;
   if (!call) return `<div class="covask"><button class="btn ghost sm" data-action="askcover" data-date="${ds}" data-sess="${sess}" data-job="${job}" data-need="${gaps}">📣 Ask everyone to cover${gaps > 1 ? ` · ${gaps} people needed` : ''}</button></div>`;
   const yes = (state.offers || []).filter(o => o.status === 'offered' && o.shift_date === ds && o.session === sess && o.job === job).length;
   const no = (state.offers || []).filter(o => o.status === 'passed' && o.shift_date === ds && o.session === sess && o.job === job).length;
