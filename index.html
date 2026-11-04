@@ -1773,6 +1773,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .fbody{padding:0 16px 14px;font-size:14px}.fbody p{margin:0 0 8px;color:var(--muted)}.fbody ul{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
 #testBar{position:sticky;top:0;z-index:50;background:#ff8a3d;color:#1a0d00;font-weight:900;font-size:13px;text-align:center;padding:6px 10px}
 .cvneed{background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900}
+.covupd{display:block!important;cursor:default}.covupd .bar .btn{flex:1}
 </style>
 
 </head>
@@ -5093,7 +5094,7 @@ function staffHelpView(){
     <li><b>Ask for holiday before the rota comes out.</b> Tap <b>Book holiday</b> on Home or My shifts. Days already on a published rota show as <b>Out</b> and can’t be picked. For those, swap your shift instead.</li>
     <li>It shows as <b>Hol asked</b> until the manager answers. You can withdraw it until then.</li></ul>`)}
   ${sec('✉', 'Message the manager', `<p>Use <b>Message the manager</b> on Home, or tap the <b>💬</b> icon at the top and <b>New message to the manager</b>. Pick what it’s about: can’t work a shift, feeling ill, a problem at the club, abuse from a member or guest, or a complaint. Then write up to <b>${MSG_WORDS} words</b>.</p><p>Your messages and the manager’s replies are in the <b>💬</b> icon at the top. It turns yellow with a number when the manager replies.</p>`)}
-  ${sec('📣', 'When the manager needs cover', `<p>If a shift needs someone, the manager can ask everyone who could work it. You’ll see <b>📣 Cover needed</b> in your updates and on the Swaps page. Tap <b>Yes, I can work it</b> or <b>No, sorry</b>. The manager picks from the people who said yes.</p>`)}
+  ${sec('📣', 'When the manager needs cover', `<p>If a shift needs someone, the manager can ask everyone who could work it. You’ll see <b>📣 Cover needed</b> in your 🔔 bell and at the top of Your Messages, with the buttons right there. Tap <b>Yes, I can work it</b> or <b>No, sorry</b>. The manager picks from the people who said yes.</p>`)}
   ${sec('✋', 'Pick up an extra shift', `<p>If a shift still needs someone and you could work it, you’ll see <b>I can work this</b>. It shows on the <b>Rota</b> page and when you tap that day in your diary.</p>
     <p>Tap it and the manager will let you know. If they say yes, it appears in your diary. You can withdraw your offer until they answer.</p>`)}
   ${sec('🔔', 'Updates', `<p>The <b>🔔</b> bell at the top of every page turns yellow with a number when something needs you: someone wants to swap, your holiday is approved, the rota is out, or the manager answered your can’t-work request. Messages from the manager are there too. Tap ✕ to clear one.</p>
@@ -5606,7 +5607,8 @@ function myUpdatesHtml(mine){
   (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent).filter(w => !(w.to_staff === me && (state.soffers || []).some(o => o.staff_id === me && o.status === 'accepted' && o.shift_id === w.to_shift))).forEach(w => add('ok', `Swapped with ${esc(pfirst(map[w.from_staff === me ? w.to_staff : w.from_staff]))}. You now work ${shiftLine(w.from_staff === me ? w.b : w.a)}.`, 'swaps'));
   (state.swaps || []).filter(w => ['refused', 'declined'].includes(w.status) && w.from_staff === me && (w.decided_at || '').slice(0, 10) >= recent).forEach(w => add('no', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'refused' ? 'the manager said no' : 'they said no'}`, 'swaps'));
   (state.swaps || []).filter(w => w.from_staff === me && ['asked', 'accepted'].includes(w.status)).forEach(w => add('wait', `Swap with ${esc(pfirst(map[w.to_staff]))}: ${w.status === 'asked' ? 'waiting for them' : 'going through'}`, 'swaps'));
-  coverCallsForMe().forEach(c => add('act', `<b>📣 Cover needed</b> ${shiftLine(c)}. Can you work it?`, 'swaps'));
+  coverCallsForMe().forEach(c => items.push(`<div class="upd act covupd" data-feat="cover"><span><b>📣 Cover needed</b> ${shiftLine(c)} · ${sessTimes(c.shift_date, c.session)?.join('–') || ''}${(c.needed || 1) > 1 ? ` · <b>${c.needed} people needed</b>` : ''}. Can you work it?</span>
+    <div class="bar" style="margin:8px 0 0"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">Yes, I can work it</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`));
   if (!isStaff()) (state.msgs || []).filter(m => m.staff_id === me && m.reply && (m.replied_at || '').slice(0, 10) >= recent).forEach(m => add('ok', `The manager replied about “${esc(MSG_TOPICS[m.topic] || m.topic)}”`, 'msgs'));
   (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => add('act', `<b>${esc(pfirst(map[r.staff_id]))} needs a swap</b> for ${shiftLine(r.sh)}. Can you help?`, 'swaps'));
   (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').forEach(r => { const n = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length;
@@ -6069,8 +6071,8 @@ const actions = {
     toast(ex ? 'Let off: special circumstances. Now pick someone to cover.' : 'Let off. It goes on their record. Now pick someone to cover.'); refresh(); },
   askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
-  coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks! The manager will let you know.'); refresh(); },
-  coverno: async t => { await api.passCover(t.dataset.date, t.dataset.sess, t.dataset.job); toast('No problem'); refresh(); },
+  coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('Thanks! You said yes. The manager will let you know if you get it.'); refresh(); },
+  coverno: async t => { await api.passCover(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('No problem. The manager has been told.'); refresh(); },
   cwdecline: async t => { if (!armed(t, 'Tap again to decline')) return; await api.updateShift(Number(t.dataset.id), { status: 'assigned', decision: 'declined', decided_at: new Date().toISOString() }); toast('Declined. They stay on the shift.'); refresh(); },
   undoproblem: async t => { await api.updateShift(Number(t.dataset.id), { status: 'confirmed', covered: false }); toast('Put back on the shift'); refresh(); },
   // staff
