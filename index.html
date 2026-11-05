@@ -1798,6 +1798,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvyl{margin-top:8px;display:grid;gap:6px}.cvhint{font-size:12px;color:var(--muted);margin-left:6px}
 .cvyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(61,220,132,.07);border:1px solid rgba(61,220,132,.25);border-radius:12px;padding:6px 8px}
 .cvhrs{flex:1;font-size:13px;color:var(--muted)}.cvhrs b{color:var(--ink);font-size:15px}
+.staffcov{margin:6px 0 12px}
 </style>
 
 </head>
@@ -3502,6 +3503,7 @@ function homeView(){
     myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += staffQuickStart() + pushHomeCard()
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
+      + (featOn('cover') && coverCallsForMe().length ? (() => { const n = coverCallsForMe().length; return `<button class="covline yes staffcov" data-action="gocover"><span>📣 <b>Rota cover requests:</b> the manager needs someone for ${plural(n, 'shift')}. Can you help? <u>Tap to answer</u></span><i aria-hidden="true">›</i></button>`; })() : '')
       + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
       <p class="muted" style="margin:-4px 0 12px;font-size:14px">Your shifts, swaps and holiday are all in <b>My shifts</b>. Messages from management and other staff are in <b>Your Messages</b>. Use <b>Message the manager</b> if you’re ill, can’t work, or there’s a problem.</p>
