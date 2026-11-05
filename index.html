@@ -1823,6 +1823,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvrow .bar .linkbtn{font-size:13.5px}
 @media (max-width:520px){.covstat > .cvrow{padding:12px 10px 8px}.covstat{padding:10px 8px}}
 .cvt .cvneed{color:#1a1300!important;font-weight:900}
+.ctq{font-size:16px}.ctgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ctopt{display:grid;gap:2px;text-align:left;padding:12px 14px;border-radius:14px;border:2px solid var(--edge);background:rgba(20,30,62,.6);color:var(--ink);cursor:pointer}
+.ctopt b{font-size:20px}.ctopt span{font-size:12.5px;color:var(--muted)}.ctopt.on{border-color:#2ee6c8;background:rgba(46,230,200,.15)}.ctopt.on b{color:#7ff3df}
+.ctgrid .ctopt:first-child{grid-column:1 / -1}
+.covearly{flex-basis:100%;display:block;background:#f6c850;color:#1a1300;border-radius:10px;padding:5px 10px;font-size:13.5px;font-weight:900;margin-top:4px}
 </style>
 
 </head>
@@ -1990,6 +1995,7 @@ function hoursHtml(where = ''){
   return `<div class="hours ${where}"><b class="hours-h">Opening times</b>${[1, 2, 3, 4, 5, 6, 0].map(d => { const r = openRanges(d);
     return `<div class="hrow${d === today ? ' hnow' : ''}"><span>${names[d]}</span><span>${r.length ? r.map(([a, b]) => `${mm(a)}–${mm(b)}`).join(', ') : 'Closed'}</span></div>`; }).join('')}</div>`;
 }
+const coverTimes = c => { const t = sessTimes(c.shift_date, c.session); return c.start_early ? [String(c.start_early).slice(0, 5), t[1]] : t; };
 const shiftTimes = s => { const t = sessTimes(s.shift_date, s.session); return s.start_early ? [String(s.start_early).slice(0, 5), t[1]] : t; };
 function hoursOf(ds, sess, sh){
   const [a, b] = sh?.start_early ? [String(sh.start_early).slice(0, 5), sessTimes(ds, sess)[1]] : sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
@@ -2296,8 +2302,9 @@ function makeSupabaseApi(){
     async sendMessage(m){ const r = await sb.from('staff_messages').insert(m); if (r.error && /staff_messages/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); ok(r); },
     async updateMessage(id, patch){ ok(await sb.from('staff_messages').update(patch).eq('id', id)); },
     async listCoverCalls(){ const r = await sb.from('cover_calls').select('*').eq('status', 'open'); return r.error ? [] : r.data; },
-    async askCover(c){ let r = await sb.from('cover_calls').insert(c); if (r.error && /needed/.test(r.error.message)){ const { needed, ...rest } = c; r = await sb.from('cover_calls').insert(rest); } if (r.error && /cover_calls/.test(r.error.message) && !/duplicate/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); if (r.error && /duplicate/.test(r.error.message)) throw new Error('Everyone has already been asked to cover this shift.'); },
+    async askCover(c){ if (!c.start_early){ delete c.start_early; delete c.early_note; } let r = await sb.from('cover_calls').insert(c); if (r.error && /start_early|early_note/.test(r.error.message)) throw new Error('Run update-cover-start-time.sql in Supabase first.'); if (r.error && /needed/.test(r.error.message)){ const { needed, ...rest } = c; r = await sb.from('cover_calls').insert(rest); } if (r.error && /cover_calls/.test(r.error.message) && !/duplicate/.test(r.error.message)) throw new Error('This needs the messages SQL running in Supabase first.'); if (r.error && /duplicate/.test(r.error.message)) throw new Error('Everyone has already been asked to cover this shift.'); },
     async cancelCover(id){ ok(await sb.from('cover_calls').update({ status: 'cancelled' }).eq('id', id)); },
+    async setCoverTime(id, start_early, early_note){ const r = await sb.from('cover_calls').update({ start_early, early_note }).eq('id', id); if (r.error && /start_early|early_note/.test(r.error.message)) throw new Error('Run update-cover-start-time.sql in Supabase first.'); ok(r); },
     async passCover(d, sess, job){ ok(await sb.rpc('staff_pass_cover', { d, sess, j: job })); },
     async listSwapRequests(){ const r = await sb.from('swap_requests').select('*, sh:shifts(shift_date,session,job,staff_id)').gte('created_at', new Date(Date.now() - 45 * 864e5).toISOString()).order('created_at'); return r.error ? [] : r.data; },
     async listSwapOffers(){ const r = await sb.from('swap_offers').select('*, sh:shifts(shift_date,session,job)').gte('created_at', new Date(Date.now() - 45 * 864e5).toISOString()).order('created_at'); return r.error ? [] : r.data; },
@@ -2633,6 +2640,7 @@ function makeDemoApi(){
     async listCoverCalls(){ return (s.covers ||= []).filter(c => c.status === 'open').map(c => ({ ...c })); },
     async askCover(c){ s.covers ||= []; if (s.covers.some(x => x.status === 'open' && x.shift_date === c.shift_date && x.session === c.session && x.job === c.job)) throw new Error('Everyone has already been asked to cover this shift.');
       s.covers.push({ id: nextId(), status: 'open', created_at: new Date().toISOString(), ...c }); save(); },
+    async setCoverTime(id, start_early, early_note){ const c = (s.covers ||= []).find(x => x.id === id); if (c){ c.start_early = start_early; c.early_note = early_note; save(); } },
     async cancelCover(id){ const c = (s.covers ||= []).find(x => x.id === id); if (c){ c.status = 'cancelled'; save(); } },
     async passCover(d, sess, job){ s.offers ||= []; if (!s.offers.some(o => o.staff_id === s.session && o.shift_date === d && o.session === sess && o.job === job && ['offered', 'passed'].includes(o.status)))
       s.offers.push({ id: nextId(), shift_date: d, session: sess, job, staff_id: s.session, status: 'passed', created_at: new Date().toISOString() }); save(); },
@@ -2672,7 +2680,8 @@ function makeDemoApi(){
     async decideOffer(id, yes){ const o = (s.offers ||= []).find(o => o.id === id && o.status === 'offered'); if (!o) throw new Error('That offer has already been dealt with.');
       o.decided_at = new Date().toISOString(); if (!yes){ o.status = 'declined'; save(); return; }
       if (busy({ shift_date: o.shift_date, staff_id: o.staff_id })) throw new Error('They are already working that day.');
-      s.shifts.push({ id: nextId(), shift_date: o.shift_date, session: o.session, job: o.job, staff_id: o.staff_id, status: 'assigned', reason: null, covered: false });
+      const cc = (s.covers || []).find(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job);
+      s.shifts.push({ id: nextId(), shift_date: o.shift_date, session: o.session, job: o.job, staff_id: o.staff_id, status: 'assigned', reason: null, covered: false, start_early: cc?.start_early || null, early_note: cc?.early_note || null });
       const cw = s.shifts.find(x => x.shift_date === o.shift_date && x.session === o.session && x.job === o.job && PROBLEM.includes(x.status) && !x.covered);
       if (cw){ cw.covered = true; if (cw.status === 'cannot_work') cw.decision = 'approved'; }
       o.status = 'accepted'; const call = (s.covers || []).find(c => c.status === 'open' && c.shift_date === o.shift_date && c.session === o.session && c.job === o.job);
@@ -3930,13 +3939,13 @@ function coverStatusHtml(){
     const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !offDay.has(p.id) && !answered.has(p.id));
     const asked = answered.size + waiting.length;
     const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
-    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
+    return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${coverTimes(c).join('–')}${c.start_early ? ' · ⏰ in early' : ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
       <div class="cvasked">Asked <b>${plural(asked, 'person', 'people')}</b> who could work it · <b class="y">${yes.length} yes</b> · <b class="n">${no.length} no</b> · ${waiting.length} not answered${got.length ? ` · ${got.length} given the shift` : ''}</div>
       ${got.length ? `<div class="cvl"><span class="cvlab ok">✅ On the rota</span>${got.map(o => chip(map[o.staff_id] || {}, 'ok')).join('')}</div>` : ''}
       ${yes.length ? `<div class="cvyl"><div class="cvyhead"><span class="cvlab ok">✓ Said yes</span><span class="cvhint">fewest hours this rota first</span></div>${yes.map(o => { const l = ld(o.staff_id); const pp = map[o.staff_id] || {}; return `<div class="cvyrow">${avatar(pp, 40)}<div class="cvwho"><b>${esc(pfirst(pp) || '?')}</b><span><b class="h">${Math.round(l.h * 10) / 10}h</b> · ${plural(l.n, 'shift')} · ${ft(o.staff_id) === 'Full time' ? 'FT' : 'PT'}</span></div><button class="btn sm cvgive" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give shift</button></div>`; }).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
-      <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; };
+      <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><button class="linkbtn" data-action="covertime" data-id="${c.id}">⏰ ${c.start_early ? 'Change start time' : 'Start earlier?'}</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; };
   const ready = calls.filter(c => yesOf(c).length), wait = calls.filter(c => !yesOf(c).length);
   const openK = new Set(state.cvOpen || []); const key = c => `${c.shift_date}|${c.session}|${c.job}`;
   const short = c => { const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job); const no = offs.filter(o => o.status === 'passed').length;
@@ -3967,6 +3976,21 @@ function askAllHtml(days){
   const ppl = a => a.reduce((n, c) => n + c.short, 0);
   return `<div class="askall"><div><b>📣 ${plural(ppl(gaps), 'person', 'people')} still needed on this rota</b><span>${plural(gaps.length, 'shift')} from today on${asked.length ? ` · ${plural(asked.length, 'shift')} already asked` : ''}</span></div>
     ${todo.length ? `<button class="btn sm" data-action="askall" data-days="${days[0]}">Ask everyone for ${todo.length === gaps.length ? 'all' : `the other ${todo.length}`}</button>` : `<button class="btn ghost sm" data-action="go" data-view="covers">See answers</button>`}</div>`;
+}
+/* Ask everyone to cover, or change the time later: big simple buttons, normal time or earlier */
+function openCoverTime(c){
+  const [a, b] = sessTimes(c.shift_date, c.session); const cur = c.start_early ? String(c.start_early).slice(0, 5) : '';
+  const m = x => { const [h, mm] = x.split(':').map(Number); return h * 60 + mm; }; const f = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+  const early = [30, 60, 90, 120, 180].map(k => f(m(a) - k)); state.sheet = { type: 'covertime' };
+  const opt = (at, big, small) => `<button type="button" class="ctopt${at === cur ? ' on' : ''}" data-action="ctpick" data-at="${at}"><b>${big}</b><span>${small}</span></button>`;
+  openSheet(`<div class="sheet-h"><div><h2>📣 ${c.id ? 'Change the start time' : 'Ask everyone to cover'}</h2><p class="muted">${shiftLine(c)}${(c.needed || 1) > 1 ? ` · ${c.needed} people needed` : ''}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="covertime" ${c.id ? `data-id="${c.id}"` : `data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}" data-need="${c.needed || 1}"`}>
+      <b class="ctq">What time do they start?</b>
+      <div class="ctgrid">${opt('', a, `Normal time · until ${b}`)}${early.map((t, i) => opt(t, t, `${['30 min', '1 hour', '1½ hours', '2 hours', '3 hours'][i]} early`)).join('')}</div>
+      <input type="hidden" name="at" value="${cur}">
+      <label class="f ctnote" ${cur ? '' : 'hidden'}>Why early? (optional)<input class="in" name="note" maxlength="80" value="${esc(c.early_note || '')}" placeholder="e.g. Set up for the party"></label>
+      <div class="err"></div><button class="btn" type="submit">${c.id ? 'Save the new time' : '📣 Ask everyone'}</button>
+      <p class="muted" style="font-size:12.5px;margin:0">${c.id ? 'Anyone who already said yes is told the new time.' : 'Staff see this start time before they say yes.'}</p></form>`);
 }
 function coverLineHtml(){
   if (!canArea('rota')) return '';
@@ -4904,7 +4928,7 @@ function coverBoxHtml(){
   const cs = coverCallsForMe().sort((a, b) => a.shift_date.localeCompare(b.shift_date)); if (!cs.length) return '';
   const open = state.covOpen !== false;
   return `<div class="covbox${open ? ' open' : ''}" id="covbox"><button class="covhd" data-action="covtoggle" aria-expanded="${open}"><span class="cvic">📣</span><span><b>Cover requests</b><small>The manager needs someone for ${plural(cs.length, 'shift')}. Can you work ${cs.length > 1 ? 'any of them' : 'it'}?</small></span><span class="cvn">${cs.length}</span><i aria-hidden="true">${open ? '▾' : '▸'}</i></button>
-    ${open ? `<div class="covlist">${cs.map(c => `<div class="covitem"><div class="covwhen"><b>${fmtDate(c.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}</b><span>${SESS[c.session]} · ${JOBS[c.job]} · ${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span>${(c.needed || 1) > 1 ? `<em>${c.needed} people needed</em>` : ''}</div>
+    ${open ? `<div class="covlist">${cs.map(c => `<div class="covitem"><div class="covwhen"><b>${fmtDate(c.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}</b><span>${SESS[c.session]} · ${JOBS[c.job]} · ${coverTimes(c).join('–')}</span>${c.start_early ? `<strong class="covearly">⏰ Starts early at ${String(c.start_early).slice(0, 5)}${c.early_note ? ' · ' + esc(c.early_note) : ''}</strong>` : ''}${(c.needed || 1) > 1 ? `<em>${c.needed} people needed</em>` : ''}</div>
       <div class="covbtns"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">✓ Yes, I can</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`).join('')}
       <p class="covnote">Saying yes doesn’t put you on the rota straight away. The manager picks, and you’ll be told.</p></div>` : ''}</div>`;
 }
@@ -6195,7 +6219,10 @@ const actions = {
     t.disabled = true; t.textContent = 'Asking…'; let n = 0;
     for (const c of todo){ try { await api.askCover({ shift_date: c.ds, session: c.sess, job: c.job, needed: c.short }); n++; } catch(e){} }
     toast(`Asked everyone who could work them: ${plural(n, 'shift')}. Answers show on Cover requests.`); refresh(); },
-  askcover: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
+  askcover: t => openCoverTime({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }),
+  covertime: t => { const c = (state.covers || []).find(x => x.id === Number(t.dataset.id)); if (c) openCoverTime(c); },
+  ctpick: t => { document.querySelectorAll('.ctopt').forEach(b => b.classList.toggle('on', b === t)); const f = t.closest('form'); f.at.value = t.dataset.at; f.querySelector('.ctnote').hidden = !t.dataset.at; },
+  askcoverold: async t => { await api.askCover({ shift_date: t.dataset.date, session: t.dataset.sess, job: t.dataset.job, needed: Number(t.dataset.need) || 1 }); toast('Asked everyone who could work it. Their answers show here.'); refresh(); },
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
   coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('Thanks! You said yes. The manager will let you know if you get it.'); refresh(); },
   coverno: async t => { await api.passCover(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('No problem. The manager has been told.'); refresh(); },
@@ -6458,6 +6485,10 @@ const forms = {
   async early(f){ try { await api.updateShift(Number(f.dataset.id), { start_early: f.at.value, early_note: f.note.value.trim() || null }); }
     catch(e){ if (/start_early|early_note/.test(e.message)) throw new Error('Run update-start-early.sql in Supabase first.'); throw e; }
     closeSheet(); toast(`Saved: in at ${f.at.value}`); refresh(); },
+  async covertime(f){ const at = f.at.value || null, note = at ? (f.note.value.trim() || null) : null;
+    if (f.dataset.id){ await api.setCoverTime(Number(f.dataset.id), at, note); closeSheet(); toast(at ? `Start time changed to ${at}` : 'Back to the normal start time'); return refresh(); }
+    await api.askCover({ shift_date: f.dataset.date, session: f.dataset.sess, job: f.dataset.job, needed: Number(f.dataset.need) || 1, start_early: at, early_note: note });
+    closeSheet(); toast('Asked everyone who could work it. Their answers show on Rota cover requests.'); refresh(); },
   async todoadd(f){ const body = f.body.value.trim(); if (!body) return; await api.addTodo(body, null); state.todos = await api.listTodos(); render(); setTimeout(() => document.querySelector('.tdadd .in')?.focus(), 30); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString(), ...(LIVE ? {} : { replied_by: state.user.id }) }).catch(async e => { throw e; }); toast('Done'); refresh(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
