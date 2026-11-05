@@ -14,6 +14,9 @@ begin
     (luis, array['2026-11-27','2026-11-28']::date[], 'pending', 'Wedding'),
     (joe,  array['2026-11-26','2026-11-27','2026-11-28']::date[], 'pending', 'Family visit');
   -- approve Adam and Luis the normal way, so they come off their shifts and the days are marked
+  -- act as Mark (App admin) so the approve function allows it: Supabase reads request.jwt.claim.sub / request.jwt.claims
+  perform set_config('request.jwt.claim.sub', (select id::text from public.profiles where lower(email) = 'mark@railway.com'), true);
+  perform set_config('request.jwt.claims', json_build_object('sub', (select id::text from public.profiles where lower(email) = 'mark@railway.com'), 'role', 'authenticated')::text, true);
   perform set_config('request.uid', (select id::text from public.profiles where lower(email) = 'mark@railway.com'), true);
   perform public.admin_decide_holiday(h.id, 'approved', null) from public.holiday_requests h where h.staff_id in (adam, luis) and h.status = 'pending' and h.days @> array['2026-11-27']::date[];
 end $$;
