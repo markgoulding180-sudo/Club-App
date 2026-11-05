@@ -1778,8 +1778,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .day.hfull .l{background:#ff6b6b;color:#2a0505}.day.hfull .l2{color:#ff8a8a;font-weight:800}
 .day.hone{border-color:rgba(94,200,255,.65)!important;background-image:linear-gradient(rgba(94,200,255,.09),rgba(94,200,255,.09));position:relative}
 .day.hone .l{background:#5ec8ff;color:#04223a}.day.hone .l2{color:#7fd6ff;font-weight:800}.day.hone .l.hone1{background:#5ec8ff;color:#04223a}
-.fullb.oneb{background:#5ec8ff;color:#04223a}.k.kone::before{background:#5ec8ff!important}.hkey.hone .hk-l2{color:#7fd6ff}
+.fullb.oneb{background:#5ec8ff;color:#04223a}.k.kswd::before{background:#a78bfa!important}.k.kone::before{background:#5ec8ff!important}.hkey.hone .hk-l2{color:#7fd6ff}
 .honenote{border:1px solid rgba(94,200,255,.6);background:rgba(94,200,255,.1);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.day.swgone{border-color:rgba(167,139,250,.6)!important;background:rgba(167,139,250,.1)}.day.swgone .l{background:#a78bfa;color:#1b0f3a}.day.swgone .l2{color:#c4b5fd;font-weight:700}
+.swb{position:absolute;right:4px;top:4px;background:#a78bfa;color:#1b0f3a;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px}
+.day{position:relative}@media (max-width:520px){.swb .swt{display:none}}
 .fullb{position:absolute;right:4px;bottom:4px;background:#ff6b6b;color:#2a0505;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;letter-spacing:.03em}
 .k.kfull::before{background:#ff6b6b!important}.hkey.hfull .hk-l2,.hfull .l2{color:#ff6b6b}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
@@ -3582,7 +3585,7 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
-    ${coverLineHtml()}${holAnsLineHtml()}
+    ${coverLineHtml()}${holAnsLineHtml()}${swapLinesHtml()}
     <div class="tiles">
       ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days).sort(byAsked);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
@@ -3610,6 +3613,7 @@ function homeView(){
     myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += staffQuickStart() + pushHomeCard()
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
+      + swapLinesHtml()
       + (holOffersForMe().length ? `<button class="covline yes staffcov" data-action="go" data-view="myshifts"><span>🌴 <b>Your holiday:</b> the manager can only approve some of your days. Do you still want them? <u>Tap to answer</u></span><i aria-hidden="true">›</i></button>` : '')
       + (featOn('cover') && coverCallsForMe().length ? (() => { const n = coverCallsForMe().length; return `<button class="covline yes staffcov" data-action="gocover"><span>📣 <b>Rota cover requests:</b> the manager needs someone for ${plural(n, 'shift')}. Can you help? <u>Tap to answer</u></span><i aria-hidden="true">›</i></button>`; })() : '')
       + nextRotaHtml() + nextShiftCard();
@@ -4973,6 +4977,26 @@ function openQuickMsg(id){
     <form class="stack" data-form="quickmsg" data-id="${id}"><textarea class="in" name="body" rows="4" maxlength="1500" required placeholder="Write your message"></textarea>
       <div class="err"></div><button class="btn" type="submit">Send to ${esc(pfirst(p))}</button><button class="btn ghost" type="button" data-action="openmsgs">‹ Back</button></form>`);
 }
+/* Flashing yellow swap lines on Home. Done swaps stay until tapped ("Got it"). */
+function swapLinesHtml(){
+  if (!featOn('swaps')) return '';
+  const me = state.user.id; const map = staffMap(); const nm = id => esc(pfirst(map[id]) || 'Staff');
+  const seen = new Set(lsGet('swseen-' + me) || []); const recent = ymd(addDays(new Date(), -14)); let h = '';
+  const line = (html, attrs) => h += `<button class="covline yes staffcov" ${attrs}><span>${html}</span><i aria-hidden="true">›</i></button>`;
+  if (isStaff()){
+    const mineOpen = (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open');
+    mineOpen.forEach(r => { const offs = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered'); if (!offs.length) return;
+      line(`🔄 <b>${offs.length > 1 ? `${offs.length} people offered` : `${nm(offs[0].staff_id)} offered`}</b> to swap your ${shiftLine(r.sh || (state.ops?.shifts || []).find(x => x.id === r.shift_id))}. <u>Tap to pick one</u>`, 'data-action="go" data-view="swaps"'); });
+    (state.sreqs || []).filter(r => canHelpWith(r).length).forEach(r => line(`🙋 <b>${nm(r.staff_id)} needs a swap</b> for ${shiftLine(r.sh)}. Can you help? <u>Tap to see</u>`, 'data-action="go" data-view="swaps"'));
+    (state.swaps || []).filter(w => w.status === 'asked' && w.to_staff === me).forEach(w => line(`🔄 <b>${nm(w.from_staff)} wants to swap with you.</b> <u>Tap to answer</u>`, 'data-action="go" data-view="swaps"'));
+  }
+  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent && !seen.has('sw' + w.id) && (isStaff() ? (w.from_staff === me || w.to_staff === me) : canArea('rota'))).forEach(w => {
+    if (isStaff()){ const other = w.from_staff === me ? w.to_staff : w.from_staff; const now = w.from_staff === me ? w.b : w.a, was = w.from_staff === me ? w.a : w.b;
+      line(`✅ <b>Swapped with ${nm(other)}.</b> You now work ${shiftLine(now)}${was ? `, not ${shiftLine(was)}` : ''}. <u>Got it</u>`, `data-action="swseen" data-key="sw${w.id}"`); }
+    else line(`🔄 <b>${nm(w.from_staff)} and ${nm(w.to_staff)} swapped.</b> ${nm(w.from_staff)} now works ${shiftLine(w.b)}, ${nm(w.to_staff)} works ${shiftLine(w.a)}. The rota is updated. <u>Got it</u>`, `data-action="swseen" data-key="sw${w.id}"`);
+  });
+  return h;
+}
 /* Holiday: how many others are off each day -> FULL (2) and "1 left" (1) */
 async function loadHolCounts(from, to){
   const c = featOn('holidays') ? await api.holidayDayCounts(from, to).catch(() => []) : [];
@@ -5307,13 +5331,17 @@ function myShiftsView(){
   const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
   const coming = o.shifts.filter(s => s.staff_id === me && s.shift_date >= today && (ACTIVE(s) || s.status === 'cannot_work'))
     .sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
+  const smap = staffMap(); const gave = {}, got = {};
+  (state.swaps || []).filter(w => w.status === 'approved' && (w.from_staff === me || w.to_staff === me)).forEach(w => {
+    const mine = w.from_staff === me, other = esc(pfirst(smap[mine ? w.to_staff : w.from_staff]) || 'someone');
+    const a = mine ? w.a : w.b, b = mine ? w.b : w.a; if (a) gave[a.shift_date] = other; if (b) got[b.shift_date] = other; });
   const cal = calendar(state.offMonth, (ds, c) => {
     if (c.out) return '<div class="day out"></div>';
-    const tag = dayTag(myDay(ds));
+    const tag0 = dayTag(myDay(ds)); const tag = tag0 || (gave[ds] ? ['Swapped', 'swgone', `swapped to ${gave[ds]}`, `to ${gave[ds]}`] : null);
     const lab = tag ? `<span class="l">${tag[0]}</span>${tag[3] ? `<span class="l2">${tag[3]}</span>` : ''}` : '';
     if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${lab}</div>`;
     const full = (state.holFull || []).includes(ds), one = !full && !(tag && /hol/.test(tag[1])) && (state.holOne || []).includes(ds);
-    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : one ? ' hone' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : one ? ', 1 holiday space left' : ''}"><span class="n">${c.day}</span>${tag ? lab : full ? '<span class="l">Hol</span><span class="l2">FULL</span>' : one ? '<span class="l">Hol</span><span class="l2">1 left</span>' : ''}${tag && full ? '<span class="fullb">Hol FULL</span>' : tag && one ? '<span class="fullb oneb">Hol 1 left</span>' : ''}</button>`;
+    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : one ? ' hone' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : one ? ', 1 holiday space left' : ''}"><span class="n">${c.day}</span>${tag ? lab : full ? '<span class="l">Hol</span><span class="l2">FULL</span>' : one ? '<span class="l">Hol</span><span class="l2">1 left</span>' : ''}${tag && full ? '<span class="fullb">Hol FULL</span>' : tag && one ? '<span class="fullb oneb">Hol 1 left</span>' : ''}${got[ds] && tag0 ? `<span class="swb" title="Swapped with ${got[ds]}">🔄<span class="swt"> Swapped</span></span>` : ''}</button>`;
   });
   const status = s => { const d = myDay(s.shift_date);
     if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
@@ -5350,7 +5378,7 @@ function myShiftsView(){
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kone">Hol 1 left = 1 person off, 1 space left</span><span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
+      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kswd">🔄 Swapped (gave away / swapped in)</span><span class="k kone">Hol 1 left = 1 person off, 1 space left</span><span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
     </div>`}
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
@@ -6239,6 +6267,7 @@ const actions = {
     openDm(id); },
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
+  swseen: t => { const k = 'swseen-' + state.user.id; lsSet(k, [...new Set([...(lsGet(k) || []), t.dataset.key])]); isStaff() ? go('myshifts') : go('rota', { rotaTab: 'rota' }); },
   holansseen: t => { const k = 'holans-' + state.user.id; lsSet(k, [...new Set([...(lsGet(k) || []), t.dataset.key])]); go('rota', { rotaTab: 'holidays' }); },
   dmofficer: t => { const o = (state.officers || []).find(x => x.id === t.dataset.id); if (!o) return; state.contacts ||= [];
     if (!state.contacts.some(c => c.id === o.id)) state.contacts.push({ id: o.id, first_name: o.first_name, last_initial: o.last_initial, title: o.title, is_club: true }); openDm(o.id); },
