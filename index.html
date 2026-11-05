@@ -3923,11 +3923,11 @@ function coverLineHtml(){
   if (!canArea('rota')) return '';
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
   const yes = (state.offers || []).filter(o => o.status === 'offered' && calls.some(c => c.shift_date === o.shift_date && c.session === o.session && c.job === o.job)).length;
-  return `<button class="covline${yes ? ' yes' : ''}" data-feat="cover" data-action="go" data-view="covers"><span>📣 <b>Cover requests:</b> ${plural(calls.reduce((n, c) => n + (c.needed || 1), 0), 'person', 'people')} still needed${yes ? ` · <b>${yes} said yes</b>` : ' · no one has said yes yet'}</span><i aria-hidden="true">›</i></button>`;
+  return `<button class="covline${yes ? ' yes' : ''}" data-feat="cover" data-action="go" data-view="covers"><span>📣 <b>Rota cover requests:</b> ${plural(calls.reduce((n, c) => n + (c.needed || 1), 0), 'person', 'people')} still needed${yes ? ` · <b>${yes} said yes</b>` : ' · no one has said yes yet'}</span><i aria-hidden="true">›</i></button>`;
 }
 function coverView(){
   const body = coverStatusHtml();
-  return page('Cover requests', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Shifts you’ve asked everyone to cover. See who said yes, who said no, and who hasn’t answered yet.</p>`
+  return page('Rota cover requests', '', ['hub', 'Home']) + `<p class="muted" style="margin:-8px 0 14px">Shifts you’ve asked everyone to cover. See who said yes, who said no, and who hasn’t answered yet.</p>`
     + (body || '<div class="empty">No cover requests open. Ask from a gap on the Rota with “📣 Ask everyone to cover”.</div>');
 }
 function coverAskHtml(ds, sess, job, offs, gaps = 1){
