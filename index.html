@@ -4020,7 +4020,7 @@ function coverStatusHtml(){
     const ld = rotaLoad(c.shift_date); const hrs = id => ld(id).h;
     const yes = offs.filter(o => o.status === 'offered').sort((a, b) => hrs(a.staff_id) - hrs(b.staff_id)), no = offs.filter(o => o.status === 'passed'), got = offs.filter(o => o.status === 'accepted');
     const ft = id => isFT((state.profiles || []).find(x => x.id === id)) ? 'Full time' : 'Part time';
-    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
+    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x) && clashes(x, c)).map(x => x.staff_id));
     const answered = new Set(offs.map(o => o.staff_id));
     const offDay = new Set((state.ops?.unavail || []).filter(u => u.off_date === c.shift_date).map(u => u.staff_id));
     const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !offDay.has(p.id) && !answered.has(p.id));
@@ -4036,7 +4036,7 @@ function coverStatusHtml(){
   const ready = calls.filter(c => yesOf(c).length), wait = calls.filter(c => !yesOf(c).length);
   const openK = new Set(state.cvOpen || []); const key = c => `${c.shift_date}|${c.session}|${c.job}`;
   const short = c => { const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job); const no = offs.filter(o => o.status === 'passed').length;
-    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id)); const ans = new Set(offs.map(o => o.staff_id));
+    const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x) && clashes(x, c)).map(x => x.staff_id)); const ans = new Set(offs.map(o => o.staff_id));
     const offD = new Set((state.ops?.unavail || []).filter(u => u.off_date === c.shift_date).map(u => u.staff_id));
     const nw = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !offD.has(p.id) && !ans.has(p.id)).length;
     return openK.has(key(c)) ? `<div class="cvopen"><button class="cvline on" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><i>▾</i></button>${row(c)}</div>`
@@ -5440,10 +5440,10 @@ function canHelpWith(r){
   const me = state.user.id; const o = state.ops; if (!r.sh || r.staff_id === me || r.status !== 'open' || r.sh.shift_date <= todayStr()) return [];
   if ((state.soffers || []).some(x => x.request_id === r.id && x.staff_id === me && ['offered', 'passed', 'accepted'].includes(x.status))) return [];
   const staff = Object.fromEntries((o.staff || []).map(p => [p.id, p])); const meP = staff[me], them = staff[r.staff_id];
-  const working = (who, ds) => o.shifts.some(x => x.staff_id === who && x.shift_date === ds && ACTIVE(x));
-  if (!meP || !them || !canDo(meP, r.sh.job) || working(me, r.sh.shift_date) || o.unavail.some(u => u.staff_id === me && u.off_date === r.sh.shift_date)) return [];
+  const working = (who, ds, job) => o.shifts.some(x => x.staff_id === who && x.shift_date === ds && ACTIVE(x) && clashes(x, { job }));
+  if (!meP || !them || !canDo(meP, r.sh.job) || working(me, r.sh.shift_date, r.sh.job) || o.unavail.some(u => u.staff_id === me && u.off_date === r.sh.shift_date)) return [];
   return o.shifts.filter(x => x.staff_id === me && ACTIVE(x) && x.status !== 'late' && x.shift_date > todayStr() && isPublished(x.shift_date) && x.shift_date !== r.sh.shift_date
-    && !working(r.staff_id, x.shift_date) && canDo(them, x.job)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
+    && !working(r.staff_id, x.shift_date, x.job) && canDo(them, x.job)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
 }
 function myReqHtml(r){
   const map = staffMap(); const offers = (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered');
@@ -6025,10 +6025,10 @@ function cwBlock(s){
 function openShiftSheet(id){ const s = state.ops.shifts.find(x => x.id === id); if (s) openDaySheet(s.shift_date); }
 function swapOptions(mine){
   const me = state.user.id; const o = state.ops; const staff = Object.fromEntries((o.staff || []).map(p => [p.id, p])); const meP = staff[me];
-  const working = (who, ds) => o.shifts.some(x => x.staff_id === who && x.shift_date === ds && ACTIVE(x));
+  const working = (who, ds, job) => o.shifts.some(x => x.staff_id === who && x.shift_date === ds && ACTIVE(x) && clashes(x, { job }));
   const waiting = new Set((state.swaps || []).filter(w => ['asked', 'accepted'].includes(w.status)).flatMap(w => [w.from_shift, w.to_shift]));
   return o.shifts.filter(x => ACTIVE(x) && x.status !== 'late' && x.staff_id !== me && x.shift_date > todayStr() && isPublished(x.shift_date) && x.shift_date !== mine.shift_date
-      && !waiting.has(x.id) && !working(me, x.shift_date) && !working(x.staff_id, mine.shift_date)
+      && !waiting.has(x.id) && !working(me, x.shift_date, x.job) && !working(x.staff_id, mine.shift_date, mine.job)
       && staff[x.staff_id] && meP && canDo(meP, x.job) && canDo(staff[x.staff_id], mine.job))
     .sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
 }
