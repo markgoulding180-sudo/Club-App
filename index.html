@@ -1806,6 +1806,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .jg-lounge{background:rgba(155,123,255,.09);border-color:rgba(155,123,255,.35);border-left-color:#9b7bff}.jg-lounge .job{color:#b9a3ff!important}
 .jg-event{background:rgba(46,230,200,.08);border-color:rgba(46,230,200,.3);border-left-color:#2ee6c8}.jg-event .job{color:#7ff3df!important}
 .jg-door{background:rgba(255,138,61,.08);border-color:rgba(255,138,61,.3);border-left-color:#ff8a3d}.jg-door .job{color:#ffb27a!important}
+.earlybtn{grid-column:1 / -1;justify-self:start;background:none;border:1px dashed rgba(246,200,80,.5);color:#f6c850;border-radius:999px;padding:3px 12px;font-size:12.5px;font-weight:800;cursor:pointer;margin:2px 0 4px}
+.earlybtn.on{background:rgba(246,200,80,.16);border-style:solid}em.early{font-style:normal;color:#f6c850;font-weight:800}
 </style>
 
 </head>
@@ -1973,8 +1975,9 @@ function hoursHtml(where = ''){
   return `<div class="hours ${where}"><b class="hours-h">Opening times</b>${[1, 2, 3, 4, 5, 6, 0].map(d => { const r = openRanges(d);
     return `<div class="hrow${d === today ? ' hnow' : ''}"><span>${names[d]}</span><span>${r.length ? r.map(([a, b]) => `${mm(a)}–${mm(b)}`).join(', ') : 'Closed'}</span></div>`; }).join('')}</div>`;
 }
-function hoursOf(ds, sess){
-  const [a, b] = sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
+const shiftTimes = s => { const t = sessTimes(s.shift_date, s.session); return s.start_early ? [String(s.start_early).slice(0, 5), t[1]] : t; };
+function hoursOf(ds, sess, sh){
+  const [a, b] = sh?.start_early ? [String(sh.start_early).slice(0, 5), sessTimes(ds, sess)[1]] : sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
   let e = m(b); if (e <= m(a)) e += 1440; return (e - m(a)) / 60;
 }
 const eventBarFor = b => Math.max(1, Math.ceil((Number(b.guests) || 1) / STAFF_RULES.guestsPerEventBar));
@@ -3873,7 +3876,7 @@ function bookingView(){
    ===================================================================== */
 function rotaLoad(ds){
   const pst = periodStart(ds); const t = {};
-  (state.ops?.shifts || []).filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const x = t[s.staff_id] ||= { n: 0, h: 0 }; x.n++; x.h += hoursOf(s.shift_date, s.session); });
+  (state.ops?.shifts || []).filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const x = t[s.staff_id] ||= { n: 0, h: 0 }; x.n++; x.h += hoursOf(s.shift_date, s.session, s); });
   return id => t[id] || { n: 0, h: 0 };
 }
 function staffSelect(ds, x, job, shift, cover, k){
@@ -3887,10 +3890,10 @@ function staffSelect(ds, x, job, shift, cover, k){
     .sort((a, b) => (a.why ? 1 : 0) - (b.why ? 1 : 0) || (b.can ? 1 : 0) - (a.can ? 1 : 0) || byName(a.p, b.p));
   const first = shift ? '— Take off this shift —' : opts.some(o => !o.why) ? 'Pick someone…' : 'No one free';
   const pst = periodStart(ds); const tally = {};
-  state.ops.shifts.filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const t = tally[s.staff_id] ||= { n: 0, h: 0 }; t.n++; t.h += hoursOf(s.shift_date, s.session); });
+  state.ops.shifts.filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const t = tally[s.staff_id] ||= { n: 0, h: 0 }; t.n++; t.h += hoursOf(s.shift_date, s.session, s); });
   const load = id => { const t = tally[id] || { n: 0, h: 0 }; return ` · ${t.n} shift${t.n === 1 ? '' : 's'}, ${Math.round(t.h * 10) / 10}h`; };
   return `<select id="sel-${ds}-${x.sess}-${job}-${k}" data-slotsel data-date="${ds}" data-sess="${x.sess}" data-job="${job}" data-shift="${shift?.id || ''}" data-cover="${cover?.id || ''}" aria-label="${JOBS[job]}, ${SESS[x.sess]}, ${fmtDate(ds)}">
-    <option value="">${first}</option>${opts.map(({ p, why, can }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${why ? ` (${why})` : p.id === shift?.staff_id ? '' : (can ? ' ★ can work' : '') + load(p.id)}</option>`).join('')}</select>`;
+    <option value="">${first}</option>${opts.map(({ p, why, can }) => `<option value="${p.id}" ${p.id === shift?.staff_id ? 'selected' : ''} ${why ? 'disabled' : ''}>${esc(pname(p))}${(state.profiles || []).some(x => x.id === p.id) ? ((state.profiles.find(x => x.id === p.id).regular_shifts || []).length ? ' · FT' : ' · PT') : ''}${why ? ` (${why})` : p.id === shift?.staff_id ? '' : (can ? ' ★ can work' : '') + load(p.id)}</option>`).join('')}</select>`;
 }
 const outcomeSelect = s => `<select data-outcome data-id="${s.id}" aria-label="How did the shift go"><option value="" disabled ${['assigned','confirmed'].includes(s.status) ? 'selected' : ''}>How did it go?</option>
   <option value="confirmed">Worked</option><option value="late" ${s.status === 'late' ? 'selected' : ''}>Late</option><option value="sick">Sick</option><option value="no_show">Didn’t turn up</option></select>`;
@@ -3985,7 +3988,8 @@ function slotsHtml(ds, x){
       const s = on[k]; const label = JOBS[job] + (n > 1 ? ' ' + (k + 1) : '');
       if (s){
         h += `<div class="slot"><span class="job">${label}</span>${admin ? staffSelect(ds, x, job, s, null, k) : `<span class="who ${s.staff_id === me ? 'me' : ''}">${esc(pname(map[s.staff_id]))}</span>`}
-          <span class="side">${admin && ds <= today ? outcomeSelect(s) : s.status === 'late' ? '<span class="pill late">Late</span>' : ''}</span></div>`;
+          <span class="side">${admin && ds <= today ? outcomeSelect(s) : s.status === 'late' ? '<span class="pill late">Late</span>' : ''}</span>
+          ${admin && ds >= today && (s.start_early || (state.ops.bookings || []).some(b => b.booking_date === ds && b.status !== 'cancelled')) ? `<button class="earlybtn${s.start_early ? ' on' : ''}" data-action="earlyopen" data-id="${s.id}">${s.start_early ? `⏰ In at ${String(s.start_early).slice(0, 5)}${s.early_note ? ' · ' + esc(s.early_note) : ''}` : '⏰ Come in early?'}</button>` : s.start_early ? `<span class="earlybtn on">⏰ In at ${String(s.start_early).slice(0, 5)}</span>` : ''}</div>`;
       } else {
         const p = probs[c++];
         if (p) h += `<div class="slot cwrow"><span class="job">${label}</span><span class="who cw">${esc(pname(map[p.staff_id]))} · ${p.status === 'cannot_work' ? (p.decision === 'approved' ? (p.excused ? 'Off · special circumstances' : 'Off · unplanned absence') : 'Asked for the day off') : SHIFT_STATUS[p.status]}</span>
@@ -4065,7 +4069,7 @@ function hoursRows(){
   return people.map(p => {
     const sh = o.shifts.filter(x => x.staff_id === p.id && inP(x.shift_date));
     const on = sh.filter(ACTIVE); const done = on.filter(x => x.shift_date <= today);
-    const hrs = on.reduce((a, x) => a + hoursOf(x.shift_date, x.session), 0), hrsDone = done.reduce((a, x) => a + hoursOf(x.shift_date, x.session), 0);
+    const hrs = on.reduce((a, x) => a + hoursOf(x.shift_date, x.session, x), 0), hrsDone = done.reduce((a, x) => a + hoursOf(x.shift_date, x.session, x), 0);
     const hol = (state.holidays || []).filter(h => h.staff_id === p.id && h.status === 'approved').flatMap(h => h.days).filter(inP).length;
     const un = o.unavail.filter(u => u.staff_id === p.id && inP(u.off_date) && !(u.holiday_id || u.reason === 'Holiday')).length;
     const c = k => sh.filter(x => x.status === k).length;
@@ -4123,7 +4127,7 @@ function staffStats(pid){
   const count = k => past.filter(s => s.status === k).length + notes.filter(n => n.kind === k).length;
   const sick = count('sick'), noShow = count('no_show'), late = count('late');
   const cant = past.filter(s => s.status === 'cannot_work' && s.decision !== 'declined' && !s.excused).length + notes.filter(n => n.kind === 'cannot_work').length;
-  const hours = worked.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0);
+  const hours = worked.reduce((a, s) => a + hoursOf(s.shift_date, s.session, s), 0);
   const expected = worked.length + past.filter(s => s.status === 'sick' || s.status === 'no_show').length;
   const rel = expected ? Math.round(100 * worked.length / expected) : null;
   const relCls = rel == null ? 'new' : rel >= 95 && noShow === 0 ? 'good' : rel >= 85 ? 'mid' : 'poor';
@@ -4679,7 +4683,7 @@ function myDay(ds){
 }
 function dayTag(d){
   // [line 1, css class, full description, line 2]
-  const st = s => sessTimes(s.shift_date, s.session)[0];
+  const st = s => shiftTimes(s)[0];
   if (d.hol === 'approved') return ['Hol', 't-hol', 'Holiday', 'booked'];
   if (d.hol === 'pending') return ['Hol', 't-ask', 'Holiday asked, waiting for the manager', 'asked'];
   if (d.cw) return d.cw.decision === 'approved' || d.cw.covered ? ['Off ✓', 't-offok', 'You asked off this shift and the manager approved it', ''] : ['Asked', 't-cw', 'You asked off this shift, waiting for the manager', 'off'];
@@ -4706,7 +4710,7 @@ const firstHolDay = () => { let d = todayStr(); for (let k = 0; k < 120 && isPub
 function myMonthStats(){
   const me = state.user.id; const m = todayStr().slice(0, 7);
   const on = state.ops.shifts.filter(s => s.staff_id === me && ACTIVE(s) && s.shift_date.slice(0, 7) === m);
-  const hrs = on.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  const hrs = on.reduce((a, s) => a + hoursOf(s.shift_date, s.session, s), 0); const hs = holStats(me);
   return `<div class="mypills center"><span class="mpill"><b>${on.length}</b> shift${on.length === 1 ? '' : 's'}</span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours</span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>`;
 }
 /* ---------- Bell + messages icons at the top (staff and members) ---------- */
@@ -5085,7 +5089,7 @@ function openPickShift(){
   const me = state.user.id; const today = todayStr();
   const list = state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today && ACTIVE(s)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session)).slice(0, 12);
   openSheet(`<div class="sheet-h"><div><h2>Which shift can’t you make?</h2><p class="muted">Tap it. Next you can ask everyone to swap, or tell the manager.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    <div class="clist">${list.map(s => `<button class="crow" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span></span><i aria-hidden="true">›</i></button>`).join('')
+    <div class="clist">${list.map(s => `<button class="crow" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}</b><span>${SESS[s.session]} · ${shiftTimes(s).join('–')}</span></span><i aria-hidden="true">›</i></button>`).join('')
       || '<div class="empty">You’ve no shifts coming up.</div>'}</div>
     <p class="muted" style="font-size:13px;margin:12px 0 0">Ill today or something urgent? <button class="linkbtn" data-action="msgstart">Message the manager</button></p>`);
 }
@@ -5094,12 +5098,12 @@ function nextShiftCard(){
   if (!nx) return '<div class="nextshift none"><span class="lbl">Next shift</span><b>Nothing booked yet</b><span class="muted">You’ll see your shifts here once the rota is out.</span></div>';
   const days = Math.round((parseYmd(nx.shift_date) - parseYmd(todayStr())) / 864e5);
   return `<button class="nextshift" data-action="myday" data-date="${nx.shift_date}">${dbox(nx.shift_date)}<div class="txt"><span class="lbl">Next shift · ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}</span>
-    <b>${JOBS[nx.job]}</b><span>${SESS[nx.session]} · ${sessTimes(nx.shift_date, nx.session).join('–')}</span><span class="muted">${shiftWhat(nx)}</span></div><i aria-hidden="true">›</i></button>`;
+    <b>${JOBS[nx.job]}</b><span>${SESS[nx.session]} · ${shiftTimes(nx).join('–')}${nx.start_early ? ` <em class="early">⏰ in early${nx.early_note ? ': ' + esc(nx.early_note) : ''}</em>` : ''}</span><span class="muted">${shiftWhat(nx)}</span></div><i aria-hidden="true">›</i></button>`;
 }
 function myStats(){
   const me = state.user.id; const today = todayStr(); const cur = periodStart(today < ROTA_ANCHOR ? ROTA_ANCHOR : today);
   const inCur = state.ops.shifts.filter(s => s.staff_id === me && ACTIVE(s) && periodStart(s.shift_date) === cur);
-  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0); const hs = holStats(me);
+  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session, s), 0); const hs = holStats(me);
   return `<div class="mypills"><span class="mpill"><b>${inCur.length}</b> shift${inCur.length === 1 ? '' : 's'}<span class="tr"> this rota</span></span><span class="mpill"><b>${hrsFmt(hrs)}</b> hours<span class="tr"> this rota</span></span><span class="mpill ${hs.left <= 3 ? 'low' : ''}"><b>${hs.left}</b> holiday days left</span></div>`;
 }
 function myShiftsView(){
@@ -5128,10 +5132,10 @@ function myShiftsView(){
   const myOffers = (state.offers || []).filter(o => o.staff_id === me && o.status === 'offered' && o.shift_date >= today).map(o => ({ ...o, offer: true }));
   const shown = [...coming, ...myOffers].sort((a, b) => a.shift_date.localeCompare(b.shift_date) || (a.offer ? 1 : -1)).slice(0, state.allComing ? 999 : 10 + myOffers.length); let lastWk = '';
   const rows = shown.map(s => { const w = wkLabel(s.shift_date); const hd = w !== lastWk ? `<div class="wkhead">${w}</div>` : ''; lastWk = w;
-    if (s.offer) return hd + `<div class="crow offered">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>
+    if (s.offer) return hd + `<div class="crow offered">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${shiftTimes(s).join('–')}</span>
       <span class="st offer">✋ You offered to work this · waiting for the manager to confirm</span></span><button class="linkbtn" data-action="offerwithdraw" data-id="${s.id}">Withdraw</button></div>`;
     return hd + `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
-      <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
+      <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${shiftTimes(s).join('–')}${s.start_early ? ` <em class="early">⏰ in early${s.early_note ? ': ' + esc(s.early_note) : ''}</em>` : ''}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
   const view = state.myView === 'list' ? 'list' : 'cal'; const hs = holStats(me);
   const sc = swapCounts();
   return `<div class="head"><h1>My shifts</h1></div>
@@ -5228,7 +5232,7 @@ function swapBoardHtml(){
 }
 function openSwapAsk(id){
   const s = state.ops.shifts.find(x => x.id === id); if (!s) return; state.sheet = { type: 'swapask', id };
-  openSheet(`<div class="sheet-h"><div><h2>Ask everyone to swap</h2><p class="muted">${shiftLine(s)} ${sessTimes(s.shift_date, s.session).join('–')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+  openSheet(`<div class="sheet-h"><div><h2>Ask everyone to swap</h2><p class="muted">${shiftLine(s)} ${shiftTimes(s).join('–')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <ol class="steps"><li>Everyone who could work this shift is asked.</li><li>They offer one of their shifts back, or say no thanks.</li><li>You pick the offer you want.</li><li>The manager approves it and the rota changes.</li></ol>
     <form class="stack" data-form="swapask" data-id="${s.id}"><label class="f">Message (optional)<input class="in" name="note" placeholder="For example: it’s my daughter’s birthday"></label>
       <div class="err"></div><button class="btn" type="submit">Ask everyone</button></form>
@@ -5313,12 +5317,12 @@ function openPickMine(){
   const busy = new Set([...(state.swaps || []).filter(w => ['asked', 'accepted'].includes(w.status)).flatMap(w => [w.from_shift, w.to_shift]), ...(state.sreqs || []).filter(r => r.status === 'open').map(r => r.shift_id)]);
   const list = state.ops.shifts.filter(s => s.staff_id === me && ACTIVE(s) && s.shift_date > todayStr() && isPublished(s.shift_date) && !busy.has(s.id)).sort((a, b) => (a.shift_date + a.session).localeCompare(b.shift_date + b.session));
   openSheet(`<div class="sheet-h"><div><h2>Which shift can’t you work?</h2><p class="muted">Pick it and everyone who could swap will be asked.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-    <div class="stack" style="gap:8px">${list.map(s => `<button class="swapopt" data-action="swapask" data-id="${s.id}"><b>${shiftLine(s)}</b><span>${sessTimes(s.shift_date, s.session).join('–')}</span></button>`).join('') || '<div class="empty">No shifts you can swap right now. Only shifts from tomorrow on a published rota can be swapped.</div>'}</div>`);
+    <div class="stack" style="gap:8px">${list.map(s => `<button class="swapopt" data-action="swapask" data-id="${s.id}"><b>${shiftLine(s)}</b><span>${shiftTimes(s).join('–')}</span></button>`).join('') || '<div class="empty">No shifts you can swap right now. Only shifts from tomorrow on a published rota can be swapped.</div>'}</div>`);
 }
 function openDaySheet(ds){
   state.sheet = { type: 'day', ds }; const d = myDay(ds); const past = ds < todayStr(); const me = state.user.id;
   let h = `<div class="sheet-h"><div><h2>${fmtDate(ds, { weekday:'long', day:'numeric', month:'long' })}</h2>${dayTag(d) ? `<p class="muted">${dayTag(d)[2]}</p>` : ''}</div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>`;
-  const card = s => `<div class="panel stack" style="gap:4px;padding:14px"><span class="muted" style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Your shift</span><b style="font-size:18px">${JOBS[s.job]}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span><span class="muted" style="font-size:13px">${shiftWhat(s)}</span></div>`;
+  const card = s => `<div class="panel stack" style="gap:4px;padding:14px"><span class="muted" style="font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Your shift</span><b style="font-size:18px">${JOBS[s.job]}</b><span>${SESS[s.session]} · ${shiftTimes(s).join('–')}</span><span class="muted" style="font-size:13px">${shiftWhat(s)}</span></div>`;
   if (d.hol) h += `<div class="dnote ${d.hol === 'approved' ? 'ok' : 'wait'}">${d.hol === 'approved' ? '🌴 You’re on holiday.' : '🌴 You’ve asked for holiday. Waiting for the manager.'}</div>`;
   if (d.shift){
     h += card(d.shift);
@@ -5355,7 +5359,7 @@ function openMessage(topic = '', shiftId = ''){
       <div class="f">What’s it about?<div class="chips">${Object.entries(MSG_TOPICS).map(([k, l]) => `<label class="chip topic"><input type="radio" name="topic" value="${k}" ${k === topic ? 'checked' : ''} required data-topicpick><span>${l}</span></label>`).join('')}</div></div>
       <div class="topichelp" ${topic === 'cant_work' ? '' : 'hidden'}>
         <p class="hnote">Before you ask: <b>swap</b> it with someone (Swaps), or ask for <b>holiday</b> before the rota comes out. If neither works, the manager decides. An unplanned day off goes on your record unless the manager agrees it’s special circumstances.</p>
-        <label class="f">Which shift?<select name="shift_id"><option value="">Choose a shift…</option>${mine.map(s => `<option value="${s.id}" ${String(s.id) === String(shiftId) ? 'selected' : ''}>${shiftLine(s)} ${sessTimes(s.shift_date, s.session).join('–')}</option>`).join('')}</select></label></div>
+        <label class="f">Which shift?<select name="shift_id"><option value="">Choose a shift…</option>${mine.map(s => `<option value="${s.id}" ${String(s.id) === String(shiftId) ? 'selected' : ''}>${shiftLine(s)} ${shiftTimes(s).join('–')}</option>`).join('')}</select></label></div>
       <label class="f">Your message<textarea class="in" name="body" rows="4" required placeholder="Keep it short. The manager will get back to you." data-wordcount></textarea></label>
       <p class="muted wc" style="font-size:13px;margin:-6px 0 0">0 of ${MSG_WORDS} words</p>
       <div class="err"></div><button class="btn" type="submit">Send to the manager</button></form>`);
@@ -5686,7 +5690,7 @@ function jobsView(){
 function openCwSheet(id){
   const s = state.ops.shifts.find(x => x.id === id); if (!s) return;
   state.sheet = { type: 'cw', id };
-  openSheet(`<div class="sheet-h"><div><h2>Can’t work this shift</h2><p class="muted">${fmtDate(s.shift_date, { weekday:'long', day:'numeric', month:'long' })} · ${JOBS[s.job]} ${sessTimes(s.shift_date, s.session).join('–')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>${cwBlock(s)}
+  openSheet(`<div class="sheet-h"><div><h2>Can’t work this shift</h2><p class="muted">${fmtDate(s.shift_date, { weekday:'long', day:'numeric', month:'long' })} · ${JOBS[s.job]} ${shiftTimes(s).join('–')}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>${cwBlock(s)}
     <button class="btn ghost" data-action="myday" data-date="${s.shift_date}">‹ Back</button>`);
 }
 function myUpdatesHtml(mine){
@@ -5738,7 +5742,7 @@ function openUpdates(){
 function myRotaNote(mine){
   const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr()); const next = ymd(addDays(parseYmd(cur), 28));
   const inCur = state.ops.shifts.filter(s => s.staff_id === state.user.id && periodStart(s.shift_date) === cur && ACTIVE(s));
-  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session), 0);
+  const hrs = inCur.reduce((a, s) => a + hoursOf(s.shift_date, s.session, s), 0);
   const nextPub = isPublished(next); const due = ymd(addDays(parseYmd(next), -7));
   return `<div class="panel" style="padding:12px 14px;margin-bottom:12px;font-size:14px;display:grid;gap:4px">
     <b style="font-size:16px">Rota</b><span>${periodLabel(cur)}${isPublished(cur) ? ` · ${plural(inCur.length, 'shift')} · ${hrsFmt(hrs)} hours` : ' · not published yet'}</span>
@@ -6015,6 +6019,15 @@ const actions = {
   todoclear: async () => { for (const x of (state.todos || []).filter(x => x.done)) await api.delTodo(x.id); state.todos = await api.listTodos(); render(); },
   featopen: t => { const k = t.dataset.key; const o = new Set(state.featOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.featOpen = [...o]; render(); },
   cvexp: t => { const k = t.dataset.key; const o = new Set(state.cvOpen || []); o.has(k) ? o.delete(k) : o.add(k); state.cvOpen = [...o]; render(); },
+  earlyopen: t => { const s = (state.ops?.shifts || []).find(x => x.id === Number(t.dataset.id)); if (!s) return; const p = staffMap()[s.staff_id];
+    const [a] = sessTimes(s.shift_date, s.session); const m = x => { const [h, mm] = x.split(':').map(Number); return h * 60 + mm; }; const f = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+    const opts = [30, 60, 90, 120, 150, 180].map(k => f(m(a) - k)); state.sheet = { type: 'early', id: s.id };
+    openSheet(`<div class="sheet-h"><div><h2>⏰ Come in early</h2><p class="muted">${esc(pname(p))} · ${shiftLine(s)} · normally starts ${a}</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+      <form class="stack" data-form="early" data-id="${s.id}"><label class="f">Start at<select name="at">${opts.map((o, i) => `<option value="${o}" ${String(s.start_early || '').slice(0, 5) === o || (!s.start_early && i === 1) ? 'selected' : ''}>${o} (${[30, 60, 90, 120, 150, 180][i] / 60}h early)</option>`).join('')}</select></label>
+        <label class="f">Why? (optional)<input class="in" name="note" maxlength="80" value="${esc(s.early_note || '')}" placeholder="e.g. Set up for the 18th party"></label>
+        <p class="muted" style="font-size:12.5px;margin:-4px 0 0">${esc(pfirst(p))} is told on their phone, and their hours count from the early start.</p>
+        <div class="err"></div><button class="btn" type="submit">Save</button>${s.start_early ? `<button class="btn ghost" type="button" data-action="earlyclear" data-id="${s.id}">Back to the normal start (${a})</button>` : ''}</form>`); },
+  earlyclear: async t => { await api.updateShift(Number(t.dataset.id), { start_early: null, early_note: null }); closeSheet(); toast('Normal start time again'); refresh(); },
   covtoggle: () => { state.covOpen = state.covOpen === false; render(); },
   gocover: () => { state.covOpen = true; go('myshifts'); setTimeout(() => document.getElementById('covbox')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300); },
   fmtab: t => { state.fmTab = t.dataset.val; render(); },
@@ -6424,13 +6437,16 @@ const forms = {
     openSheet(`<div class="sheet-h"><div><h2>Message sent</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
       <div class="sentok"><span class="tick">✓</span><p>The manager has your message.</p><p class="muted">${topic === 'cant_work' ? 'You stay on the shift until the manager decides. You’ll see the answer under the 🔔 bell at the top.' : 'When they reply, the 💬 icon at the top turns yellow. Tap it to read the reply.'}</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
+  async early(f){ try { await api.updateShift(Number(f.dataset.id), { start_early: f.at.value, early_note: f.note.value.trim() || null }); }
+    catch(e){ if (/start_early|early_note/.test(e.message)) throw new Error('Run update-start-early.sql in Supabase first.'); throw e; }
+    closeSheet(); toast(`Saved: in at ${f.at.value}`); refresh(); },
   async todoadd(f){ const body = f.body.value.trim(); if (!body) return; await api.addTodo(body, null); state.todos = await api.listTodos(); render(); setTimeout(() => document.querySelector('.tdadd .in')?.focus(), 30); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString(), ...(LIVE ? {} : { replied_by: state.user.id }) }).catch(async e => { throw e; }); toast('Done'); refresh(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
     const id = Number(f.dataset.id); await api.staffSetShift(id, 'cannot_work', why); state.sheet = null; await refresh();
     const s = state.ops.shifts.find(x => x.id === id);
     openSheet(`<div class="sheet-h"><div><h2>Sent to the manager</h2></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
-      <div class="sentok"><span class="tick">✓</span><p>You’ve told the manager you can’t work <b>${s ? `${fmtDate(s.shift_date)}, ${JOBS[s.job]} ${sessTimes(s.shift_date, s.session).join('–')}` : 'this shift'}</b>.</p>
+      <div class="sentok"><span class="tick">✓</span><p>You’ve told the manager you can’t work <b>${s ? `${fmtDate(s.shift_date)}, ${JOBS[s.job]} ${shiftTimes(s).join('–')}` : 'this shift'}</b>.</p>
       <p class="muted">They’ll approve it once they’ve found cover, or decline it. You’ll see the answer here under My shifts.</p></div>
       <button class="btn" data-action="closesheet">OK</button>`); },
   async addtickets(f){
