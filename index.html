@@ -1778,11 +1778,17 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .day.hfull .l{background:#ff6b6b;color:#2a0505}.day.hfull .l2{color:#ff8a8a;font-weight:800}
 .day.hone{border-color:rgba(94,200,255,.65)!important;background-image:linear-gradient(rgba(94,200,255,.09),rgba(94,200,255,.09));position:relative}
 .day.hone .l{background:#5ec8ff;color:#04223a}.day.hone .l2{color:#7fd6ff;font-weight:800}.day.hone .l.hone1{background:#5ec8ff;color:#04223a}
-.fullb.oneb{background:#5ec8ff;color:#04223a}.k.kswd::before{background:#a78bfa!important}.k.kone::before{background:#5ec8ff!important}.hkey.hone .hk-l2{color:#7fd6ff}
+.fullb.oneb{background:#5ec8ff;color:#04223a}.k.kdot::before{background:linear-gradient(90deg,#5ec8ff 50%,#ff6b6b 50%)!important}.k.kswd::before{background:#a78bfa!important}.k.kone::before{background:#5ec8ff!important}.hkey.hone .hk-l2{color:#7fd6ff}
 .honenote{border:1px solid rgba(94,200,255,.6);background:rgba(94,200,255,.1);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .day.swgone{border-color:rgba(167,139,250,.6)!important;background:rgba(167,139,250,.1)}.day.swgone .l{background:#a78bfa;color:#1b0f3a}.day.swgone .l2{color:#c4b5fd;font-weight:700}
 .swb{position:absolute;right:4px;top:4px;background:#a78bfa;color:#1b0f3a;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px}
-.day{position:relative}@media (max-width:520px){.swb .swt{display:none}}
+.day{position:relative}
+@media (max-width:520px){
+  .swb .swt{display:none}.swb{padding:2px 3px;font-size:9px}
+  .fullb{font-size:0!important;line-height:0!important;color:transparent!important;overflow:hidden;width:11px!important;height:11px!important;padding:0!important;border-radius:50%!important;right:5px!important;bottom:5px!important;box-shadow:0 0 0 2px rgba(10,16,40,.9)}
+  .day.swgone .l2 .to{display:none}
+  .day .l2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+}
 .fullb{position:absolute;right:4px;bottom:4px;background:#ff6b6b;color:#2a0505;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;letter-spacing:.03em}
 .k.kfull::before{background:#ff6b6b!important}.hkey.hfull .hk-l2,.hfull .l2{color:#ff6b6b}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
@@ -5337,7 +5343,7 @@ function myShiftsView(){
     const a = mine ? w.a : w.b, b = mine ? w.b : w.a; if (a) gave[a.shift_date] = other; if (b) got[b.shift_date] = other; });
   const cal = calendar(state.offMonth, (ds, c) => {
     if (c.out) return '<div class="day out"></div>';
-    const tag0 = dayTag(myDay(ds)); const tag = tag0 || (gave[ds] ? ['Swapped', 'swgone', `swapped to ${gave[ds]}`, `to ${gave[ds]}`] : null);
+    const tag0 = dayTag(myDay(ds)); const tag = tag0 || (gave[ds] ? ['Swap', 'swgone', `swapped to ${gave[ds]}`, `<span class="to">to </span>${gave[ds]}`] : null);
     const lab = tag ? `<span class="l">${tag[0]}</span>${tag[3] ? `<span class="l2">${tag[3]}</span>` : ''}` : '';
     if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${lab}</div>`;
     const full = (state.holFull || []).includes(ds), one = !full && !(tag && /hol/.test(tag[1])) && (state.holOne || []).includes(ds);
@@ -5378,7 +5384,7 @@ function myShiftsView(){
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kswd">🔄 Swapped (gave away / swapped in)</span><span class="k kone">Hol 1 left = 1 person off, 1 space left</span><span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
+      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kswd">🔄 Swapped (gave away / swapped in)</span><span class="k kone">Hol 1 left = 1 person off, 1 space left</span><span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span><span class="k kdot">On your shift days a small dot shows it: blue 1 left, red FULL</span>` : ''}</div>
     </div>`}
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
