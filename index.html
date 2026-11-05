@@ -2751,6 +2751,7 @@ function makeDemoApi(){
       a.staff_id = w.to_staff; b.staff_id = w.from_staff; w.status = 'approved'; save(); },
     async unavailBetween(from, to){ return s.unavail.filter(u => u.off_date >= from && u.off_date <= to); },
     async markUnavailable(date, reason){
+      if ((await this.holidayFullDays(date, date)).includes(date)) throw new Error('That day is Hol FULL: 2 people are already off, so you can’t mark yourself unavailable. Please speak to the manager.');
       if (s.unavail.some(u => u.staff_id === s.session && u.off_date === date)) throw new Error('You have already marked that day.');
       s.unavail.push({ id: nextId(), staff_id: s.session, off_date: date, reason: reason || null });
       s.shifts.filter(x => x.staff_id === s.session && x.shift_date === date && ACTIVE(x))
@@ -5511,10 +5512,11 @@ function openDaySheet(ds){
   if (d.cw){ h += card(d.cw) + `<div class="stack" style="gap:6px">${cwNote(d.cw, !past)}</div>`; }
   if (!d.shift && !d.cw && !d.hol && !past){
     if (d.off) h += `<div class="dnote off">You’ve marked yourself unavailable${d.off.reason ? `: “${esc(d.off.reason)}”` : ''}.</div><button class="btn ghost" data-action="unoff" data-id="${d.off.id}">I’m available after all</button>`;
+    else if ((state.holFull || []).includes(ds)) h += `<div class="dnote hfullnote">🌴 <b>Hol FULL.</b> ${MAX_OFF} people are already off this day, so you can’t ask for holiday or mark yourself unavailable. If you really can’t work, please speak to the manager.</div>`;
     else h += `<form class="stack" data-form="markoff"><input type="hidden" name="date" value="${ds}"><b>Can’t work this day?</b>
         <input class="in" name="reason" placeholder="Reason (optional)" aria-label="Reason"><div class="err"></div><button class="btn ghost" type="submit">Mark me unavailable</button></form>`;
     h += isPublished(ds) ? '<p class="muted" style="font-size:13px">This rota is already out, so holiday can’t be asked for on this day.</p>'
-      : (state.holFull || []).includes(ds) ? `<div class="dnote hfullnote">🌴 <b>Holiday FULL.</b> ${MAX_OFF} people have already asked for this day off, so you can’t ask for holiday on it.</div>`
+      : (state.holFull || []).includes(ds) ? ''
       : `<button class="btn ghost" data-action="holfrom" data-date="${ds}">🌴 Ask for holiday from this day</button>`;
     const info = dayInfo(ds, state.ops); const gaps = [];
     info.sessions.forEach(x => JOB_ORDER.forEach(j => { if ((x.have[j] || 0) < x.need[j]){ const b = offerBtn(ds, x.sess, j); if (b) gaps.push(`<div class="gaprow"><span><b>${JOBS[j]}</b> · ${SESS[x.sess]} ${x.times.join('–')}</span>${b}</div>`); } }));
