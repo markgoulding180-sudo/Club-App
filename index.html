@@ -3579,7 +3579,7 @@ function homeView(){
     <div class="tiles">
       ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days).sort(byAsked);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
-        return `<button class="tile${hp.length ? ' holtile' : ''}" data-action="gorota" data-tab="holidays"><span class="ic">🌴</span><b>Holiday requests</b><span class="sub">${hp.length ? `${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` +${names.length - 3}` : ''} · answer before you do the rota` : 'None waiting'}</span>${hp.length ? `<span class="badge">${hp.length}</span>` : ''}</button>`; })()}
+        return `<button class="tile${hp.length ? ' holtile' : ''}" data-action="gorota" data-tab="holidays"><span class="ic">🌴</span><b>Holiday requests</b><span class="sub">${hp.length ? `${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` +${names.length - 3}` : ''} · answer before you do the rota` : 'None waiting'}${(() => { const a = holAnswers()[0]; return a ? ` · ${esc(pfirst(map[a.staff_id]) || 'Staff')} said ${a.status === 'approved' ? 'yes' : 'no thanks'} to your offer` : ''; })()}</span>${hp.length ? `<span class="badge">${hp.length}</span>` : ''}</button>`; })()}
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
       ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'person', 'people')} still needed on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
@@ -4966,6 +4966,8 @@ function openQuickMsg(id){
     <form class="stack" data-form="quickmsg" data-id="${id}"><textarea class="in" name="body" rows="4" maxlength="1500" required placeholder="Write your message"></textarea>
       <div class="err"></div><button class="btn" type="submit">Send to ${esc(pfirst(p))}</button><button class="btn ghost" type="button" data-action="openmsgs">‹ Back</button></form>`);
 }
+/* Holiday offers the staff member has answered in the last 2 weeks */
+const holAnswers = () => (state.holidays || []).filter(h => h.offered_at && ['approved', 'cancelled'].includes(h.status) && (h.decided_at || '') >= new Date(Date.now() - 14 * 864e5).toISOString());
 /* Bosses: everything waiting for them */
 function adminNotifs(){
   const out = []; const today = todayStr(); const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p]));
@@ -4975,6 +4977,7 @@ function adminNotifs(){
   const shTxt = x => x ? `${JOBS[x.job]} ${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'a shift';
   if (canArea('rota')){
     (state.swaps || []).filter(w => w.status === 'accepted').forEach(w => line('sw' + w.id, 'Swaps to approve', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> want to swap: ${shTxt(sh(w.from_shift))} for ${shTxt(sh(w.to_shift))}. Tap to approve.`, 'data-action="gorota" data-tab="rota"'));
+    holAnswers().forEach(h => line('holans' + h.id + h.status, 'Holiday: they answered', h.status === 'approved' ? `🌴 <b>${nm(h.staff_id)} said yes</b> to ${dayRanges(h.days)}. It’s booked.` : `🌴 <b>${nm(h.staff_id)} said no thanks</b> to the days you offered. Their request for ${dayRanges(h.days)} is withdrawn.`, 'data-action="gorota" data-tab="holidays"'));
     (state.holidays || []).filter(h => h.status === 'pending' && !h.offer_days).forEach(h => line('hol' + h.id, 'Holiday requests', `<b>${nm(h.staff_id)}</b> asked for holiday: ${dayRanges(h.days)}`, 'data-action="gorota" data-tab="holidays"'));
     (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, x.status === 'cannot_work' && !x.decision ? 'Can’t work: your decision' : 'Needs cover', x.status === 'cannot_work' && !x.decision ? `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}. Tap to decide.` : `<b>${shTxt(x)}</b> needs cover (${nm(x.staff_id)} is off). Tap to pick someone.`, 'data-action="gorota" data-tab="rota"'));
   }
