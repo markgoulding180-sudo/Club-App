@@ -2825,3 +2825,14 @@ $$;
 grant execute on function public.holiday_full_days(date, date) to authenticated;
 
 select 'Offer some days ready' as done;
+
+alter table public.profiles add column if not exists hours text check (hours in ('full', 'part'));
+
+create or replace function public.admin_set_hours(pid uuid, h text)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then raise exception 'Only admins can do this.'; end if;
+  if h not in ('full', 'part') then raise exception 'Pick full time or part time.'; end if;
+  update public.profiles set hours = h where id = pid;
+end $$;
+grant execute on function public.admin_set_hours(uuid, text) to authenticated;
