@@ -1814,6 +1814,15 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covstat > .cvrow:last-child{margin-bottom:2px}
 .covstat.wait > .cvline,.covstat.wait > .cvopen{border-top:0;border-radius:12px;padding:10px 12px;margin:0 0 6px;background:#13234d}
 .covstat.wait > :nth-child(even of .cvline, .cvopen){background:#24407f}
+.cvyhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:2px}.cvyhead .cvhint{margin:0}
+.cvyrow{flex-wrap:nowrap!important;gap:10px!important;padding:8px 10px!important}.cvyrow > .avatar{flex:none}
+.cvwho{flex:1;min-width:0;display:grid;gap:1px}.cvwho > b{font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cvwho span{font-size:12.5px;color:var(--muted);white-space:nowrap}.cvwho b.h{color:var(--ink);font-size:13.5px}
+.cvgive{flex:none;white-space:nowrap;padding:8px 14px!important}
+.cvt{row-gap:2px}.cvt b{width:100%}.cvt .cvneed{margin-left:0}
+.cvasked{line-height:1.45}
+.cvrow .bar .linkbtn{font-size:13.5px}
+@media (max-width:520px){.covstat > .cvrow{padding:12px 10px 8px}.covstat{padding:10px 8px}}
+.cvt .cvneed{color:#1a1300!important;font-weight:900}
 </style>
 
 </head>
@@ -3924,7 +3933,7 @@ function coverStatusHtml(){
     return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
       <div class="cvasked">Asked <b>${plural(asked, 'person', 'people')}</b> who could work it · <b class="y">${yes.length} yes</b> · <b class="n">${no.length} no</b> · ${waiting.length} not answered${got.length ? ` · ${got.length} given the shift` : ''}</div>
       ${got.length ? `<div class="cvl"><span class="cvlab ok">✅ On the rota</span>${got.map(o => chip(map[o.staff_id] || {}, 'ok')).join('')}</div>` : ''}
-      ${yes.length ? `<div class="cvyl"><span class="cvlab ok">✓ Said yes</span><span class="cvhint">fewest hours on this rota first</span>${yes.map(o => { const l = ld(o.staff_id); return `<div class="cvyrow">${chip(map[o.staff_id] || {}, 'ok')}<span class="cvhrs"><b>${Math.round(l.h * 10) / 10}h</b> · ${plural(l.n, 'shift')} this rota · ${ft(o.staff_id)}</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></div>`; }).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
+      ${yes.length ? `<div class="cvyl"><div class="cvyhead"><span class="cvlab ok">✓ Said yes</span><span class="cvhint">fewest hours this rota first</span></div>${yes.map(o => { const l = ld(o.staff_id); const pp = map[o.staff_id] || {}; return `<div class="cvyrow">${avatar(pp, 40)}<div class="cvwho"><b>${esc(pfirst(pp) || '?')}</b><span><b class="h">${Math.round(l.h * 10) / 10}h</b> · ${plural(l.n, 'shift')} · ${ft(o.staff_id) === 'Full time' ? 'FT' : 'PT'}</span></div><button class="btn sm cvgive" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give shift</button></div>`; }).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
       <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; };
