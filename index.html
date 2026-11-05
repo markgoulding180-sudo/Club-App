@@ -5253,7 +5253,7 @@ function coverCardsHtml(){
 function swapCounts(){
   const me = state.user.id;
   const mine = (state.sreqs || []).filter(r => r.staff_id === me && r.status === 'open').reduce((a, r) => a + (state.soffers || []).filter(o => o.request_id === r.id && o.status === 'offered').length, 0);
-  const help = (state.sreqs || []).filter(r => canHelpWith(r).length).length + (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').length + coverCallsForMe().length;
+  const help = (state.sreqs || []).filter(r => canHelpWith(r).length).length + (state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').length;  /* cover requests have their own box */
   const seen = new Set(lsGet('swseen-' + me) || []); const keys = swapKeys();
   return { mine, help, unseen: keys.filter(k => !seen.has(k)).length };
 }
@@ -5261,7 +5261,6 @@ function swapCounts(){
 function swapKeys(){ const me = state.user.id;
   return [...(state.sreqs || []).filter(r => canHelpWith(r).length).map(r => 'r' + r.id),
     ...(state.swaps || []).filter(w => w.to_staff === me && w.status === 'asked').map(w => 'w' + w.id),
-    ...coverCallsForMe().map(c => 'c' + c.id),
     ...(state.soffers || []).filter(o => o.status === 'offered' && (state.sreqs || []).some(r => r.id === o.request_id && r.staff_id === me && r.status === 'open')).map(o => 'o' + o.id)]; }
 function markSwapsSeen(){ if (!state.user || !isStaff()) return; const me = state.user.id; lsSet('swseen-' + me, [...new Set([...(lsGet('swseen-' + me) || []), ...swapKeys()])]); }
 function swapLinkCard(){ const c = swapCounts();
