@@ -2,19 +2,20 @@
 -- Days: 0 Sun, 1 Mon, 2 Tue, 3 Wed, 4 Thu, 5 Fri, 6 Sat. Every password is: railway. Safe to run again.
 --
 --              Mon          Tue      Wed      Thu      Fri      Sat      Sun
--- AM (bar)     Sam + Lucy   Adam*    -        Sam*     Lucy     Lucy     Adam
+-- AM (bar)     Sam          Adam*    -        Sam*     Lucy     Lucy     Adam
 -- PM (bar)     Meg          Meg      Lauren   Lauren   Luis     Meg      Lucy
 -- Door         Adam         Luis     Sam      Luis     Sam      Adam     Luis
 --
--- * The app's opening times have no daytime on Tue, Wed or Thu, and only 1 person on the bar, so Adam (Tue AM),
---   Sam (Thu AM) and Lucy (Mon AM, 2nd person) are saved but won't be put on the rota until those are added.
+-- * The app's opening times have no daytime on Tue, Wed or Thu, so Adam (Tue AM) and Sam (Thu AM)
+--   are saved but won't be put on the rota until daytime is added for those days.
+-- Monday AM is 1 person (Sam). The weeks with 2 on Monday AM had a function on.
 -- Weeks that alternate (Mon PM Meg/Lucy, Thu PM Lauren/Meg, Sat PM Meg/Sam, Sun PM Lucy/Sam, Mon door Adam/Luis,
 -- Wed door Sam/Luis, Thu door Luis/Adam, Sat door Adam/Sam/Luis, Sun door Luis/Adam, Sun AM Adam/Lucy)
 -- use the first person; change them on the rota after filling. Mandy only cleans: no Clean job in the app yet.
 
 update public.profiles set regular_shifts = '[{"d":1,"s":"day","j":"lounge"},{"d":4,"s":"day","j":"lounge"},{"d":3,"s":"eve","j":"door"},{"d":5,"s":"eve","j":"door"}]'
  where lower(email) = 'sam@railway.com';
-update public.profiles set regular_shifts = '[{"d":1,"s":"day","j":"lounge"},{"d":5,"s":"day","j":"lounge"},{"d":6,"s":"day","j":"lounge"},{"d":0,"s":"eve","j":"lounge"}]'
+update public.profiles set regular_shifts = '[{"d":5,"s":"day","j":"lounge"},{"d":6,"s":"day","j":"lounge"},{"d":0,"s":"eve","j":"lounge"}]'
  where lower(email) = 'lucy@railway.com';
 update public.profiles set regular_shifts = '[{"d":2,"s":"day","j":"lounge"},{"d":0,"s":"day","j":"lounge"},{"d":1,"s":"eve","j":"door"},{"d":6,"s":"eve","j":"door"}]'
  where lower(email) = 'adam@railway.com';
