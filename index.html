@@ -1795,6 +1795,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 @media (prefers-reduced-motion:reduce){.covline.yes{animation:none;background:rgba(246,200,80,.3)}}
 .crow.offered{display:flex;align-items:center;gap:12px;background:rgba(246,200,80,.14);border:1px dashed #f6c850;border-radius:16px;padding:12px 14px;margin-bottom:8px}
 .crow.offered .ctxt{flex:1}.st.offer{display:inline-block;margin-top:4px;background:#f6c850;color:#1a1300;border-radius:8px;padding:2px 8px;font-size:12.5px;font-weight:800}
+.cvyl{margin-top:8px;display:grid;gap:6px}.cvhint{font-size:12px;color:var(--muted);margin-left:6px}
+.cvyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(61,220,132,.07);border:1px solid rgba(61,220,132,.25);border-radius:12px;padding:6px 8px}
+.cvhrs{flex:1;font-size:13px;color:var(--muted)}.cvhrs b{color:var(--ink);font-size:15px}
 </style>
 
 </head>
@@ -3856,6 +3859,11 @@ function bookingView(){
 /* =====================================================================
    ROTA (admin edits, staff view only)
    ===================================================================== */
+function rotaLoad(ds){
+  const pst = periodStart(ds); const t = {};
+  (state.ops?.shifts || []).filter(s => ACTIVE(s) && periodStart(s.shift_date) === pst).forEach(s => { const x = t[s.staff_id] ||= { n: 0, h: 0 }; x.n++; x.h += hoursOf(s.shift_date, s.session); });
+  return id => t[id] || { n: 0, h: 0 };
+}
 function staffSelect(ds, x, job, shift, cover, k){
   const busy = new Map(state.ops.shifts.filter(s => s.shift_date === ds && ACTIVE(s) && s.id !== shift?.id).map(s => [s.staff_id, s.session === x.sess ? 'already on' : `on ${s.session === 'day' ? 'daytime' : 'evening'}`]));
   const off = new Map(state.ops.unavail.filter(u => u.off_date === ds).map(u => [u.staff_id, u.reason]));
@@ -3883,14 +3891,16 @@ function coverStatusHtml(){
   const yesOf = c => (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job && o.status === 'offered');
   const row = c => {
     const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job);
-    const yes = offs.filter(o => o.status === 'offered'), no = offs.filter(o => o.status === 'passed'), got = offs.filter(o => o.status === 'accepted');
+    const ld = rotaLoad(c.shift_date); const hrs = id => ld(id).h;
+    const yes = offs.filter(o => o.status === 'offered').sort((a, b) => hrs(a.staff_id) - hrs(b.staff_id)), no = offs.filter(o => o.status === 'passed'), got = offs.filter(o => o.status === 'accepted');
+    const ft = id => ((state.profiles || []).find(x => x.id === id)?.regular_shifts || []).length ? 'Full time' : 'Part time';
     const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
     const answered = new Set(offs.map(o => o.staff_id));
     const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !answered.has(p.id));
     const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
     return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
       ${got.length ? `<div class="cvl"><span class="cvlab ok">✅ On the rota</span>${got.map(o => chip(map[o.staff_id] || {}, 'ok')).join('')}</div>` : ''}
-      ${yes.length ? `<div class="cvl"><span class="cvlab ok">✓ Said yes</span>${yes.map(o => `<span class="cvyes">${chip(map[o.staff_id] || {}, 'ok')}<button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></span>`).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
+      ${yes.length ? `<div class="cvyl"><span class="cvlab ok">✓ Said yes</span><span class="cvhint">fewest hours on this rota first</span>${yes.map(o => { const l = ld(o.staff_id); return `<div class="cvyrow">${chip(map[o.staff_id] || {}, 'ok')}<span class="cvhrs"><b>${Math.round(l.h * 10) / 10}h</b> · ${plural(l.n, 'shift')} this rota · ${ft(o.staff_id)}</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></div>`; }).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
       ${waiting.length ? `<div class="cvl"><span class="cvlab">… Not answered</span>${waiting.map(p => chip(p, '')).join('')}</div>` : ''}
       <div class="bar" style="margin:6px 0 0"><button class="linkbtn" data-action="rotajump" data-date="${c.shift_date}">Open on the rota</button><span class="grow"></span><button class="linkbtn" data-action="cancelcover" data-id="${c.id}">Stop asking</button></div></div>`; };
