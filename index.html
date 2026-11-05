@@ -1799,6 +1799,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(61,220,132,.07);border:1px solid rgba(61,220,132,.25);border-radius:12px;padding:6px 8px}
 .cvhrs{flex:1;font-size:13px;color:var(--muted)}.cvhrs b{color:var(--ink);font-size:15px}
 .staffcov{margin:6px 0 12px}
+.holline .cvn{background:#f6c850;color:#1a1300;font-weight:900;border-radius:999px;min-width:26px;height:26px;display:grid;place-items:center;font-size:14px;margin-left:auto}
 </style>
 
 </head>
@@ -3478,6 +3479,10 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
+    ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending'); if (!hp.length) return '';
+      const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const days = hp.reduce((n, h) => n + h.days.length, 0);
+      const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
+      return `<button class="covline yes holline" data-action="gorota" data-tab="holidays"><span>🌴 <b>Holiday requests:</b> ${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` and ${names.length - 3} more` : ''} · ${plural(days, 'day')} waiting for your answer. <u>Answer before you do the rota</u></span><span class="cvn">${hp.length}</span><i aria-hidden="true">›</i></button>`; })()}
     ${coverLineHtml()}
     <div class="tiles">
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
