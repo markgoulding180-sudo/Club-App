@@ -1841,6 +1841,14 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .holoff{border-radius:12px;padding:8px 10px;background:rgba(9,14,32,.45);border:1px solid var(--edge);font-size:13.5px;display:grid;gap:6px;margin-top:6px}
 .holoff.ok{color:#7ee8a8;font-weight:700}.holoff.full{border-color:#ff6b6b;background:rgba(255,107,107,.1)}.holwarn{color:#ff9d9d}
 .holday{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:104px;position:relative}.holday .hd{position:absolute;left:0;top:4px}.holday .hd{font-weight:800;min-width:96px}
+.holoff{display:grid;gap:8px}.hohead{display:flex;gap:8px;align-items:flex-start;border-radius:12px;padding:10px 12px;font-size:14.5px;line-height:1.4}
+.hohead.ok{background:rgba(61,220,132,.13);border:1px solid rgba(61,220,132,.45)}.hohead.no{background:rgba(255,107,107,.13);border:1px solid #ff6b6b}.hohead.no b{color:#ff9d9d}.hohead.ok b{color:#7ee8a8}
+.hotab{display:grid;gap:4px}.horow{display:grid;grid-template-columns:100px 70px 1fr;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:rgba(9,14,32,.45)}
+.hod{font-weight:800}.hopl{font-size:12px;font-weight:900;text-align:center;border-radius:999px;padding:2px 6px}
+.horow.full .hopl{background:#ff6b6b;color:#2a0505}.horow.some .hopl{background:#f6c850;color:#1a1300}.horow.free .hopl{background:#3ddc84;color:#05210f}
+.hoppl{display:flex;flex-wrap:wrap;gap:6px}.hop{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:13.5px}
+.hoask{margin:0;font-size:12.5px;color:var(--muted)}
+@media (max-width:520px){.horow{grid-template-columns:86px 60px 1fr}}
 </style>
 
 </head>
@@ -4158,14 +4166,21 @@ function downloadHours(){
 /* Who else is already off on the days of this holiday request (rule: no more than MAX_OFF at once) */
 function holOffHtml(h){
   const map = Object.fromEntries([...(state.ops?.staff || []), ...(state.profiles || [])].map(p => [p.id, p]));
-  const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id && ['approved', 'pending'].includes(o.status));
-  const rows = h.days.slice().sort().map(d => ({ d, ok: others.filter(o => o.status === 'approved' && o.days.includes(d)), wait: others.filter(o => o.status === 'pending' && o.days.includes(d)) }))
-    .filter(r => r.ok.length || r.wait.length);
-  const full = rows.filter(r => r.ok.length >= MAX_OFF);
-  const chip = (o, k) => `<span class="offb ${k === 'ok' ? 'hol' : 'un'}">${avatar(map[o.staff_id] || {}, 20)}<b>${esc(pfirst(map[o.staff_id]) || '?')}</b>${k === 'ok' ? '🌴 off' : '⏳ asked'}</span>`;
-  if (!rows.length) return `<div class="holoff ok">✓ No one else is off on these days.</div>`;
-  return `<div class="holoff${full.length ? ' full' : ''}">${full.length ? `<b class="holwarn">⚠️ ${MAX_OFF} people are already off on ${full.map(r => fmtDate(r.d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}. Approving makes ${MAX_OFF + 1}.</b>` : `<b>Already off on these days:</b>`}
-    ${rows.map(r => `<div class="holday"><span class="hd">${fmtDate(r.d, { weekday: 'short', day: 'numeric', month: 'short' })}</span>${r.ok.map(o => chip(o, 'ok')).join('')}${r.wait.map(o => chip(o, 'wait')).join('')}</div>`).join('')}</div>`;
+  const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id);
+  const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+  const names = l => { const n = l.map(o => esc(pfirst(map[o.staff_id]) || '?')); return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n[0]; };
+  const rows = h.days.slice().sort().map(d => { const off = others.filter(o => o.status === 'approved' && o.days.includes(d)); return { d, off, left: MAX_OFF - off.length,
+    asked: others.filter(o => o.status === 'pending' && o.days.includes(d)) }; });
+  const full = rows.filter(r => r.left <= 0); const who = pfirst(map[h.staff_id]) || 'them';
+  const head = full.length
+    ? `<div class="hohead no">⛔ <span><b>Too many off.</b> ${full.map(r => `${names(r.off)} ${r.off.length > 1 ? 'are' : 'is'} already off on <b>${fd(r.d)}</b>`).join('; ')}. Only ${MAX_OFF} can be off at once.</span></div>`
+    : `<div class="hohead ok">✅ <span><b>OK to approve.</b> Fewer than ${MAX_OFF} are off on ${h.days.length > 1 ? 'these days' : 'this day'}.</span></div>`;
+  const table = rows.map(r => `<div class="horow ${r.left <= 0 ? 'full' : r.off.length ? 'some' : 'free'}"><span class="hod">${fd(r.d)}</span>
+      <span class="hopl">${r.left <= 0 ? 'FULL' : r.off.length ? `${r.left} space` : 'Free'}</span>
+      <span class="hoppl">${r.off.length ? r.off.map(o => `<span class="hop">${avatar(map[o.staff_id] || {}, 22)}${esc(pfirst(map[o.staff_id]) || '?')}</span>`).join('') : '<span class="muted">No one off</span>'}</span></div>`).join('');
+  const asked = [...new Set(rows.flatMap(r => r.asked))];
+  return `<div class="holoff">${head}<div class="hotab">${table}</div>
+    ${asked.length ? `<p class="hoask">⏳ Also waiting for your answer on these days: ${asked.map(o => esc(pfirst(map[o.staff_id]) || '?')).join(', ')}</p>` : ''}</div>`;
 }
 function holidayAdminHtml(){
   const map = staffMap(); const today = todayStr(); const all = state.holidays;
