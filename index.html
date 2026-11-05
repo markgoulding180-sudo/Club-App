@@ -1776,6 +1776,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covupd{display:block!important;cursor:default}.covupd .bar .btn{flex:1}
 .day.hfull{background-image:repeating-linear-gradient(135deg,rgba(255,107,107,.16) 0 6px,transparent 6px 12px);border-color:rgba(255,107,107,.55)!important;position:relative}
 .day.hfull .l{background:#ff6b6b;color:#2a0505}.day.hfull .l2{color:#ff8a8a;font-weight:800}
+.day.hone{border-color:rgba(94,200,255,.65)!important;background-image:linear-gradient(rgba(94,200,255,.09),rgba(94,200,255,.09));position:relative}
+.day.hone .l{background:#5ec8ff;color:#04223a}.day.hone .l2{color:#7fd6ff;font-weight:800}.day.hone .l.hone1{background:#5ec8ff;color:#04223a}
+.fullb.oneb{background:#5ec8ff;color:#04223a}.k.kone::before{background:#5ec8ff!important}.hkey.hone .hk-l2{color:#7fd6ff}
+.honenote{border:1px solid rgba(94,200,255,.6);background:rgba(94,200,255,.1);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .fullb{position:absolute;right:4px;bottom:4px;background:#ff6b6b;color:#2a0505;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;letter-spacing:.03em}
 .k.kfull::before{background:#ff6b6b!important}.hkey.hfull .hk-l2,.hfull .l2{color:#ff6b6b}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
@@ -2378,6 +2382,8 @@ function makeSupabaseApi(){
     // holidays
     async listHolidays(){ return ok(await sb.from('holiday_requests').select('*').order('created_at', { ascending: false })); },
     async holidayFullDays(from, to){ const r = await sb.rpc('holiday_full_days', { d1: from, d2: to }); return r.error ? [] : r.data.map(x => x.day); },
+    async holidayDayCounts(from, to){ const r = await sb.rpc('holiday_day_counts', { d1: from, d2: to });
+      if (r.error) return (await this.holidayFullDays(from, to)).map(day => ({ day, off: MAX_OFF })); return r.data; },
     async requestHoliday(days, note){ return ok(await sb.rpc('staff_request_holiday', { want: days, why: note || null })); },
     async cancelHoliday(id){ ok(await sb.rpc('staff_cancel_holiday', { req: id })); },
     async approveSomeDays(id, keep, why){ const r = await sb.rpc('admin_approve_some_days', { req: id, keep, why: why || null }); if (r.error && /admin_approve_some_days/.test(r.error.message)) throw new Error('Run update-holiday-some-days.sql in Supabase first.'); ok(r); },
@@ -2779,6 +2785,7 @@ function makeDemoApi(){
     // holidays
     async listHolidays(){ const admin = s.users.find(u => u.id === s.session)?.role === 'admin';
       return (s.holidays ||= []).filter(h => admin || h.staff_id === s.session).map(h => ({ ...h, days: [...h.days] })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
+    async holidayDayCounts(from, to){ const c = {}; (s.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.staff_id !== s.session).forEach(h => (h.status === 'pending' && h.offer_days ? h.offer_days : h.days).forEach(d => { if (d >= from && d <= to) (c[d] ||= new Set()).add(h.staff_id); })); return Object.entries(c).map(([day, v]) => ({ day, off: v.size })); },
     async holidayFullDays(from, to){ const c = {}; (s.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.staff_id !== s.session).forEach(h => (h.status === 'pending' && h.offer_days ? h.offer_days : h.days).forEach(d => { if (d >= from && d <= to) (c[d] ||= new Set()).add(h.staff_id); }));
       return Object.keys(c).filter(d => c[d].size >= MAX_OFF); },
     async requestHoliday(days, note){
@@ -3099,11 +3106,11 @@ async function load(view){
   }
   if (view === 'holiday'){ const r = monthRange(state.holMonth); const from = ymd(r.start) > todayStr() ? ymd(r.start) : todayStr();
     await loadOps(from, ymd(r.end) > from ? ymd(r.end) : from, true); state.holidays = await api.listHolidays(); state.periods = await api.listPeriods();
-    state.holFull = await api.holidayFullDays(ymd(r.start), ymd(r.end)).catch(() => []); }
+    await loadHolCounts(ymd(r.start), ymd(r.end)); }
   if (view === 'swaps'){ state.covers = await api.listCoverCalls(); state.offers = await api.listOffers(ahead(-14)); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); state.holidays = await api.listHolidays(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(70), true); }
   if (view === 'myshifts' && !state.offMonthPicked){ const me = state.user.id; const n = (state.ops?.shifts || []).filter(x => x.staff_id === me && x.shift_date >= todayStr() && ACTIVE(x)).map(x => x.shift_date).sort()[0]; if (n) state.offMonth = startOfMonth(parseYmd(n)); }
   if (view === 'myshifts'){ state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); state.periods = await api.listPeriods(); state.offers = await api.listOffers(ahead(-14)); state.swaps = await api.listSwaps(); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); state.holidays = await api.listHolidays(); const r = monthRange(state.offMonth); const end = ymd(r.end) > ahead(60) ? ymd(r.end) : ahead(60); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], end, true);
-    state.holFull = featOn('holidays') ? await api.holidayFullDays(todayStr(), end).catch(() => []) : []; }
+    await loadHolCounts(todayStr(), end); }
 }
 async function refresh(){
   const sh = state.sheet; const y = window.scrollY;
@@ -4966,6 +4973,11 @@ function openQuickMsg(id){
     <form class="stack" data-form="quickmsg" data-id="${id}"><textarea class="in" name="body" rows="4" maxlength="1500" required placeholder="Write your message"></textarea>
       <div class="err"></div><button class="btn" type="submit">Send to ${esc(pfirst(p))}</button><button class="btn ghost" type="button" data-action="openmsgs">‹ Back</button></form>`);
 }
+/* Holiday: how many others are off each day -> FULL (2) and "1 left" (1) */
+async function loadHolCounts(from, to){
+  const c = featOn('holidays') ? await api.holidayDayCounts(from, to).catch(() => []) : [];
+  state.holFull = c.filter(x => x.off >= MAX_OFF).map(x => x.day); state.holOne = c.filter(x => x.off === MAX_OFF - 1).map(x => x.day);
+}
 /* Holiday offers the staff member has answered in the last 2 weeks */
 const holAnswers = () => (state.holidays || []).filter(h => h.offered_at && ['approved', 'cancelled'].includes(h.status) && (h.decided_at || '') >= new Date(Date.now() - 14 * 864e5).toISOString());
 /* Manager Home: flashing yellow line when a staff member answers a holiday offer, until tapped */
@@ -5300,8 +5312,8 @@ function myShiftsView(){
     const tag = dayTag(myDay(ds));
     const lab = tag ? `<span class="l">${tag[0]}</span>${tag[3] ? `<span class="l2">${tag[3]}</span>` : ''}` : '';
     if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${lab}</div>`;
-    const full = (state.holFull || []).includes(ds);
-    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : ''}"><span class="n">${c.day}</span>${tag ? lab : full ? '<span class="l">Hol</span><span class="l2">FULL</span>' : ''}${tag && full ? '<span class="fullb">Hol FULL</span>' : ''}</button>`;
+    const full = (state.holFull || []).includes(ds), one = !full && !(tag && /hol/.test(tag[1])) && (state.holOne || []).includes(ds);
+    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : one ? ' hone' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : one ? ', 1 holiday space left' : ''}"><span class="n">${c.day}</span>${tag ? lab : full ? '<span class="l">Hol</span><span class="l2">FULL</span>' : one ? '<span class="l">Hol</span><span class="l2">1 left</span>' : ''}${tag && full ? '<span class="fullb">Hol FULL</span>' : tag && one ? '<span class="fullb oneb">Hol 1 left</span>' : ''}</button>`;
   });
   const status = s => { const d = myDay(s.shift_date);
     if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
@@ -5338,7 +5350,7 @@ function myShiftsView(){
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
+      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kone">Hol 1 left = 1 person off, 1 space left</span><span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
     </div>`}
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
@@ -5352,7 +5364,7 @@ function staffHelpView(){
     <div class="hkeys">${key('t-shift', 'Bar', '18:00', 'Your shift: which bar (Bar, Func = Function Room, Door) and the start time')}
     ${key('t-swap', 'Swap?', '11:00', 'A swap is waiting for an answer')}${key('t-cw', 'Asked', 'off', 'You asked off this shift. Waiting for the manager')}
     ${key('t-offok', 'Off ✓', '', 'The manager approved it. You’re off and someone else is working it')}${key('t-hol', 'Hol', 'booked', 'Holiday booked')}
-    ${key('t-ask', 'Hol', 'asked', 'Holiday asked for. Waiting for the manager')}${key('t-off', 'Unavail.', '', 'You marked yourself unavailable')}${key('hfull', 'Hol', 'FULL', `${MAX_OFF} people already off or asked off that day, so you can’t ask for holiday on it`)}</div>
+    ${key('t-ask', 'Hol', 'asked', 'Holiday asked for. Waiting for the manager')}${key('t-off', 'Unavail.', '', 'You marked yourself unavailable')}${key('hone', 'Hol', '1 left', `1 person is already off or has asked off that day, so there’s 1 holiday space left. Ask now and it’s yours (first come, first served)`)}${key('hfull', 'Hol', 'FULL', `${MAX_OFF} people already off or asked off that day, so you can’t ask for holiday on it`)}</div>
     <p><b>Coming up</b>, under the diary, lists your next shifts. The top of the page shows your next shift, your shifts and hours on this rota, and how many holiday days you have left.</p>`, true)}
   ${sec('🗓️', 'How the rota works', `<ul><li>Rotas run for <b>4 weeks, Monday to Sunday</b>.</li><li>The manager makes the next rota in the <b>last week</b> of the current one, then publishes it. You only see it once it’s published.</li>
     <li>The box at the top of My shifts tells you when the next rota is due out. <b>Mark any days you can’t work, and ask for holiday, before then.</b></li><li>The <b>Rota</b> page shows everyone’s shifts, so you can see who you’re working with.</li></ul>`)}
@@ -5527,6 +5539,7 @@ function openDaySheet(ds){
         <input class="in" name="reason" placeholder="Reason (optional)" aria-label="Reason"><div class="err"></div><button class="btn ghost" type="submit">Mark me unavailable</button></form>`;
     h += isPublished(ds) ? '<p class="muted" style="font-size:13px">This rota is already out, so holiday can’t be asked for on this day.</p>'
       : (state.holFull || []).includes(ds) ? ''
+      : (state.holOne || []).includes(ds) ? `<div class="dnote honenote">🌴 <b>1 holiday space left</b> on this day: 1 person is already off. Ask now and it’s yours.</div><button class="btn ghost" data-action="holfrom" data-date="${ds}">🌴 Ask for holiday from this day</button>`
       : `<button class="btn ghost" data-action="holfrom" data-date="${ds}">🌴 Ask for holiday from this day</button>`;
     const info = dayInfo(ds, state.ops); const gaps = [];
     info.sessions.forEach(x => JOB_ORDER.forEach(j => { if ((x.have[j] || 0) < x.need[j]){ const b = offerBtn(ds, x.sess, j); if (b) gaps.push(`<div class="gaprow"><span><b>${JOBS[j]}</b> · ${SESS[x.sess]} ${x.times.join('–')}</span>${b}</div>`); } }));
@@ -6018,9 +6031,9 @@ function holidayView(){
     if ((state.holFull || []).includes(ds)) return `<button class="day full" data-action="holfull" data-date="${ds}" aria-label="${fmtDate(ds)}, full"><span class="n">${c.day}</span><span class="l">Hol</span><span class="l2" style="color:#ff8a8a;font-weight:800">FULL</span></button>`;
     const shift = o.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s));
     const ev = o.bookings.some(b => b.booking_date === ds) || o.events.some(e => ymd(new Date(e.starts_at)) === ds);
-    const on = sel.has(ds);
-    return `<button class="day${on ? ' picked' : ''}${c.today ? ' today' : ''}" data-action="holpick" data-date="${ds}" aria-pressed="${on}" aria-label="${fmtDate(ds)}${shift ? ', you’re on the rota' : ''}${ev ? ', event on' : ''}">
-      <span class="n">${c.day}</span>${shift ? '<span class="l hall">Shift</span>' : ''}${ev ? '<span class="l ev">Event</span>' : ''}</button>`;
+    const on = sel.has(ds), one = (state.holOne || []).includes(ds);
+    return `<button class="day${on ? ' picked' : ''}${c.today ? ' today' : ''}${one ? ' hone' : ''}" data-action="holpick" data-date="${ds}" aria-pressed="${on}" aria-label="${fmtDate(ds)}${shift ? ', you’re on the rota' : ''}${ev ? ', event on' : ''}${one ? ', 1 holiday space left' : ''}">
+      <span class="n">${c.day}</span>${one ? '<span class="l hone1">1 left</span>' : ''}${shift ? '<span class="l hall">Shift</span>' : ''}${ev ? '<span class="l ev">Event</span>' : ''}</button>`;
   });
   const years = [...new Set([new Date().getFullYear(), ...state.holSel.map(yearOf)])].sort();
   let over = false;
@@ -6035,7 +6048,7 @@ function holidayView(){
       <p class="muted" style="font-size:13px;margin:0">Tapped the wrong day? Tap it again to take it off.</p>
       <div class="bar" style="margin:0">${stepper('holmonth', fmtMonth(state.holMonth), state.holMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="legend" style="margin:0"><span style="color:var(--green)">Green border = picked</span><span style="color:var(--green)">Hol = holiday already booked</span><span style="color:var(--amber)">Asked = waiting for the manager</span><span style="color:var(--teal)">Shift = you’re working</span><span style="color:var(--amber)">Event on</span><span style="color:#ff8a8a">Hol FULL = ${MAX_OFF} people already off, can’t be picked</span></div>
+      <div class="legend" style="margin:0"><span style="color:var(--green)">Green border = picked</span><span style="color:var(--green)">Hol = holiday already booked</span><span style="color:var(--amber)">Asked = waiting for the manager</span><span style="color:var(--teal)">Shift = you’re working</span><span style="color:var(--amber)">Event on</span><span style="color:#7fd6ff">1 left = 1 person off, 1 space left</span><span style="color:#ff8a8a">Hol FULL = ${MAX_OFF} people already off, can’t be picked</span></div>
     </div>
     <div class="panel stack" style="margin-top:14px">
       <b>${n ? `${plural(n, 'day')} picked` : 'No days picked yet'}</b>
