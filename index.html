@@ -1828,6 +1828,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .ctopt b{font-size:20px}.ctopt span{font-size:12.5px;color:var(--muted)}.ctopt.on{border-color:#2ee6c8;background:rgba(46,230,200,.15)}.ctopt.on b{color:#7ff3df}
 .ctgrid .ctopt:first-child{grid-column:1 / -1}
 .covearly{flex-basis:100%;display:block;background:#f6c850;color:#1a1300;border-radius:10px;padding:5px 10px;font-size:13.5px;font-weight:900;margin-top:4px}
+.offrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px;padding:0 14px 12px}
+.offcard{display:flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid}
+.offcard span{display:grid;line-height:1.15}.offcard b{font-size:14.5px}.offcard small{font-size:12px;font-weight:800}
+.offcard.hol{background:rgba(61,220,132,.12);border-color:rgba(61,220,132,.45)}.offcard.hol small{color:#7ee8a8}
+.offcard.un{background:rgba(160,170,190,.1);border-color:rgba(160,170,190,.35)}.offcard.un small{color:#b9c2d6}.offcard.un .avatar{filter:grayscale(1);opacity:.75}
 </style>
 
 </head>
@@ -4100,7 +4105,8 @@ function rotaView(){
         ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
       ${(() => { const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday')); const nm = l => l.map(u => esc(pfirst(map[u.staff_id]))).join(', ');
-        return (un.length ? `<p class="muted" style="font-size:13px">Unavailable: ${nm(un)}</p>` : '') + (hol.length ? `<p class="muted" style="font-size:13px">On holiday: ${nm(hol)}</p>` : ''); })()}</div>`).join('')}</div>`;
+        const card = (u, kind) => `<div class="offcard ${kind}">${avatar(map[u.staff_id] || {}, 38)}<span><b>${esc(pfirst(map[u.staff_id]) || '?')}</b><small>${kind === 'hol' ? '🌴 On holiday' : '🚫 Unavailable'}</small></span></div>`;
+        return (hol.length || un.length) ? `<div class="offrow">${hol.map(u => card(u, 'hol')).join('')}${un.map(u => card(u, 'un')).join('')}</div>` : ''; })()}</div>`).join('')}</div>`;
   h += `<div class="rotafoot"><button class="btn ghost" data-action="rotaweek" data-step="-1">‹ Previous ${admin ? 'rota' : 'week'}</button><button class="btn ghost" data-action="rotaweek" data-step="1">Next ${admin ? 'rota' : 'week'} ›</button></div>`;
   return h;
 }
