@@ -4215,7 +4215,6 @@ function holButtons(h){
   return `<div class="holbtns">${all ? `<button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">✓ Approve ${h.days.length > 1 ? `all ${h.days.length} days` : ''}</button>`
       : free.length ? `<button class="btn sm" data-action="holsome" data-id="${h.id}">✉ Offer ${who} the free ${free.length > 1 ? `days (${free.length})` : `day: ${fd(free[0])}`}</button>` : ''}
     ${h.days.length > 1 ? `<button class="btn ghost sm" data-action="holchoose" data-id="${h.id}">Choose days to offer…</button>` : ''}
-    ${!all ? `<button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve all anyway</button>` : ''}
     <button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">✗ Decline</button></div>`;
 }
 /* Approve only some days: tick the days, write why the others can't be done */
