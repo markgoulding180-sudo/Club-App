@@ -18,11 +18,16 @@ begin
 end $$;
 
 -- 2. Remove the made-up staff
-create temp table gone as select id from auth.users where lower(email) in ('heather@railway.com','yannika@railway.com','joe@railway.com','jamie@railway.com','larry@railway.com');
-delete from public.profiles where id in (select id from gone);
-delete from auth.identities where user_id in (select id from gone);
-delete from auth.users where id in (select id from gone);
-drop table gone;
+do $$
+declare ids uuid[];
+begin
+  select array_agg(id) into ids from auth.users where lower(email) in ('heather@railway.com','yannika@railway.com','joe@railway.com','jamie@railway.com','larry@railway.com');
+  if ids is not null then
+    delete from public.profiles where id = any(ids);
+    delete from auth.identities where user_id = any(ids);
+    delete from auth.users where id = any(ids);
+  end if;
+end $$;
 
 -- 3. Add the real staff (logins, password: railway)
 do $$
