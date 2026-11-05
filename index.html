@@ -5132,7 +5132,7 @@ function myShiftsView(){
     </div>
     <div class="bar">${seg('myview', view, [['cal', '📅 Calendar'], ['list', '☰ List']], 'Show')}</div>
     ${view === 'list' ? `<p class="muted" style="font-size:14px;margin:0 0 10px">Tap a shift to swap it or say you can’t work it.</p>
-      <div class="clist">${rows || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}</div>
+      <div class="clist">${rows || '<div class="empty">No shifts yet. They’ll show here once the manager publishes the rota.<br>Can’t work a day, or want holiday? Switch to <b>📅 Calendar</b> and tap the day.</div>'}</div>
       ${coming.length > 10 ? `<button class="btn ghost" data-action="allcoming" style="width:100%;margin-top:10px">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}`
     : `<div class="panel stack mydiary">
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
