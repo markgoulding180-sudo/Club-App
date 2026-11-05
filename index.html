@@ -1838,6 +1838,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .offb b{font-size:13px}.offb.hol{background:rgba(61,220,132,.16);border-color:rgba(61,220,132,.55);color:#7ee8a8}.offb.hol b{color:#fff}
 .offb.un{background:rgba(160,170,190,.14);border-color:rgba(160,170,190,.4);color:#c3cbdc}.offb.un b{color:#fff}.offb.un .avatar{filter:grayscale(1)}
 .rday-h{flex-wrap:wrap}
+.holoff{border-radius:12px;padding:8px 10px;background:rgba(9,14,32,.45);border:1px solid var(--edge);font-size:13.5px;display:grid;gap:6px;margin-top:6px}
+.holoff.ok{color:#7ee8a8;font-weight:700}.holoff.full{border-color:#ff6b6b;background:rgba(255,107,107,.1)}.holwarn{color:#ff9d9d}
+.holday{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:104px;position:relative}.holday .hd{position:absolute;left:0;top:4px}.holday .hd{font-weight:800;min-width:96px}
 </style>
 
 </head>
@@ -1929,6 +1932,7 @@ const NOTE_KINDS = { sick: 'Sick', no_show: 'Didn’t turn up', late: 'Late', ca
 const PROBLEM = ['cannot_work', 'sick', 'no_show'];
 /* Holiday: days a year (Jan–Dec). Each day picked counts as one day. */
 const HOLIDAY_DAYS = 28;
+const MAX_OFF = 2;   // most staff on holiday on the same day
 const HOL_STATUS = { pending: 'Waiting', approved: 'Approved', declined: 'Declined', cancelled: 'Withdrawn' };
 /* Payments. The deposit secures a booking; the rest of the hire price is the balance. */
 const DEPOSIT = 100;
@@ -4151,6 +4155,18 @@ function downloadHours(){
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = `rota-hours-${st}.csv`;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
+/* Who else is already off on the days of this holiday request (rule: no more than MAX_OFF at once) */
+function holOffHtml(h){
+  const map = Object.fromEntries([...(state.ops?.staff || []), ...(state.profiles || [])].map(p => [p.id, p]));
+  const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id && ['approved', 'pending'].includes(o.status));
+  const rows = h.days.slice().sort().map(d => ({ d, ok: others.filter(o => o.status === 'approved' && o.days.includes(d)), wait: others.filter(o => o.status === 'pending' && o.days.includes(d)) }))
+    .filter(r => r.ok.length || r.wait.length);
+  const full = rows.filter(r => r.ok.length >= MAX_OFF);
+  const chip = (o, k) => `<span class="offb ${k === 'ok' ? 'hol' : 'un'}">${avatar(map[o.staff_id] || {}, 20)}<b>${esc(pfirst(map[o.staff_id]) || '?')}</b>${k === 'ok' ? '🌴 off' : '⏳ asked'}</span>`;
+  if (!rows.length) return `<div class="holoff ok">✓ No one else is off on these days.</div>`;
+  return `<div class="holoff${full.length ? ' full' : ''}">${full.length ? `<b class="holwarn">⚠️ ${MAX_OFF} people are already off on ${full.map(r => fmtDate(r.d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}. Approving makes ${MAX_OFF + 1}.</b>` : `<b>Already off on these days:</b>`}
+    ${rows.map(r => `<div class="holday"><span class="hd">${fmtDate(r.d, { weekday: 'short', day: 'numeric', month: 'short' })}</span>${r.ok.map(o => chip(o, 'ok')).join('')}${r.wait.map(o => chip(o, 'wait')).join('')}</div>`).join('')}</div>`;
+}
 function holidayAdminHtml(){
   const map = staffMap(); const today = todayStr(); const all = state.holidays;
   const first = h => h.days[0] || '';
@@ -4164,12 +4180,13 @@ function holidayAdminHtml(){
       <div class="holline"><b>${esc(pname(map[h.staff_id]))}</b><span class="grow"></span><span class="pill ${h.status}">${HOL_STATUS[h.status]}</span></div>
       <div><b>${dayRanges(h.days)}</b> <span class="muted">· ${plural(h.days.length, 'day')}</span></div>
       ${h.note ? `<p class="muted" style="font-size:14px">“${esc(h.note)}”</p>` : ''}
-      <p class="muted" style="font-size:13px">${st.year}: ${st.used} approved, ${st.pending} waiting, ${st.left} of ${HOLIDAY_DAYS} left${onShift ? ` · On the rota for ${plural(onShift, 'shift')} on these days` : ''}${others.length ? ` · Also off: ${esc(others.join(', '))}` : ''}</p>
+      <p class="muted" style="font-size:13px">${st.year}: ${st.used} approved, ${st.pending} waiting, ${st.left} of ${HOLIDAY_DAYS} left${onShift ? ` · On the rota for ${plural(onShift, 'shift')} on these days` : ''}</p>
+      ${decide ? holOffHtml(h) : ''}
       ${decide ? `<div class="bar" style="margin:0"><button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">Decline</button></div>`
         : `<div><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="cancelled">Cancel holiday</button></div>`}
     </div>`;
   };
-  return `<p class="muted" style="margin-bottom:14px;font-size:14px">Staff ask for holiday from Book holiday in their app. When you approve, they come off any shifts on those days and those shifts show as Cover needed on the Rota. Everyone gets ${HOLIDAY_DAYS} days a year (Jan–Dec).</p>
+  return `<p class="muted" style="margin-bottom:14px;font-size:14px"><b>Rule: no more than ${MAX_OFF} staff on holiday on the same day.</b> Each request shows who is already off. Staff ask for holiday from Book holiday in their app. When you approve, they come off any shifts on those days and those shifts show as Cover needed on the Rota. Everyone gets ${HOLIDAY_DAYS} days a year (Jan–Dec).</p>
     <div class="label">Waiting for you (${pend.length})</div><div class="list">${pend.map(h => card(h, true)).join('') || '<div class="empty">No holiday requests waiting.</div>'}</div>
     <div class="label" style="margin-top:24px">Approved, coming up</div><div class="list">${up.map(h => card(h, false)).join('') || '<div class="empty">No holiday booked.</div>'}</div>`;
 }
@@ -4966,7 +4983,7 @@ function rotaHolHtml(st){
   const pend = inIt.filter(h => h.status === 'pending'), ok = inIt.filter(h => h.status === 'approved');
   const days = h => h.days.filter(d => d >= st && d <= end);
   return `<div class="pbhol"><b>🌴 Holiday in this rota</b>
-    ${pend.map(h => `<div class="pbh"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}</span>
+    ${pend.map(h => `<div class="pbh"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}${holOffHtml(h)}</span>
       <span class="swapbtns"><button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">Decline</button></span></div>`).join('')}
     ${ok.length ? `<div class="pbh ok">${ok.map(h => `<span>✓ <b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> off ${dayRanges(days(h))}</span>`).join('')}</div>` : ''}
     ${!inIt.length ? '<span class="muted">No holiday booked or asked for in this rota.</span>' : ''}
