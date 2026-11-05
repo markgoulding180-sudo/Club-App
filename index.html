@@ -1833,6 +1833,11 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .offcard span{display:grid;line-height:1.15}.offcard b{font-size:14.5px}.offcard small{font-size:12px;font-weight:800}
 .offcard.hol{background:rgba(61,220,132,.12);border-color:rgba(61,220,132,.45)}.offcard.hol small{color:#7ee8a8}
 .offcard.un{background:rgba(160,170,190,.1);border-color:rgba(160,170,190,.35)}.offcard.un small{color:#b9c2d6}.offcard.un .avatar{filter:grayscale(1);opacity:.75}
+.offbs{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;margin-top:4px}
+.offb{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 3px;border-radius:999px;font-size:12.5px;font-weight:800;border:1px solid}
+.offb b{font-size:13px}.offb.hol{background:rgba(61,220,132,.16);border-color:rgba(61,220,132,.55);color:#7ee8a8}.offb.hol b{color:#fff}
+.offb.un{background:rgba(160,170,190,.14);border-color:rgba(160,170,190,.4);color:#c3cbdc}.offb.un b{color:#fff}.offb.un .avatar{filter:grayscale(1)}
+.rday-h{flex-wrap:wrap}
 </style>
 
 </head>
@@ -3997,6 +4002,12 @@ function openCoverTime(c){
       <div class="err"></div><button class="btn" type="submit">${c.id ? 'Save the new time' : '📣 Ask everyone'}</button>
       <p class="muted" style="font-size:12.5px;margin:0">${c.id ? 'Anyone who already said yes is told the new time.' : 'Staff see this start time before they say yes.'}</p></form>`);
 }
+/* Rota day header: who is off that day, so Sam knows there are fewer people to pick from */
+function offBadges(i, map){
+  const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday'));
+  const b = (u, k) => `<span class="offb ${k}">${avatar(map[u.staff_id] || {}, 22)}<b>${esc(pfirst(map[u.staff_id]) || '?')}</b>${k === 'hol' ? '🌴 Holiday' : '🚫 Off'}</span>`;
+  return hol.length || un.length ? `<div class="offbs">${hol.map(u => b(u, 'hol')).join('')}${un.map(u => b(u, 'un')).join('')}</div>` : '';
+}
 function coverLineHtml(){
   if (!canArea('rota')) return '';
   const calls = (state.covers || []).filter(c => c.status === 'open' && c.shift_date >= todayStr()); if (!calls.length) return '';
@@ -4100,13 +4111,11 @@ function rotaView(){
     : `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
   if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. Lounge Bar: 1 whenever open. Function Room Bar: when the room is in use (2 for parties over ${STAFF_RULES.guestsPerEventBar}). Door: every evening. Max 2 on each bar.</p>`;
   h += `<div class="list">${infos.map((i, n) => `${admin && n % 7 === 0 ? `<div class="wkhead" id="wk-${i.ds}">Week ${n / 7 + 1} · ${fmtDate(i.ds, { day:'numeric', month:'short' })} – ${fmtDate(days[n + 6], { day:'numeric', month:'short' })}</div>` : ''}<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
-      <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}</div>
+      <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}${offBadges(i, map)}</div>
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
         ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
         ${slotsHtml(i.ds, x)}</div>`).join('') || '<p class="muted">Closed.</p>'}
-      ${(() => { const hol = i.off.filter(u => u.holiday_id || u.reason === 'Holiday'), un = i.off.filter(u => !(u.holiday_id || u.reason === 'Holiday')); const nm = l => l.map(u => esc(pfirst(map[u.staff_id]))).join(', ');
-        const card = (u, kind) => `<div class="offcard ${kind}">${avatar(map[u.staff_id] || {}, 38)}<span><b>${esc(pfirst(map[u.staff_id]) || '?')}</b><small>${kind === 'hol' ? '🌴 On holiday' : '🚫 Unavailable'}</small></span></div>`;
-        return (hol.length || un.length) ? `<div class="offrow">${hol.map(u => card(u, 'hol')).join('')}${un.map(u => card(u, 'un')).join('')}</div>` : ''; })()}</div>`).join('')}</div>`;
+      </div>`).join('')}</div>`;
   h += `<div class="rotafoot"><button class="btn ghost" data-action="rotaweek" data-step="-1">‹ Previous ${admin ? 'rota' : 'week'}</button><button class="btn ghost" data-action="rotaweek" data-step="1">Next ${admin ? 'rota' : 'week'} ›</button></div>`;
   return h;
 }
