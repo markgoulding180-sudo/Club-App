@@ -1827,6 +1827,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .holline .cvn{background:#f6c850;color:#1a1300;font-weight:900;border-radius:999px;min-width:26px;height:26px;display:grid;place-items:center;font-size:14px;margin-left:auto}
 .jobgrp{border-radius:14px;padding:4px 10px;margin:8px 0;border:1px solid;border-left-width:5px}
 .jgname{font-size:11.5px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;margin:0 0 4px}
+.jg-clean{background:rgba(148,163,184,.09);border-color:rgba(148,163,184,.35);border-left-color:#94a3b8}.jg-clean .job{color:#cbd5e1!important}
 .jg-lounge{background:rgba(155,123,255,.09);border-color:rgba(155,123,255,.35);border-left-color:#9b7bff}.jg-lounge .job{color:#b9a3ff!important}
 .jg-event{background:rgba(46,230,200,.08);border-color:rgba(46,230,200,.3);border-left-color:#2ee6c8}.jg-event .job{color:#7ff3df!important}
 .jg-door{background:rgba(255,138,61,.08);border-color:rgba(255,138,61,.3);border-left-color:#ff8a3d}.jg-door .job{color:#ffb27a!important}
@@ -1911,9 +1912,9 @@ const CONFIG = {
 const OPENING = {
   0: { day: ['11:00', '17:00'], eve: ['17:00', '23:00'] },
   1: { day: ['11:00', '15:00'], eve: ['18:00', '23:00'] },
-  2: { eve: ['18:00', '23:00'] },
-  3: { eve: ['18:00', '23:00'] },
-  4: { eve: ['18:00', '23:00'] },
+  2: { day: ['11:00', '15:00'], eve: ['18:00', '23:00'] },
+  3: { day: ['11:00', '15:00'], eve: ['18:00', '23:00'] },
+  4: { day: ['11:00', '15:00'], eve: ['18:00', '23:00'] },
   5: { day: ['11:00', '17:00'], eve: ['17:00', '23:30'] },
   6: { day: ['11:00', '17:00'], eve: ['17:00', '23:30'] }
 };
@@ -1922,7 +1923,7 @@ const OPENING = {
    - Door: 1 every evening the club is open.
    - Function Room Bar: when the Function Room is booked. 1 person, or 2 for parties over guestsPerEventBar guests.
    - Club events: the admin picks 1 or 2 people for the bar in that room. Max 2 on each bar. */
-const STAFF_RULES = { loungeBar: 1, doorEvenings: 1, guestsPerEventBar: 40 };
+const STAFF_RULES = { loungeBar: 1, doorEvenings: 1, guestsPerEventBar: 40, cleaner: 1 };
 
 /* Hard-coded pricing for now (Fri & Sat use the weekend rate). Capacities are placeholders. */
 const ROOMS = {
@@ -1958,11 +1959,12 @@ const EVENT_TYPES = ['Birthday', '18th Birthday', 'Wedding reception', 'Engageme
 
 const SESS = { day: 'Daytime', eve: 'Evening' };
 /* Shifts are named by where people work. 'event' is the Function Room Bar. */
-const JOBS = { lounge: 'Lounge Bar', event: 'Function Room Bar', door: 'Door' };
-const JOB_ORDER = ['lounge', 'event', 'door'];
+const JOBS = { clean: 'Cleaning', lounge: 'Lounge Bar', event: 'Function Room Bar', door: 'Door' };
+const JOB_ORDER = ['clean', 'lounge', 'event', 'door'];
+const CLEAN_TIMES = ['08:00', '11:00'];   // the cleaner's morning shift (on the daytime part of the rota)
 const jobOf = s => s.job;
 const MAX_PER_BAR = 2;
-const SKILLS = { both: 'Bar & door', bar: 'Bar', door: 'Door' };
+const SKILLS = { both: 'Bar & door', bar: 'Bar', door: 'Door', clean: 'Cleaning only' };
 const ROLES = { user: 'Customer', staff: 'Staff', admin: 'Admin' };
 const SHIFT_STATUS = { assigned: 'On the rota', confirmed: 'On the rota', cannot_work: 'Can’t work', late: 'Late', sick: 'Sick', no_show: 'Didn’t turn up' };
 const NOTE_KINDS = { sick: 'Sick', no_show: 'Didn’t turn up', late: 'Late', cannot_work: 'Can’t work', note: 'Note' };
@@ -2001,7 +2003,9 @@ const bname = b => [b.first_name, b.last_name].filter(Boolean).join(' ') || b.bo
 const pname = p => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unnamed') : 'Unknown';
 const pfirst = p => p ? (p.first_name || pname(p)) : 'Unknown';
 const ACTIVE = s => s.status === 'assigned' || s.status === 'confirmed' || s.status === 'late';
-const canDo = (p, job) => p.skill === 'both' || (job === 'door' ? p.skill === 'door' : p.skill === 'bar');
+const canDo = (p, job) => job === 'clean' ? !!p.skill : p.skill === 'both' || (job === 'door' ? p.skill === 'door' : p.skill === 'bar');
+/* Cleaning doesn't clash with a bar or door shift the same day (morning clean, then work later) */
+const clashes = (a, b) => (a.job === 'clean') === (b.job === 'clean');
 const bySlot = (a, b) => SLOTS.findIndex(s => s.id === a.slot) - SLOTS.findIndex(s => s.id === b.slot) || a.room.localeCompare(b.room);
 const byName = (a, b) => pname(a).localeCompare(pname(b));
 const plural = (n, w, pl) => `${n} ${n === 1 ? w : (pl || w + 's')}`;
@@ -2046,10 +2050,11 @@ function hoursHtml(where = ''){
   return `<div class="hours ${where}"><b class="hours-h">Opening times</b>${[1, 2, 3, 4, 5, 6, 0].map(d => { const r = openRanges(d);
     return `<div class="hrow${d === today ? ' hnow' : ''}"><span>${names[d]}</span><span>${r.length ? r.map(([a, b]) => `${mm(a)}–${mm(b)}`).join(', ') : 'Closed'}</span></div>`; }).join('')}</div>`;
 }
-const coverTimes = c => { const t = sessTimes(c.shift_date, c.session); return c.start_early ? [String(c.start_early).slice(0, 5), t[1]] : t; };
-const shiftTimes = s => { const t = sessTimes(s.shift_date, s.session); return s.start_early ? [String(s.start_early).slice(0, 5), t[1]] : t; };
+const baseTimes = (ds, sess, job) => job === 'clean' ? CLEAN_TIMES : sessTimes(ds, sess);
+const coverTimes = c => { const t = baseTimes(c.shift_date, c.session, c.job); return c.start_early ? [String(c.start_early).slice(0, 5), t[1]] : t; };
+const shiftTimes = s => { const t = baseTimes(s.shift_date, s.session, s.job); return s.start_early ? [String(s.start_early).slice(0, 5), t[1]] : t; };
 function hoursOf(ds, sess, sh){
-  const [a, b] = sh?.start_early ? [String(sh.start_early).slice(0, 5), sessTimes(ds, sess)[1]] : sessTimes(ds, sess); const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
+  const base = baseTimes(ds, sess, sh?.job); const [a, b] = sh?.start_early ? [String(sh.start_early).slice(0, 5), base[1]] : base; const m = t => { const [h, mm] = t.split(':').map(Number); return h * 60 + mm; };
   let e = m(b); if (e <= m(a)) e += 1440; return (e - m(a)) / 60;
 }
 const eventBarFor = b => Math.max(1, Math.ceil((Number(b.guests) || 1) / STAFF_RULES.guestsPerEventBar));
@@ -2102,7 +2107,8 @@ function sessionNeeds(ds, bookings){
     return { sess, open, bks: sb, times: sessTimes(ds, sess), need: {
       lounge: Math.min(MAX_PER_BAR, Math.max(open ? STAFF_RULES.loungeBar : 0, ...sb.filter(b => b.room === 'lounge').map(barNeedFor))),
       event: Math.min(MAX_PER_BAR, Math.max(0, ...sb.filter(b => b.room === 'hall').map(barNeedFor))),
-      door: open && sess === 'eve' ? STAFF_RULES.doorEvenings : 0 } };
+      door: open && sess === 'eve' ? STAFF_RULES.doorEvenings : 0,
+      clean: sess === 'day' && (o.day || o.eve) ? STAFF_RULES.cleaner : 0 } };
   });
 }
 function dayInfo(ds, ops){
@@ -2540,7 +2546,7 @@ function makeDemoApi(){
       (x.slot === b.slot || x.slot === 'full_day' || b.slot === 'full_day') && !(b.booking_kind === 'club' && x.booking_kind !== 'club'));
   }
   const closedOn = b => s.closed.some(c => c.closed_date === b.booking_date && PART_SLOTS[c.part || 'all'].includes(b.slot));
-  const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.staff_id === x.staff_id);   // one shift a day each
+  const busy = (x, ignoreId) => s.shifts.some(y => ACTIVE(y) && y.id !== ignoreId && y.shift_date === x.shift_date && y.staff_id === x.staff_id && (!x.job || (y.job === 'clean') === (x.job === 'clean')));   // one shift a day each
   const byDate = (a, b) => a.booking_date.localeCompare(b.booking_date) || bySlot(a, b);
   const api = {
     async currentUser(){ const u = s.users.find(u => u.id === s.session); return u ? pub({ prefs: null, ...u }) : null; },
@@ -3985,7 +3991,7 @@ function rotaLoad(ds){
   return id => t[id] || { n: 0, h: 0 };
 }
 function staffSelect(ds, x, job, shift, cover, k){
-  const busy = new Map(state.ops.shifts.filter(s => s.shift_date === ds && ACTIVE(s) && s.id !== shift?.id).map(s => [s.staff_id, s.session === x.sess ? 'already on' : `on ${s.session === 'day' ? 'daytime' : 'evening'}`]));
+  const busy = new Map(state.ops.shifts.filter(s => s.shift_date === ds && ACTIVE(s) && s.id !== shift?.id && clashes(s, { job })).map(s => [s.staff_id, s.session === x.sess ? 'already on' : `on ${s.session === 'day' ? 'daytime' : 'evening'}`]));
   const off = new Map(state.ops.unavail.filter(u => u.off_date === ds).map(u => [u.staff_id, u.reason]));
   const probs = new Set(x.problems.map(s => s.staff_id));
   const opts = state.ops.staff.filter(p => canDo(p, job) || p.id === shift?.staff_id).map(p => {
@@ -4106,7 +4112,7 @@ function offerBtn(ds, sess, job){
   if (mine) return `<span class="offered">You offered</span><button class="linkbtn" data-action="offerwithdraw" data-id="${mine.id}">Withdraw</button>`;
   const meP = (state.ops.staff || []).find(p => p.id === me);
   if (!meP || !canDo(meP, job) || ds < todayStr() || !isPublished(ds)) return '';
-  if (state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s)) || state.ops.unavail.some(u => u.staff_id === me && u.off_date === ds)) return '';
+  if (state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s) && clashes(s, { job })) || state.ops.unavail.some(u => u.staff_id === me && u.off_date === ds)) return '';
   return `<button class="btn sm" data-action="offershift" data-date="${ds}" data-sess="${sess}" data-job="${job}">I can work this</button>`;
 }
 function slotsHtml(ds, x){
@@ -4359,7 +4365,7 @@ const isFT = p => p?.hours ? p.hours === 'full' : regOf(p).length > 0;
 function regularBlock(p){
   const reg = regOf(p); const jobs = Object.keys(JOBS).filter(j => canDo(p, j));
   const cell = (d, sess) => { const cur = reg.find(r => String(r.d) === d && r.s === sess)?.j || '';
-    return `<select id="reg-${p.id}-${d}-${sess}" data-regular="${p.id}" data-d="${d}" data-s="${sess}" aria-label="${SESS[sess]}"><option value="">Off</option>${jobs.map(j => `<option value="${j}" ${j === cur ? 'selected' : ''}>${JOBS[j]}</option>`).join('')}</select>`; };
+    return `<select id="reg-${p.id}-${d}-${sess}" data-regular="${p.id}" data-d="${d}" data-s="${sess}" aria-label="${SESS[sess]}"><option value="">Off</option>${(sess === 'eve' ? jobs.filter(j => j !== 'clean') : jobs).map(j => `<option value="${j}" ${j === cur ? 'selected' : ''}>${JOBS[j]}</option>`).join('')}</select>`; };
   return `<div class="label" style="margin:4px 0 0">Hours</div>
     <div class="dows">${[['full', 'Full time'], ['part', 'Part time']].map(([v, l]) => `<label class="dow"><input type="radio" name="hours-${p.id}" data-hours="${p.id}" value="${v}" ${(isFT(p) ? 'full' : 'part') === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
     <div class="label" style="margin:4px 0 0">Regular shifts</div>
@@ -4849,17 +4855,18 @@ async function exportTickets(eventId = null){
    STAFF MEMBER: MY SHIFTS
    ===================================================================== */
 /* ---------- Staff: one diary, tap any day for everything about it ---------- */
-const JOB_SHORT = { lounge: 'Bar', event: 'Func', door: 'Door' };
+const JOB_SHORT = { clean: 'Clean', lounge: 'Bar', event: 'Func', door: 'Door' };
 function myDay(ds){
   const me = state.user.id; const o = state.ops;
   const shifts = o.shifts.filter(s => s.staff_id === me && s.shift_date === ds);
-  const shift = shifts.find(ACTIVE), cw = shifts.find(s => s.status === 'cannot_work');
+  const shift = shifts.find(s => ACTIVE(s) && s.job !== 'clean') || shifts.find(ACTIVE), cw = shifts.find(s => s.status === 'cannot_work');
+  const alsoClean = shift && shift.job !== 'clean' && shifts.some(s => ACTIVE(s) && s.job === 'clean');
   const hol = holTaken(me).get(ds);
   const off = o.unavail.find(u => u.staff_id === me && u.off_date === ds && !u.holiday_id && u.reason !== 'Holiday');
   const swap = (state.swaps || []).find(w => ['asked', 'accepted'].includes(w.status) && ((w.from_staff === me && w.a?.shift_date === ds) || (w.to_staff === me && w.b?.shift_date === ds)));
   const offer = (state.offers || []).find(x => x.staff_id === me && x.status === 'offered' && x.shift_date === ds);
   const req = shift && (state.sreqs || []).find(r => r.shift_id === shift.id && r.status === 'open');
-  return { ds, shift, cw, hol, off, swap, offer, req };
+  return { ds, shift, cw, hol, off, swap, offer, req, alsoClean };
 }
 function dayTag(d){
   // [line 1, css class, full description, line 2]
@@ -4868,7 +4875,7 @@ function dayTag(d){
   if (d.hol === 'pending') return ['Hol', 't-ask', 'Holiday asked, waiting for the manager', 'asked'];
   if (d.cw) return d.cw.decision === 'approved' || d.cw.covered ? ['Off ✓', 't-offok', 'You asked off this shift and the manager approved it', ''] : ['Asked', 't-cw', 'You asked off this shift, waiting for the manager', 'off'];
   if (d.shift && (d.swap || d.req)) return ['Swap?', 't-swap', `${JOBS[d.shift.job]} ${st(d.shift)}, swap waiting`, st(d.shift)];
-  if (d.shift) return [JOB_SHORT[d.shift.job], 't-shift', `${JOBS[d.shift.job]}, ${SESS[d.shift.session].toLowerCase()} from ${st(d.shift)}`, st(d.shift)];
+  if (d.shift) return [JOB_SHORT[d.shift.job], 't-shift', `${JOBS[d.shift.job]}, ${d.shift.job === 'clean' ? 'morning' : SESS[d.shift.session].toLowerCase()} from ${st(d.shift)}${d.alsoClean ? ', plus cleaning in the morning' : ''}`, st(d.shift) + (d.alsoClean ? ' +Clean' : '')];
   if (d.offer) return ['Offered', 't-offer', 'You offered to work', ''];
   if (d.off) return ['Unavail.', 't-off', 'You marked yourself unavailable', ''];
   return null;
