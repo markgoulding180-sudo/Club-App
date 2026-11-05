@@ -1849,6 +1849,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hoppl{display:flex;flex-wrap:wrap;gap:6px}.hop{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:13.5px}
 .hoask{margin:0;font-size:12.5px;color:var(--muted)}
 @media (max-width:520px){.horow{grid-template-columns:86px 60px 1fr}}
+.holbtns{display:flex;flex-wrap:wrap;gap:8px}
+.hsdays{display:grid;gap:6px}.hsday{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:2px solid var(--edge);cursor:pointer}
+.hsday input{width:22px;height:22px;accent-color:#2ee6c8}.hsday span{display:grid}.hsday small{font-size:12.5px;font-weight:800}.hsday.free small{color:#7ee8a8}.hsday.full small{color:#ff9d9d}
+.hsday:has(input:checked){border-color:#2ee6c8;background:rgba(46,230,200,.1)}
 </style>
 
 </head>
@@ -2362,6 +2366,7 @@ function makeSupabaseApi(){
     async listHolidays(){ return ok(await sb.from('holiday_requests').select('*').order('created_at', { ascending: false })); },
     async requestHoliday(days, note){ return ok(await sb.rpc('staff_request_holiday', { want: days, why: note || null })); },
     async cancelHoliday(id){ ok(await sb.rpc('staff_cancel_holiday', { req: id })); },
+    async approveSomeDays(id, keep, why){ const r = await sb.rpc('admin_approve_some_days', { req: id, keep, why: why || null }); if (r.error && /admin_approve_some_days/.test(r.error.message)) throw new Error('Run update-holiday-some-days.sql in Supabase first.'); ok(r); },
     async decideHoliday(id, status, note){ ok(await sb.rpc('admin_decide_holiday', { req: id, new_status: status, why: note || null })); },
     // tickets
     async ticketCounts(ids){ if (!ids.length) return []; return ok(await sb.rpc('get_ticket_counts', { ids })); },
@@ -2804,6 +2809,9 @@ function makeDemoApi(){
     async ticketsAll(){ return [...(s.tickets ||= [])].sort((a, b) => a.created_at.localeCompare(b.created_at)); },
     async addTickets(x){ (s.tickets ||= []).push({ ...x, id: nextId(), user_id: null, created_at: new Date().toISOString() }); save(); },
     async updateTicket(id, patch){ const x = (s.tickets || []).find(x => x.id === id); if (!x) throw new Error('Not found.'); Object.assign(x, patch); save(); },
+    async approveSomeDays(id, keep, why){ const h = (s.holidays || []).find(h => h.id === id); if (!h || h.status !== 'pending') throw new Error('That request has already been answered.');
+      const rest = h.days.filter(d => !keep.includes(d)); if (rest.length) s.holidays.push({ id: nextId(), staff_id: h.staff_id, days: rest, note: h.note, status: 'declined', admin_note: why || null, decided_at: new Date().toISOString(), created_at: h.created_at });
+      h.days = h.days.filter(d => keep.includes(d)); save(); return this.decideHoliday(id, 'approved', `Approved: ${h.days.map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}${rest.length ? `. Not approved: ${rest.map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}${why ? ` (${why})` : ''}` : ''}`); },
     async decideHoliday(id, status, note){
       const h = (s.holidays || []).find(h => h.id === id); if (!h) throw new Error('Request not found.');
       if (status !== 'cancelled' && h.status !== 'pending') throw new Error('That request has already been answered.');
@@ -4164,6 +4172,26 @@ function downloadHours(){
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 /* Who else is already off on the days of this holiday request (rule: no more than MAX_OFF at once) */
+const holFreeDays = h => { const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id && o.status === 'approved'); return h.days.slice().sort().filter(d => others.filter(o => o.days.includes(d)).length < MAX_OFF); };
+function holButtons(h){
+  const free = holFreeDays(h); const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+  const all = free.length === h.days.length;
+  return `<div class="holbtns">${all ? `<button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">✓ Approve ${h.days.length > 1 ? `all ${h.days.length} days` : ''}</button>`
+      : free.length ? `<button class="btn sm" data-action="holsome" data-id="${h.id}">✓ Approve the free ${free.length > 1 ? `days (${free.length})` : `day: ${fd(free[0])}`}</button>` : ''}
+    ${h.days.length > 1 ? `<button class="btn ghost sm" data-action="holpick" data-id="${h.id}">Choose days…</button>` : ''}
+    ${!all ? `<button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve all anyway</button>` : ''}
+    <button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">✗ Decline</button></div>`;
+}
+/* Approve only some days: tick the days, write why the others can't be done */
+function openHolSome(h, pick){
+  const free = holFreeDays(h); const fd = d => fmtDate(d, { weekday: 'long', day: 'numeric', month: 'short' }); const who = pfirst(staffMap()[h.staff_id]) || 'them';
+  state.sheet = { type: 'holsome', id: h.id };
+  openSheet(`<div class="sheet-h"><div><h2>Approve some days</h2><p class="muted">${esc(who)} asked for ${dayRanges(h.days)}. Tick the days to approve.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+    <form class="stack" data-form="holsome" data-id="${h.id}">
+      <div class="hsdays">${h.days.slice().sort().map(d => `<label class="hsday ${free.includes(d) ? 'free' : 'full'}"><input type="checkbox" name="d" value="${d}" ${(pick ? false : free.includes(d)) ? 'checked' : ''}><span><b>${fd(d)}</b><small>${free.includes(d) ? '✅ Free' : '⛔ Full: 2 already off'}</small></span></label>`).join('')}</div>
+      <label class="f">Message to ${esc(who)} about the days you don’t approve<textarea class="in" name="why" rows="2" maxlength="300">Sorry, ${MAX_OFF} people are already off on the other ${h.days.length - free.length > 1 ? 'days' : 'day'}.</textarea></label>
+      <div class="err"></div><button class="btn" type="submit">Approve the ticked days</button></form>`);
+}
 function holOffHtml(h){
   const map = Object.fromEntries([...(state.ops?.staff || []), ...(state.profiles || [])].map(p => [p.id, p]));
   const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id);
@@ -4197,7 +4225,7 @@ function holidayAdminHtml(){
       ${h.note ? `<p class="muted" style="font-size:14px">“${esc(h.note)}”</p>` : ''}
       <p class="muted" style="font-size:13px">${st.year}: ${st.used} approved, ${st.pending} waiting, ${st.left} of ${HOLIDAY_DAYS} left${onShift ? ` · On the rota for ${plural(onShift, 'shift')} on these days` : ''}</p>
       ${decide ? holOffHtml(h) : ''}
-      ${decide ? `<div class="bar" style="margin:0"><button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">Decline</button></div>`
+      ${decide ? holButtons(h)
         : `<div><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="cancelled">Cancel holiday</button></div>`}
     </div>`;
   };
@@ -4999,7 +5027,7 @@ function rotaHolHtml(st){
   const days = h => h.days.filter(d => d >= st && d <= end);
   return `<div class="pbhol"><b>🌴 Holiday in this rota</b>
     ${pend.map(h => `<div class="pbh"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}${holOffHtml(h)}</span>
-      <span class="swapbtns"><button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve</button><button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">Decline</button></span></div>`).join('')}
+      ${holButtons(h)}</div>`).join('')}
     ${ok.length ? `<div class="pbh ok">${ok.map(h => `<span>✓ <b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> off ${dayRanges(days(h))}</span>`).join('')}</div>` : ''}
     ${!inIt.length ? '<span class="muted">No holiday booked or asked for in this rota.</span>' : ''}
     ${pend.length ? '<small class="muted">Approve holiday before you fill the rota, so those days are left free.</small>' : ''}</div>`;
@@ -6332,6 +6360,8 @@ const actions = {
     state.holSel = []; state.holNote = ''; toast('Sent to the manager for approval'); go('myshifts');
   },
   holcancel: async t => { if (!armed(t)) return; await api.cancelHoliday(Number(t.dataset.id)); toast('Request withdrawn'); refresh(); },
+  holsome: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, false); },
+  holpick: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, true); },
   holdecide: async t => {
     const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), null); if (st === 'cancelled' && !armed(t)) return;
     await api.decideHoliday(Number(t.dataset.id), st);
@@ -6536,6 +6566,9 @@ const forms = {
     if (f.dataset.id){ await api.setCoverTime(Number(f.dataset.id), at, note); closeSheet(); toast(at ? `Start time changed to ${at}` : 'Back to the normal start time'); return refresh(); }
     await api.askCover({ shift_date: f.dataset.date, session: f.dataset.sess, job: f.dataset.job, needed: Number(f.dataset.need) || 1, start_early: at, early_note: note });
     closeSheet(); toast('Asked everyone who could work it. Their answers show on Rota cover requests.'); refresh(); },
+  async holsome(f){ const keep = [...f.querySelectorAll('[name=d]:checked')].map(x => x.value); if (!keep.length) throw new Error('Tick at least one day, or use Decline.');
+    await api.approveSomeDays(Number(f.dataset.id), keep, f.why.value.trim()); closeSheet(); toast(`Approved ${plural(keep.length, 'day')}. They’ve been told.`);
+    state.holidays = await api.listHolidays(); refresh(); },
   async todoadd(f){ const body = f.body.value.trim(); if (!body) return; await api.addTodo(body, null); state.todos = await api.listTodos(); render(); setTimeout(() => document.querySelector('.tdadd .in')?.focus(), 30); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString(), ...(LIVE ? {} : { replied_by: state.user.id }) }).catch(async e => { throw e; }); toast('Done'); refresh(); },
   async cantwork(f){ const why = f.reason.value.trim(); if (why.length < 3) throw new Error('Please give a reason.');
