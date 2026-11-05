@@ -5121,7 +5121,7 @@ function myShiftsView(){
       <span class="st offer">✋ You offered to work this · waiting for the manager to confirm</span></span><button class="linkbtn" data-action="offerwithdraw" data-id="${s.id}">Withdraw</button></div>`;
     return hd + `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
       <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
-  const view = state.myView === 'cal' ? 'cal' : 'list'; const hs = holStats(me);
+  const view = state.myView === 'list' ? 'list' : 'cal'; const hs = holStats(me);
   const sc = swapCounts();
   return `<div class="head"><h1>My shifts</h1></div>
     <p class="myrota">This rota runs from <b>${fmtDate(cur, { weekday: 'short', day: 'numeric', month: 'short' })}</b> to <b>${fmtDate(periodEnd(cur), { weekday: 'short', day: 'numeric', month: 'short' })}</b> · ${plural(coming.filter(ACTIVE).length, 'shift')} coming up</p>
@@ -5130,7 +5130,7 @@ function myShiftsView(){
       <button class="myact" data-action="go" data-view="swaps"><span class="qi">🔄</span><b>Swap shifts</b><span>${sc.help ? `${plural(sc.help, 'colleague needs', 'colleagues need')} a swap` : sc.mine ? `${plural(sc.mine, 'offer')} for your shift` : 'Swap a shift'}</span>${sc.unseen ? `<em class="badge">${sc.unseen}</em>` : ''}</button>
       <button class="myact" data-action="holnew"><span class="qi">🌴</span><b>Book holiday</b><span>${hs.left} days left${hs.pending ? ` · ${hs.pending} waiting` : ''}</span></button>
     </div>
-    <div class="bar">${seg('myview', view, [['list', '☰ List'], ['cal', '📅 Calendar']], 'Show')}</div>
+    <div class="bar">${seg('myview', view, [['cal', '📅 Calendar'], ['list', '☰ List']], 'Show')}</div>
     ${view === 'list' ? `<p class="muted" style="font-size:14px;margin:0 0 10px">Tap a shift to swap it or say you can’t work it.</p>
       <div class="clist">${rows || '<div class="empty">No shifts yet. They’ll show here once the rota is out.</div>'}</div>
       ${coming.length > 10 ? `<button class="btn ghost" data-action="allcoming" style="width:100%;margin-top:10px">${state.allComing ? 'Show fewer' : `Show all ${coming.length}`}</button>` : ''}`
