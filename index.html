@@ -1779,6 +1779,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .fullb{position:absolute;right:4px;bottom:4px;background:#ff6b6b;color:#2a0505;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;letter-spacing:.03em}
 .k.kfull::before{background:#ff6b6b!important}.hkey.hfull .hk-l2,.hfull .l2{color:#ff6b6b}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
+.askord{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted,#9aa7c7)}.askord b{color:inherit;font-weight:700}
+.askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
 .holask{border:2px solid #34d399;border-radius:18px;background:rgba(52,211,153,.1);padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
 .holask p{margin:0}.holask .hah{font-size:17px}.hadays{display:flex;flex-direction:column;gap:4px;font-size:15px}.hadays small{display:block;opacity:.8;font-size:13px;margin-top:2px}
 .hadays .ok{color:#6ee7b7}.hadays .no{color:#fca5a5}
@@ -3574,7 +3576,7 @@ function homeView(){
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     ${coverLineHtml()}
     <div class="tiles">
-      ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days);
+      ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days).sort(byAsked);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
         return `<button class="tile${hp.length ? ' holtile' : ''}" data-action="gorota" data-tab="holidays"><span class="ic">🌴</span><b>Holiday requests</b><span class="sub">${hp.length ? `${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` +${names.length - 3}` : ''} · answer before you do the rota` : 'None waiting'}</span>${hp.length ? `<span class="badge">${hp.length}</span>` : ''}</button>`; })()}
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
@@ -4246,16 +4248,20 @@ function holOffHtml(h){
   return `<div class="holoff">${head}<div class="hotab">${table}</div>
     ${asked.length ? `<p class="hoask">⏳ Also waiting for your answer on these days: ${asked.map(o => esc(pfirst(map[o.staff_id]) || '?')).join(', ')}</p>` : ''}</div>`;
 }
+/* First come, first served: who asked first, and when */
+const askedWhen = iso => { const d = new Date(iso); return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`; };
+const byAsked = (a, b) => (a.created_at || '').localeCompare(b.created_at || '') || a.id - b.id;
+const askedTag = (h, i) => `<div class="askord"><span class="aon">${ordinal(i + 1)}</span><span>to ask · <b>asked ${askedWhen(h.created_at)}</b></span></div>`;
 function holidayAdminHtml(){
   const map = staffMap(); const today = todayStr(); const all = state.holidays;
   const first = h => h.days[0] || '';
-  const pend = all.filter(h => h.status === 'pending').sort((a, b) => first(a).localeCompare(first(b)));
+  const pend = all.filter(h => h.status === 'pending').sort(byAsked);
   const up = all.filter(h => h.status === 'approved' && h.days.some(d => d >= today)).sort((a, b) => first(a).localeCompare(first(b)));
-  const card = (h, decide) => {
+  const card = (h, decide, i) => {
     const st = holStats(h.staff_id, yearOf(first(h)));
     const onShift = state.ops.shifts.filter(s => s.staff_id === h.staff_id && h.days.includes(s.shift_date) && (ACTIVE(s) || (s.status === 'cannot_work' && s.reason === 'Holiday'))).length;
     const others = [...new Set(all.filter(o => o.id !== h.id && o.status === 'approved' && o.days.some(d => h.days.includes(d))).map(o => pfirst(map[o.staff_id])))];
-    return `<div class="panel stack" style="gap:8px">
+    return `<div class="panel stack" style="gap:8px">${decide ? askedTag(h, i) : ''}
       <div class="holline"><b>${esc(pname(map[h.staff_id]))}</b><span class="grow"></span><span class="pill ${h.status}">${HOL_STATUS[h.status]}</span></div>
       <div><b>${dayRanges(h.days)}</b> <span class="muted">· ${plural(h.days.length, 'day')}</span></div>
       ${h.note ? `<p class="muted" style="font-size:14px">“${esc(h.note)}”</p>` : ''}
@@ -4266,7 +4272,7 @@ function holidayAdminHtml(){
     </div>`;
   };
   return `<p class="muted" style="margin-bottom:14px;font-size:14px"><b>Rule: no more than ${MAX_OFF} staff on holiday on the same day.</b> Each request shows who is already off. Staff ask for holiday from Book holiday in their app. When you approve, they come off any shifts on those days and those shifts show as Cover needed on the Rota. Everyone gets ${HOLIDAY_DAYS} days a year (Jan–Dec).</p>
-    <div class="label">Waiting for you (${pend.length})</div><div class="list">${pend.map(h => card(h, true)).join('') || '<div class="empty">No holiday requests waiting.</div>'}</div>
+    <div class="label">Waiting for you (${pend.length})</div>${pend.length > 1 ? '<p class="muted" style="font-size:13px;margin:-4px 0 8px">In the order they asked: first at the top. First come, first served.</p>' : ''}<div class="list">${pend.map((h, i) => card(h, true, i)).join('') || '<div class="empty">No holiday requests waiting.</div>'}</div>
     <div class="label" style="margin-top:24px">Approved, coming up</div><div class="list">${up.map(h => card(h, false)).join('') || '<div class="empty">No holiday booked.</div>'}</div>`;
 }
 
@@ -5073,10 +5079,10 @@ const rotaWhich = st => { const cur = periodStart(todayStr() < ROTA_ANCHOR ? ROT
 function rotaHolHtml(st){
   const end = periodEnd(st); const map = Object.fromEntries((state.ops?.staff || state.profiles || []).map(p => [p.id, p]));
   const inIt = (state.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.days.some(d => d >= st && d <= end));
-  const pend = inIt.filter(h => h.status === 'pending'), ok = inIt.filter(h => h.status === 'approved');
+  const pend = inIt.filter(h => h.status === 'pending').sort(byAsked), ok = inIt.filter(h => h.status === 'approved');
   const days = h => h.days.filter(d => d >= st && d <= end);
   return `<div class="pbhol"><b>🌴 Holiday in this rota</b>
-    ${pend.map(h => `<div class="pbh"><span><b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}${holOffHtml(h)}</span>
+    ${pend.map((h, i) => `<div class="pbh"><span>${askedTag(h, i)}<b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> asked for ${dayRanges(days(h))} <em>(${plural(days(h).length, 'day')})</em>${h.note ? `<br><small>“${esc(h.note)}”</small>` : ''}${holOffHtml(h)}</span>
       ${holButtons(h)}</div>`).join('')}
     ${ok.length ? `<div class="pbh ok">${ok.map(h => `<span>✓ <b>${esc(pfirst(map[h.staff_id]) || 'Staff')}</b> off ${dayRanges(days(h))}</span>`).join('')}</div>` : ''}
     ${!inIt.length ? '<span class="muted">No holiday booked or asked for in this rota.</span>' : ''}
