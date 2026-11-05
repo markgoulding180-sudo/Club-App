@@ -1787,6 +1787,9 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covstat.wait{border-color:rgba(174,187,216,.35);background:rgba(20,30,62,.5)}.covstat.wait .covhead{color:#aebbd8}
 .cvline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;width:100%;text-align:left;background:none;border:0;border-top:1px solid rgba(255,255,255,.08);padding:10px 2px;color:var(--ink);cursor:pointer}
 .cvline span{color:var(--muted);font-size:13px;flex:1}.cvline i{font-style:normal;color:var(--muted);margin-left:auto}.cvopen .cvrow{border-top:0;padding-top:0}
+.cvsec{margin:18px 0 4px;font-size:19px;font-weight:900;color:#aebbd8}.cvsec.ok{color:#7ee8a8}
+.cvsub{margin:0 0 10px;color:var(--muted);font-size:14px}.cvsub.none{padding:10px 12px;border:1px dashed rgba(126,232,168,.35);border-radius:12px}
+.covstat .cvline:first-child{border-top:0}
 </style>
 
 </head>
@@ -3894,8 +3897,11 @@ function coverStatusHtml(){
     return openK.has(key(c)) ? `<div class="cvopen"><button class="cvline on" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><i>▾</i></button>${row(c)}</div>`
       : `<button class="cvline" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><span>${plural(c.needed || 1, 'person', 'people')} needed · ${nw} not answered${no ? ` · ${no} said no` : ''}</span><i>▸</i></button>`; };
   return `<div class="covsum"><b>${plural(calls.length, 'shift')}</b> asked · <b class="ok">${ready.length} ready to pick</b> · ${wait.length} waiting for answers</div>
-    ${ready.length ? `<div class="covstat"><div class="covhead">✓ Ready to pick <span>someone said yes</span></div>${ready.map(row).join('')}</div>` : ''}
-    ${wait.length ? `<div class="covstat wait"><div class="covhead">… Waiting for answers <span>tap one to see who</span></div>${wait.map(short).join('')}</div>` : ''}`;
+    <h3 class="cvsec ok">✓ Ready to pick</h3>
+    ${ready.length ? `<p class="cvsub">Someone has said yes to these shifts. Tap <b>Give them the shift</b> to put them on the rota.</p><div class="covstat">${ready.map(row).join('')}</div>`
+      : `<p class="cvsub none">No one has said yes to any shift yet. When someone does, the shift moves up here.</p>`}
+    ${wait.length ? `<h3 class="cvsec">… Waiting for answers</h3><p class="cvsub">No one has said yes to these shifts yet. Tap a shift to see who has said no and who hasn’t answered.</p>
+      <div class="covstat wait">${wait.map(short).join('')}</div>` : ''}`;
 }
 /* Gaps still to fill on a rota, from today on: one entry per shift (day · session · job) with how many people */
 function rotaGapList(days){
