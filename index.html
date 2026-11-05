@@ -1775,6 +1775,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .cvneed{background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900}
 .covupd{display:block!important;cursor:default}.covupd .bar .btn{flex:1}
 .day.hfull{background-image:repeating-linear-gradient(135deg,rgba(255,107,107,.16) 0 6px,transparent 6px 12px);border-color:rgba(255,107,107,.55)!important;position:relative}
+.day.hfull .l{background:#ff6b6b;color:#2a0505}.day.hfull .l2{color:#ff8a8a;font-weight:800}
 .fullb{position:absolute;right:4px;bottom:4px;background:#ff6b6b;color:#2a0505;font-weight:900;font-size:10px;line-height:1;padding:3px 5px;border-radius:6px;letter-spacing:.03em}
 .k.kfull::before{background:#ff6b6b!important}.hkey.hfull .hk-l2,.hfull .l2{color:#ff6b6b}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
@@ -5284,7 +5285,7 @@ function myShiftsView(){
     const lab = tag ? `<span class="l">${tag[0]}</span>${tag[3] ? `<span class="l2">${tag[3]}</span>` : ''}` : '';
     if (c.past) return `<div class="day past${tag ? ' ' + tag[1] : ''}"><span class="n">${c.day}</span>${lab}</div>`;
     const full = (state.holFull || []).includes(ds);
-    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : ''}"><span class="n">${c.day}</span>${lab}${full ? '<span class="fullb">FULL</span>' : ''}</button>`;
+    return `<button class="day${tag ? ' ' + tag[1] : ''}${c.today ? ' today' : ''}${full ? ' hfull' : ''}" data-action="myday" data-date="${ds}" aria-label="${fmtDate(ds)}${tag ? ', ' + tag[2] : ''}${full ? ', holiday full' : ''}"><span class="n">${c.day}</span>${tag ? lab : full ? '<span class="l">Hol</span><span class="l2">FULL</span>' : ''}${tag && full ? '<span class="fullb">Hol FULL</span>' : ''}</button>`;
   });
   const status = s => { const d = myDay(s.shift_date);
     if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
@@ -5321,7 +5322,7 @@ function myShiftsView(){
       <p class="muted" style="font-size:14px;margin:0"><b style="color:var(--ink)">Tap any day</b> to swap, say you can’t work, mark yourself unavailable or ask for holiday.</p>
       <div class="bar" style="margin:0">${stepper('offmonth', fmtMonth(state.offMonth), state.offMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kfull">FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
+      <div class="dlegend"><span class="k t-shift">Your shift + start time</span><span class="k t-swap">Swap waiting</span><span class="k t-cw">Asked off, waiting</span><span class="k t-offok">Off, approved</span><span class="k t-hol">Holiday</span><span class="k t-ask">Holiday asked</span><span class="k t-off">Unavailable</span>${featOn('holidays') ? `<span class="k kfull">Hol FULL = ${MAX_OFF} people already off, no holiday</span>` : ''}</div>
     </div>`}
     <button class="linkbtn howlink" data-action="go" data-view="staffhelp" style="margin-top:14px">? How it all works</button>`;
 }
@@ -5335,7 +5336,7 @@ function staffHelpView(){
     <div class="hkeys">${key('t-shift', 'Bar', '18:00', 'Your shift: which bar (Bar, Func = Function Room, Door) and the start time')}
     ${key('t-swap', 'Swap?', '11:00', 'A swap is waiting for an answer')}${key('t-cw', 'Asked', 'off', 'You asked off this shift. Waiting for the manager')}
     ${key('t-offok', 'Off ✓', '', 'The manager approved it. You’re off and someone else is working it')}${key('t-hol', 'Hol', 'booked', 'Holiday booked')}
-    ${key('t-ask', 'Hol', 'asked', 'Holiday asked for. Waiting for the manager')}${key('t-off', 'Unavail.', '', 'You marked yourself unavailable')}${key('hfull', '', 'FULL', `${MAX_OFF} people already off or asked off that day, so you can’t ask for holiday on it`)}</div>
+    ${key('t-ask', 'Hol', 'asked', 'Holiday asked for. Waiting for the manager')}${key('t-off', 'Unavail.', '', 'You marked yourself unavailable')}${key('hfull', 'Hol', 'FULL', `${MAX_OFF} people already off or asked off that day, so you can’t ask for holiday on it`)}</div>
     <p><b>Coming up</b>, under the diary, lists your next shifts. The top of the page shows your next shift, your shifts and hours on this rota, and how many holiday days you have left.</p>`, true)}
   ${sec('🗓️', 'How the rota works', `<ul><li>Rotas run for <b>4 weeks, Monday to Sunday</b>.</li><li>The manager makes the next rota in the <b>last week</b> of the current one, then publishes it. You only see it once it’s published.</li>
     <li>The box at the top of My shifts tells you when the next rota is due out. <b>Mark any days you can’t work, and ask for holiday, before then.</b></li><li>The <b>Rota</b> page shows everyone’s shifts, so you can see who you’re working with.</li></ul>`)}
@@ -5997,7 +5998,7 @@ function holidayView(){
     const t = taken.get(ds);
     if (t) return `<div class="day hol-${t}${c.today ? ' today' : ''}"><span class="n">${c.day}</span><span class="l">${t === 'approved' ? 'Hol' : 'Asked'}</span></div>`;
     if (isPublished(ds)) return `<div class="day locked" title="This rota is already out"><span class="n">${c.day}</span><span class="l">Out</span></div>`;
-    if ((state.holFull || []).includes(ds)) return `<button class="day full" data-action="holfull" data-date="${ds}" aria-label="${fmtDate(ds)}, full"><span class="n">${c.day}</span><span class="l">FULL</span></button>`;
+    if ((state.holFull || []).includes(ds)) return `<button class="day full" data-action="holfull" data-date="${ds}" aria-label="${fmtDate(ds)}, full"><span class="n">${c.day}</span><span class="l">Hol</span><span class="l2" style="color:#ff8a8a;font-weight:800">FULL</span></button>`;
     const shift = o.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s));
     const ev = o.bookings.some(b => b.booking_date === ds) || o.events.some(e => ymd(new Date(e.starts_at)) === ds);
     const on = sel.has(ds);
@@ -6011,13 +6012,13 @@ function holidayView(){
   const n = state.holSel.length;
   return page('Request holiday', '', ['myshifts', 'My shifts']) + `
     <div class="panel stack">
-      <p class="hnote"><b>FULL</b> days: ${MAX_OFF} people have already asked for that day off, so it can’t be picked. First come, first served. You can ask for holiday on days whose rota <b>isn’t out yet</b>. Days marked <b>Out</b> are already on a published rota: to get one of those off, swap your shift instead.</p>
+      <p class="hnote"><b>Hol FULL</b> days: ${MAX_OFF} people have already asked for that day off, so it can’t be picked. First come, first served. You can ask for holiday on days whose rota <b>isn’t out yet</b>. Days marked <b>Out</b> are already on a published rota: to get one of those off, swap your shift instead.</p>
       <p style="margin:0;font-weight:700">The first day you can book is ${fmtDate(firstHolDay(), { weekday: 'short', day: 'numeric', month: 'short' })}.</p>
       <ol class="hsteps"><li>Tap your <b>first day</b> off.</li><li>Tap your <b>last day</b> off. The days in between are picked for you.</li><li>Press <b>Send to the manager</b> at the bottom.</li></ol>
       <p class="muted" style="font-size:13px;margin:0">Tapped the wrong day? Tap it again to take it off.</p>
       <div class="bar" style="margin:0">${stepper('holmonth', fmtMonth(state.holMonth), state.holMonth <= startOfMonth(new Date()))}</div>
       ${cal}
-      <div class="legend" style="margin:0"><span style="color:var(--green)">Green border = picked</span><span style="color:var(--green)">Hol = holiday already booked</span><span style="color:var(--amber)">Asked = waiting for the manager</span><span style="color:var(--teal)">Shift = you’re working</span><span style="color:var(--amber)">Event on</span></div>
+      <div class="legend" style="margin:0"><span style="color:var(--green)">Green border = picked</span><span style="color:var(--green)">Hol = holiday already booked</span><span style="color:var(--amber)">Asked = waiting for the manager</span><span style="color:var(--teal)">Shift = you’re working</span><span style="color:var(--amber)">Event on</span><span style="color:#ff8a8a">Hol FULL = ${MAX_OFF} people already off, can’t be picked</span></div>
     </div>
     <div class="panel stack" style="margin-top:14px">
       <b>${n ? `${plural(n, 'day')} picked` : 'No days picked yet'}</b>
