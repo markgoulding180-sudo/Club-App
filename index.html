@@ -1774,6 +1774,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 #testBar{position:sticky;top:0;z-index:50;background:#ff8a3d;color:#1a0d00;font-weight:900;font-size:13px;text-align:center;padding:6px 10px}
 .cvneed{background:#f6c850;color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900}
 .covupd{display:block!important;cursor:default}.covupd .bar .btn{flex:1}
+.holask{border:2px solid #34d399;border-radius:18px;background:rgba(52,211,153,.1);padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
+.holask p{margin:0}.holask .hah{font-size:17px}.hadays{display:flex;flex-direction:column;gap:4px;font-size:15px}.hadays small{display:block;opacity:.8;font-size:13px;margin-top:2px}
+.hadays .ok{color:#6ee7b7}.hadays .no{color:#fca5a5}
+.holoffer{border:1px dashed #f5c542;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;background:rgba(245,197,66,.08);font-size:14px}
 .covbox{border:2px solid #ff8a3d;border-radius:18px;background:rgba(255,138,61,.1);margin:0 0 14px;overflow:hidden}
 .covhd{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:none;border:0;color:var(--ink);text-align:left;cursor:pointer}
 .covhd .cvic{font-size:24px}.covhd > span:nth-child(2){flex:1;display:grid;gap:2px}.covhd b{font-size:17px;color:#ffb27a}.covhd small{color:var(--ink);font-size:14px}
@@ -2369,6 +2373,8 @@ function makeSupabaseApi(){
     async requestHoliday(days, note){ return ok(await sb.rpc('staff_request_holiday', { want: days, why: note || null })); },
     async cancelHoliday(id){ ok(await sb.rpc('staff_cancel_holiday', { req: id })); },
     async approveSomeDays(id, keep, why){ const r = await sb.rpc('admin_approve_some_days', { req: id, keep, why: why || null }); if (r.error && /admin_approve_some_days/.test(r.error.message)) throw new Error('Run update-holiday-some-days.sql in Supabase first.'); ok(r); },
+    async offerSomeDays(id, keep, why){ const r = await sb.rpc('admin_offer_some_days', { req: id, keep, why: why || null }); if (r.error && /admin_offer_some_days/.test(r.error.message)) throw new Error('Run update-holiday-offer-days.sql in Supabase first.'); ok(r); },
+    async answerHolidayOffer(id, yes){ ok(await sb.rpc('staff_answer_holiday_offer', { req: id, yes })); },
     async decideHoliday(id, status, note){ ok(await sb.rpc('admin_decide_holiday', { req: id, new_status: status, why: note || null })); },
     // tickets
     async ticketCounts(ids){ if (!ids.length) return []; return ok(await sb.rpc('get_ticket_counts', { ids })); },
@@ -2763,7 +2769,7 @@ function makeDemoApi(){
     // holidays
     async listHolidays(){ const admin = s.users.find(u => u.id === s.session)?.role === 'admin';
       return (s.holidays ||= []).filter(h => admin || h.staff_id === s.session).map(h => ({ ...h, days: [...h.days] })).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
-    async holidayFullDays(from, to){ const c = {}; (s.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.staff_id !== s.session).forEach(h => h.days.forEach(d => { if (d >= from && d <= to) (c[d] ||= new Set()).add(h.staff_id); }));
+    async holidayFullDays(from, to){ const c = {}; (s.holidays || []).filter(h => ['pending', 'approved'].includes(h.status) && h.staff_id !== s.session).forEach(h => (h.status === 'pending' && h.offer_days ? h.offer_days : h.days).forEach(d => { if (d >= from && d <= to) (c[d] ||= new Set()).add(h.staff_id); }));
       return Object.keys(c).filter(d => c[d].size >= MAX_OFF); },
     async requestHoliday(days, note){
       { const full = await this.holidayFullDays('0000', '9999'); const f = days.find(d => full.includes(d)); if (f) throw new Error(`${fmtDate(f, { weekday: 'short', day: 'numeric', month: 'short' })} is full: 2 people have already asked for it off. Please pick other days.`); }
@@ -2817,6 +2823,16 @@ function makeDemoApi(){
     async approveSomeDays(id, keep, why){ const h = (s.holidays || []).find(h => h.id === id); if (!h || h.status !== 'pending') throw new Error('That request has already been answered.');
       const rest = h.days.filter(d => !keep.includes(d)); if (rest.length) s.holidays.push({ id: nextId(), staff_id: h.staff_id, days: rest, note: h.note, status: 'declined', admin_note: why || null, decided_at: new Date().toISOString(), created_at: h.created_at });
       h.days = h.days.filter(d => keep.includes(d)); save(); return this.decideHoliday(id, 'approved', `Approved: ${h.days.map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}${rest.length ? `. Not approved: ${rest.map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}${why ? ` (${why})` : ''}` : ''}`); },
+    async offerSomeDays(id, keep, why){ const h = (s.holidays || []).find(h => h.id === id); if (!h || h.status !== 'pending') throw new Error('That request has already been answered.');
+      keep = h.days.filter(d => keep.includes(d)).sort(); if (!keep.length) throw new Error('Tick at least one day, or use Decline.'); if (keep.length === h.days.length) throw new Error('You ticked every day: use Approve instead.');
+      h.offer_days = keep; h.offer_note = why || null; h.offered_at = new Date().toISOString(); save(); },
+    async answerHolidayOffer(id, yes){ const h = (s.holidays || []).find(h => h.id === id && h.staff_id === s.session); if (!h || h.status !== 'pending' || !h.offer_days) throw new Error('This has already been sorted. Please refresh.');
+      const keep = h.offer_days; h.offer_days = null;
+      if (!yes){ h.status = 'cancelled'; h.decided_at = new Date().toISOString(); save(); return; }
+      const rest = h.days.filter(d => !keep.includes(d)); if (rest.length) s.holidays.push({ id: nextId(), staff_id: h.staff_id, days: rest, note: h.note, status: 'declined', admin_note: h.offer_note, decided_at: new Date().toISOString(), created_at: h.created_at });
+      h.days = keep; h.status = 'approved'; h.admin_note = 'You said yes to ' + keep.map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })).join(', '); h.decided_at = new Date().toISOString();
+      keep.forEach(d => { if (!s.unavail.some(u => u.staff_id === h.staff_id && u.off_date === d)) s.unavail.push({ id: nextId(), staff_id: h.staff_id, off_date: d, reason: 'Holiday', holiday_id: h.id }); });
+      s.shifts.filter(x => x.staff_id === h.staff_id && keep.includes(x.shift_date) && (x.status === 'assigned' || x.status === 'confirmed')).forEach(x => { x.status = 'cannot_work'; x.reason = 'Holiday'; }); save(); },
     async decideHoliday(id, status, note){
       const h = (s.holidays || []).find(h => h.id === id); if (!h) throw new Error('Request not found.');
       if (status !== 'cancelled' && h.status !== 'pending') throw new Error('That request has already been answered.');
@@ -3550,7 +3566,7 @@ function homeView(){
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
     ${coverLineHtml()}
     <div class="tiles">
-      ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending');
+      ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
         return `<button class="tile${hp.length ? ' holtile' : ''}" data-action="gorota" data-tab="holidays"><span class="ic">🌴</span><b>Holiday requests</b><span class="sub">${hp.length ? `${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` +${names.length - 3}` : ''} · answer before you do the rota` : 'None waiting'}</span>${hp.length ? `<span class="badge">${hp.length}</span>` : ''}</button>`; })()}
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
@@ -3576,6 +3592,7 @@ function homeView(){
     myUpdatesHtml(state.ops.shifts.filter(s => s.staff_id === me && s.shift_date >= today));
     h += staffQuickStart() + pushHomeCard()
       + `<div class="label center" style="margin-top:6px">This month</div>${myMonthStats()}`
+      + (holOffersForMe().length ? `<button class="covline yes staffcov" data-action="go" data-view="myshifts"><span>🌴 <b>Your holiday:</b> the manager can only approve some of your days. Do you still want them? <u>Tap to answer</u></span><i aria-hidden="true">›</i></button>` : '')
       + (featOn('cover') && coverCallsForMe().length ? (() => { const n = coverCallsForMe().length; return `<button class="covline yes staffcov" data-action="gocover"><span>📣 <b>Rota cover requests:</b> the manager needs someone for ${plural(n, 'shift')}. Can you help? <u>Tap to answer</u></span><i aria-hidden="true">›</i></button>`; })() : '')
       + nextRotaHtml() + nextShiftCard();
     h += `<div class="label" style="margin-top:20px">Your staff links</div>
@@ -4181,10 +4198,13 @@ function downloadHours(){
 const holFreeDays = h => { const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id && o.status === 'approved'); return h.days.slice().sort().filter(d => others.filter(o => o.days.includes(d)).length < MAX_OFF); };
 function holButtons(h){
   const free = holFreeDays(h); const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
-  const all = free.length === h.days.length;
+  const all = free.length === h.days.length; const who = esc(pfirst(staffMap()[h.staff_id]) || 'them');
+  if (h.offer_days) return `<div class="holoffer"><b>⏳ Waiting for ${who} to answer</b><span>You offered ${who} only <b>${h.offer_days.map(fd).join(', ')}</b>${h.offer_note ? ` (“${esc(h.offer_note)}”)` : ''}. ${who} will say if they still want ${h.offer_days.length > 1 ? 'them' : 'it'}. You’ll be told.</span></div>
+    <div class="holbtns"><button class="btn ghost sm" data-action="holofferok" data-id="${h.id}">No answer? Approve ${h.offer_days.length > 1 ? 'those days' : fd(h.offer_days[0])} now</button>
+    <button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">✗ Decline</button></div>`;
   return `<div class="holbtns">${all ? `<button class="btn sm" data-action="holdecide" data-id="${h.id}" data-status="approved">✓ Approve ${h.days.length > 1 ? `all ${h.days.length} days` : ''}</button>`
-      : free.length ? `<button class="btn sm" data-action="holsome" data-id="${h.id}">✓ Approve the free ${free.length > 1 ? `days (${free.length})` : `day: ${fd(free[0])}`}</button>` : ''}
-    ${h.days.length > 1 ? `<button class="btn ghost sm" data-action="holchoose" data-id="${h.id}">Choose days…</button>` : ''}
+      : free.length ? `<button class="btn sm" data-action="holsome" data-id="${h.id}">✉ Offer ${who} the free ${free.length > 1 ? `days (${free.length})` : `day: ${fd(free[0])}`}</button>` : ''}
+    ${h.days.length > 1 ? `<button class="btn ghost sm" data-action="holchoose" data-id="${h.id}">Choose days to offer…</button>` : ''}
     ${!all ? `<button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="approved">Approve all anyway</button>` : ''}
     <button class="btn ghost sm" data-action="holdecide" data-id="${h.id}" data-status="declined">✗ Decline</button></div>`;
 }
@@ -4192,13 +4212,15 @@ function holButtons(h){
 function openHolSome(h, pick){
   const free = holFreeDays(h); const fd = d => fmtDate(d, { weekday: 'long', day: 'numeric', month: 'short' }); const who = pfirst(staffMap()[h.staff_id]) || 'them';
   state.sheet = { type: 'holsome', id: h.id };
-  openSheet(`<div class="sheet-h"><div><h2>Approve some days</h2><p class="muted">${esc(who)} asked for ${dayRanges(h.days)}. Tick the days to approve.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
+  const full = h.days.filter(d => !free.includes(d)).sort(); const fs = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+  openSheet(`<div class="sheet-h"><div><h2>Offer some days</h2><p class="muted">${esc(who)} asked for ${dayRanges(h.days)}. Tick the days you can approve. ${esc(who)} is then asked if they still want them. Nothing is booked until they say yes.</p></div><button class="x" data-action="closesheet" aria-label="Close">✕</button></div>
     <form class="stack" data-form="holsome" data-id="${h.id}">
       <div class="hsdays">${h.days.slice().sort().map(d => `<label class="hsday ${free.includes(d) ? 'free' : 'full'}"><input type="checkbox" name="d" value="${d}" ${(pick ? false : free.includes(d)) ? 'checked' : ''}><span><b>${fd(d)}</b><small>${free.includes(d) ? '✅ Free' : '⛔ Full: 2 already off'}</small></span></label>`).join('')}</div>
-      <label class="f">Message to ${esc(who)} about the days you don’t approve<textarea class="in" name="why" rows="2" maxlength="300">Sorry, ${MAX_OFF} people are already off on the other ${h.days.length - free.length > 1 ? 'days' : 'day'}.</textarea></label>
-      <div class="err"></div><button class="btn" type="submit">Approve the ticked days</button></form>`);
+      <label class="f">Why the other days can’t be approved (${esc(who)} sees this)<textarea class="in" name="why" rows="2" maxlength="300">${full.length ? `${MAX_OFF} people are already off on ${full.map(fs).join(' and ')}` : ''}</textarea></label>
+      <div class="err"></div><button class="btn" type="submit">Send to ${esc(who)}</button></form>`);
 }
 function holOffHtml(h){
+  if (h.offer_days) return '';
   const map = Object.fromEntries([...(state.ops?.staff || []), ...(state.profiles || [])].map(p => [p.id, p]));
   const others = (state.holidays || []).filter(o => o.id !== h.id && o.staff_id !== h.staff_id);
   const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -4936,7 +4958,7 @@ function adminNotifs(){
   const shTxt = x => x ? `${JOBS[x.job]} ${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}` : 'a shift';
   if (canArea('rota')){
     (state.swaps || []).filter(w => w.status === 'accepted').forEach(w => line('sw' + w.id, 'Swaps to approve', `<b>${nm(w.from_staff)} ⇄ ${nm(w.to_staff)}</b> want to swap: ${shTxt(sh(w.from_shift))} for ${shTxt(sh(w.to_shift))}. Tap to approve.`, 'data-action="gorota" data-tab="rota"'));
-    (state.holidays || []).filter(h => h.status === 'pending').forEach(h => line('hol' + h.id, 'Holiday requests', `<b>${nm(h.staff_id)}</b> asked for holiday: ${dayRanges(h.days)}`, 'data-action="gorota" data-tab="holidays"'));
+    (state.holidays || []).filter(h => h.status === 'pending' && !h.offer_days).forEach(h => line('hol' + h.id, 'Holiday requests', `<b>${nm(h.staff_id)}</b> asked for holiday: ${dayRanges(h.days)}`, 'data-action="gorota" data-tab="holidays"'));
     (state.ops?.shifts || []).filter(x => PROBLEM.includes(x.status) && !x.covered && x.shift_date >= today).forEach(x => line('cw' + x.id, x.status === 'cannot_work' && !x.decision ? 'Can’t work: your decision' : 'Needs cover', x.status === 'cannot_work' && !x.decision ? `<b>${nm(x.staff_id)}</b> can’t work ${shTxt(x)}${x.reason ? `: “${esc(x.reason)}”` : ''}. Tap to decide.` : `<b>${shTxt(x)}</b> needs cover (${nm(x.staff_id)} is off). Tap to pick someone.`, 'data-action="gorota" data-tab="rota"'));
   }
   if (canArea('rota')) (state.offers || []).filter(o => o.status === 'offered' && o.shift_date >= today).forEach(o => line('of' + o.id, 'Said they can cover', `<b>${nm(o.staff_id)}</b> can work ${JOBS[o.job]} ${SESS[o.session]?.toLowerCase() || ''} ${fmtDate(o.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })}. Tap to accept.`, 'data-action="gorota" data-tab="rota"'));
@@ -5013,13 +5035,24 @@ function coverBoxHtml(){
       <div class="covbtns"><button class="btn sm" data-action="coveryes" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">✓ Yes, I can</button><button class="btn ghost sm" data-action="coverno" data-date="${c.shift_date}" data-sess="${c.session}" data-job="${c.job}">No, sorry</button></div></div>`).join('')}
       <p class="covnote">Saying yes doesn’t put you on the rota straight away. The manager picks, and you’ll be told.</p></div>` : ''}</div>`;
 }
+/* Staff: the manager could only approve some of their holiday days, so they decide */
+const holOffersForMe = () => featOn('holidays') && state.user ? (state.holidays || []).filter(h => h.staff_id === state.user.id && h.status === 'pending' && h.offer_days) : [];
+function holOfferBoxHtml(){
+  const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+  return holOffersForMe().map(h => { const no = h.days.filter(d => !h.offer_days.includes(d)); const one = h.offer_days.length === 1;
+    return `<div class="holask"><div class="hah">🌴 <b>Your holiday: please answer</b></div>
+      <p>You asked for <b>${dayRanges(h.days)}</b>. The manager can only approve some of those days.</p>
+      <div class="hadays"><div class="ok">✅ Can approve: <b>${h.offer_days.map(fd).join(', ')}</b></div><div class="no">❌ Can’t approve: <b>${no.map(fd).join(', ')}</b>${h.offer_note ? `<small>${esc(h.offer_note)}</small>` : ''}</div></div>
+      <p><b>Do you still want ${h.offer_days.map(fd).join(', ')}${one ? ' on its own' : ''}?</b></p>
+      <div class="covbtns"><button class="btn sm" data-action="holoffer" data-yes="1" data-id="${h.id}">✓ Yes, book ${one ? fd(h.offer_days[0]) : 'those days'}</button><button class="btn ghost sm" data-action="holoffer" data-yes="0" data-id="${h.id}">No thanks, cancel it all</button></div></div>`; }).join('');
+}
 function myAttention(sc){
   const notes = notifItems().filter(x => x.unseen && !/Cover needed|new messages/.test(x.html || '')).length;
   const items = [];
   if (sc.mine && featOn('swaps')) items.push(`<button data-action="go" data-view="swaps">🔄 You have <b>${plural(sc.mine, 'offer')}</b> to swap a shift. Tap to pick one.</button>`);
   if (sc.help && featOn('swaps')) items.push(`<button data-action="go" data-view="swaps">🙋 <b>${plural(sc.help, 'colleague needs', 'colleagues need')}</b> a swap. Can you help?</button>`);
   if (notes) items.push(`<button data-action="opennotif">🔔 You have <b>${plural(notes, 'shift update')}</b>. Tap to see.</button>`);
-  const cov = coverBoxHtml();
+  const cov = holOfferBoxHtml() + coverBoxHtml();
   return cov + (items.length ? `<div class="attn has">${items.join('')}</div>` : cov ? '' : `<div class="attn">✅ Nothing needs your attention on your shifts.</div>`);
 }
 /* Which rota is this, compared with today */
@@ -5838,7 +5871,8 @@ function myUpdatesHtml(mine){
   mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: declined, you’re still on`, 'next'));
   (state.holidays || []).filter(h => h.staff_id === me).forEach(h => {
     const when = dayRanges(h.days); const fresh = (h.decided_at || h.created_at || '').slice(0, 10) >= recent;
-    if (h.status === 'pending') add('wait', `Holiday ${when}: waiting for approval`, 'holiday');
+    if (h.status === 'pending' && h.offer_days) add('act', `<b>🌴 Holiday ${when}:</b> only some days can be approved. Tap to answer.`, 'holoffer');
+    else if (h.status === 'pending') add('wait', `Holiday ${when}: waiting for approval`, 'holiday');
     else if (h.status === 'approved' && h.days.some(d => d >= today) && fresh) add('ok', `Holiday ${when}: approved`, 'holiday');
     else if (h.status === 'declined' && fresh) add('no', `Holiday ${when}: declined${h.admin_note ? `. Manager: “${esc(h.admin_note)}”` : ''}`, 'holiday');
   });
@@ -6274,7 +6308,7 @@ const actions = {
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
   offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
-  secjump: t => { if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr', { fmTab: 'mgmt' }); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
+  secjump: t => { if (t.dataset.to === 'sec-holoffer'){ if ($('#sheetRoot').innerHTML) closeSheet(); return state.view === 'myshifts' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : go('myshifts'); } if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr', { fmTab: 'mgmt' }); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
   pickclear: () => { state.pickDates = []; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
@@ -6369,6 +6403,10 @@ const actions = {
   holcancel: async t => { if (!armed(t)) return; await api.cancelHoliday(Number(t.dataset.id)); toast('Request withdrawn'); refresh(); },
   holsome: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, false); },
   holfull: t => toast(`Sorry, ${fmtDate(t.dataset.date, { weekday: 'short', day: 'numeric', month: 'short' })} is full: 2 people have already asked for it off. Please pick another day.`),
+  holofferok: async t => { if (!armed(t)) return; const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (!h?.offer_days) return;
+    await api.approveSomeDays(h.id, h.offer_days, h.offer_note || ''); toast('Approved. They’ve been told.'); state.holidays = await api.listHolidays(); refresh(); },
+  holoffer: async t => { const yes = t.dataset.yes === '1'; if (!yes && !armed(t)) return; await api.answerHolidayOffer(Number(t.dataset.id), yes);
+    toast(yes ? '🌴 Booked. Enjoy your holiday!' : 'OK, your request is withdrawn.'); state.holidays = await api.listHolidays(); refresh(); },
   holchoose: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, true); },
   holdecide: async t => {
     const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), null); if (st === 'cancelled' && !armed(t)) return;
@@ -6575,7 +6613,7 @@ const forms = {
     await api.askCover({ shift_date: f.dataset.date, session: f.dataset.sess, job: f.dataset.job, needed: Number(f.dataset.need) || 1, start_early: at, early_note: note });
     closeSheet(); toast('Asked everyone who could work it. Their answers show on Rota cover requests.'); refresh(); },
   async holsome(f){ const keep = [...f.querySelectorAll('[name=d]:checked')].map(x => x.value); if (!keep.length) throw new Error('Tick at least one day, or use Decline.');
-    await api.approveSomeDays(Number(f.dataset.id), keep, f.why.value.trim()); closeSheet(); toast(`Approved ${plural(keep.length, 'day')}. They’ve been told.`);
+    await api.offerSomeDays(Number(f.dataset.id), keep, f.why.value.trim()); closeSheet(); toast('Sent. They’ll say if they still want those days, and you’ll be told.');
     state.holidays = await api.listHolidays(); refresh(); },
   async todoadd(f){ const body = f.body.value.trim(); if (!body) return; await api.addTodo(body, null); state.todos = await api.listTodos(); render(); setTimeout(() => document.querySelector('.tdadd .in')?.focus(), 30); },
   async replymsg(f){ await api.updateMessage(Number(f.dataset.id), { status: 'done', reply: f.reply.value.trim() || null, replied_at: new Date().toISOString(), ...(LIVE ? {} : { replied_by: state.user.id }) }).catch(async e => { throw e; }); toast('Done'); refresh(); },
