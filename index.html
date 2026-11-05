@@ -3495,7 +3495,7 @@ function homeView(){
         return `<button class="tile${hp.length ? ' holtile' : ''}" data-action="gorota" data-tab="holidays"><span class="ic">🌴</span><b>Holiday requests</b><span class="sub">${hp.length ? `${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ` +${names.length - 3}` : ''} · answer before you do the rota` : 'None waiting'}</span>${hp.length ? `<span class="badge">${hp.length}</span>` : ''}</button>`; })()}
       ${(() => { const n = (state.todos || []).filter(t => !t.done).length; return `<button class="tile" data-action="go" data-view="todo"><span class="ic">${ICONS.check}</span><b>To-do list</b><span class="sub">${n ? `${plural(n, 'thing')} to do · ${esc((state.todos || []).find(t => !t.done).body.slice(0, 40))}` : 'Orders, jobs, things to sort'}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>`; })()}
       ${tile('cal', 'Bookings', `${nbTxt}${req ? ` · ${plural(req, 'request')} to confirm` : ''}`, 'bookings', req)}
-      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'shift')} to fill on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
+      ${tile('rota', 'Rota', [gaps ? `${plural(gaps, 'person', 'people')} still needed on this rota${wkGap ? ` · ${wkGap} this week` : ''}` : probs ? `${probs} can’t work` : 'This week is filled', holReq ? plural(holReq, 'holiday request') : '', swOk ? plural(swOk, 'swap') + ' to approve' : ''].filter(Boolean).join(' · '), 'rota', gaps + probs + holReq + swOk)}
       ${tile('team', 'Staff', `${plural(state.ops.staff.length, 'person', 'people')} on the team`, 'staff')}
       ${tile('team', 'Membership register', 'Every member and their number', 'register')}
       ${tile('ticket', 'Tickets', (() => { const up = new Set(state.tk.events.filter(b => b.booking_date >= today).map(b => b.id)); const n = state.tk.res.filter(r => up.has(r.booking_id) && r.status !== 'cancelled').reduce((a, r) => a + r.member_qty + r.guest_qty, 0); return n ? `${plural(n, 'ticket')} reserved for coming events` : 'No tickets reserved yet'; })(), 'tickets')}
@@ -4017,7 +4017,7 @@ function rotaView(){
   const infos = days.map(ds => dayInfo(ds, state.ops));
   const gaps = infos.filter(i => i.ds >= today).reduce((a, i) => a + i.short, 0);
   const wkGaps = w => infos.slice(w * 7, w * 7 + 7).filter(i => i.ds >= today).reduce((a, i) => a + i.short, 0);
-  let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'shift')} to fill` : 'All filled'}</span>`);
+  let h = page('Rota', `<span class="schip ${gaps ? 's-short' : 's-ok'}">${PERSON}${gaps ? `${plural(gaps, 'person', 'people')} still needed` : 'All filled'}</span>`);
   if (admin){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
     h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>`;
