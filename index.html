@@ -1808,6 +1808,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .jg-door{background:rgba(255,138,61,.08);border-color:rgba(255,138,61,.3);border-left-color:#ff8a3d}.jg-door .job{color:#ffb27a!important}
 .earlybtn{grid-column:1 / -1;justify-self:start;background:none;border:1px dashed rgba(246,200,80,.5);color:#f6c850;border-radius:999px;padding:3px 12px;font-size:12.5px;font-weight:800;cursor:pointer;margin:2px 0 4px}
 .earlybtn.on{background:rgba(246,200,80,.16);border-style:solid}em.early{font-style:normal;color:#f6c850;font-weight:800}
+.cvasked{font-size:13px;color:var(--muted);margin:4px 0 2px}.cvasked b{color:var(--ink)}.cvasked b.y{color:#7ee8a8}.cvasked b.n{color:#ff9d9d}
 </style>
 
 </head>
@@ -2980,7 +2981,7 @@ async function load(view){
   if (view === 'clubmsg'){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.profiles = await api.listProfiles(); return; }
   if (view === 'roles'){ state.profiles = await api.listProfiles(); return; }
   if (view === 'todo'){ state.todos = await api.listTodos(); return; }
-  if (view === 'covers'){ state.covers = await api.listCoverCalls(); state.offers = await api.listOffers(todayStr()); await loadOps(todayStr(), ahead(60)); return; }
+  if (view === 'covers'){ if (!(state.profiles || []).length) state.profiles = await api.listProfiles(); state.covers = await api.listCoverCalls(); state.offers = await api.listOffers(todayStr()); await loadOps(todayStr(), ahead(60)); return; }
   if (view === 'notices'){ await loadNotices(); if (isAdmin() && !state.staffList) state.staffList = (await api.listProfiles()).filter(p => p.role === 'staff' || (p.role === 'admin' && p.skill)).sort((a, b) => pname(a).localeCompare(pname(b))); if (isAdmin()) state.nCounts = await api.noticeReadCounts(); else { const ids = visibleNotices().filter(n => !state.nRead.includes(n.id)).map(n => n.id); if (ids.length && !viewing()){ await api.markNoticesRead(ids); state.nRead.push(...ids); } } return; }
   if (view === 'alerts'){ await checkPush(); return; }
   if (view === 'frommgr'){ await load('hub'); return; }
@@ -3911,9 +3912,12 @@ function coverStatusHtml(){
     const ft = id => ((state.profiles || []).find(x => x.id === id)?.regular_shifts || []).length ? 'Full time' : 'Part time';
     const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id));
     const answered = new Set(offs.map(o => o.staff_id));
-    const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !answered.has(p.id));
+    const offDay = new Set((state.ops?.unavail || []).filter(u => u.off_date === c.shift_date).map(u => u.staff_id));
+    const waiting = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !offDay.has(p.id) && !answered.has(p.id));
+    const asked = answered.size + waiting.length;
     const chip = (p, cls) => `<span class="cvchip ${cls}">${avatar(p, 22)}${esc(pfirst(p) || '?')}</span>`;
     return `<div class="cvrow"><div class="cvt"><b>${shiftLine(c)}</b><span>${sessTimes(c.shift_date, c.session)?.join('–') || ''}</span><span class="cvneed">${got.length ? `${plural(c.needed || 1, 'more person', 'more people')} needed` : `${plural(c.needed || 1, 'person', 'people')} needed`}</span></div>
+      <div class="cvasked">Asked <b>${plural(asked, 'person', 'people')}</b> who could work it · <b class="y">${yes.length} yes</b> · <b class="n">${no.length} no</b> · ${waiting.length} not answered${got.length ? ` · ${got.length} given the shift` : ''}</div>
       ${got.length ? `<div class="cvl"><span class="cvlab ok">✅ On the rota</span>${got.map(o => chip(map[o.staff_id] || {}, 'ok')).join('')}</div>` : ''}
       ${yes.length ? `<div class="cvyl"><span class="cvlab ok">✓ Said yes</span><span class="cvhint">fewest hours on this rota first</span>${yes.map(o => { const l = ld(o.staff_id); return `<div class="cvyrow">${chip(map[o.staff_id] || {}, 'ok')}<span class="cvhrs"><b>${Math.round(l.h * 10) / 10}h</b> · ${plural(l.n, 'shift')} this rota · ${ft(o.staff_id)}</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Give them the shift</button></div>`; }).join('')}</div>` : `<div class="cvl"><span class="cvlab">No one has said yes yet</span></div>`}
       ${no.length ? `<div class="cvl"><span class="cvlab no">✕ Said no</span>${no.map(o => chip(map[o.staff_id] || {}, 'no')).join('')}</div>` : ''}
@@ -3923,9 +3927,10 @@ function coverStatusHtml(){
   const openK = new Set(state.cvOpen || []); const key = c => `${c.shift_date}|${c.session}|${c.job}`;
   const short = c => { const offs = (state.offers || []).filter(o => o.shift_date === c.shift_date && o.session === c.session && o.job === c.job); const no = offs.filter(o => o.status === 'passed').length;
     const busy = new Set((state.ops?.shifts || []).filter(x => x.shift_date === c.shift_date && ACTIVE(x)).map(x => x.staff_id)); const ans = new Set(offs.map(o => o.staff_id));
-    const nw = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !ans.has(p.id)).length;
+    const offD = new Set((state.ops?.unavail || []).filter(u => u.off_date === c.shift_date).map(u => u.staff_id));
+    const nw = staff.filter(p => canDo(p, c.job) && !busy.has(p.id) && !offD.has(p.id) && !ans.has(p.id)).length;
     return openK.has(key(c)) ? `<div class="cvopen"><button class="cvline on" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><i>▾</i></button>${row(c)}</div>`
-      : `<button class="cvline" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><span>${plural(c.needed || 1, 'person', 'people')} needed · ${nw} not answered${no ? ` · ${no} said no` : ''}</span><i>▸</i></button>`; };
+      : `<button class="cvline" data-action="cvexp" data-key="${key(c)}"><b>${shiftLine(c)}</b><span>${plural(c.needed || 1, 'person', 'people')} needed · asked ${nw + ans.size} · ${nw} not answered${no ? ` · ${no} said no` : ''}</span><i>▸</i></button>`; };
   return `<div class="covsum"><b>${plural(calls.length, 'shift')}</b> asked · <b class="ok">${ready.length} ready to pick</b> · ${wait.length} waiting for answers</div>
     <h3 class="cvsec ok">✓ Ready to pick</h3>
     ${ready.length ? `<p class="cvsub">Someone has said yes to these shifts. Tap <b>Give them the shift</b> to put them on the rota.</p><div class="covstat">${ready.map(row).join('')}</div>`
