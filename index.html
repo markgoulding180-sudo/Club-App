@@ -3575,7 +3575,7 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
-    ${coverLineHtml()}
+    ${coverLineHtml()}${holAnsLineHtml()}
     <div class="tiles">
       ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days).sort(byAsked);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
@@ -4968,6 +4968,13 @@ function openQuickMsg(id){
 }
 /* Holiday offers the staff member has answered in the last 2 weeks */
 const holAnswers = () => (state.holidays || []).filter(h => h.offered_at && ['approved', 'cancelled'].includes(h.status) && (h.decided_at || '') >= new Date(Date.now() - 14 * 864e5).toISOString());
+/* Manager Home: flashing yellow line when a staff member answers a holiday offer, until tapped */
+function holAnsLineHtml(){
+  if (!canArea('rota') || !featOn('holidays')) return '';
+  const seen = new Set(lsGet('holans-' + state.user.id) || []); const map = staffMap();
+  const fd = l => { const t = l.slice().sort().map(d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })); return t.length > 1 ? t.slice(0, -1).join(', ') + ' and ' + t[t.length - 1] : t[0] || ''; };
+  return holAnswers().filter(h => !seen.has(h.id + h.status)).map(h => `<button class="covline yes" data-action="holansseen" data-key="${h.id + h.status}"><span>🌴 <b>${esc(pfirst(map[h.staff_id]) || 'Staff')} ${h.status === 'approved' ? 'said yes' : 'said no thanks'}</b> ${h.status === 'approved' ? `to ${fd(h.days)}. It’s booked.` : `to the days you offered. Their holiday request is withdrawn.`} <u>Got it</u></span><i aria-hidden="true">›</i></button>`).join('');
+}
 /* Bosses: everything waiting for them */
 function adminNotifs(){
   const out = []; const today = todayStr(); const map = state.ops?.staff ? staffMap() : Object.fromEntries((state.profiles || []).map(p => [p.id, p]));
@@ -6219,6 +6226,7 @@ const actions = {
     openDm(id); },
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
+  holansseen: t => { const k = 'holans-' + state.user.id; lsSet(k, [...new Set([...(lsGet(k) || []), t.dataset.key])]); go('rota', { rotaTab: 'holidays' }); },
   dmofficer: t => { const o = (state.officers || []).find(x => x.id === t.dataset.id); if (!o) return; state.contacts ||= [];
     if (!state.contacts.some(c => c.id === o.id)) state.contacts.push({ id: o.id, first_name: o.first_name, last_initial: o.last_initial, title: o.title, is_club: true }); openDm(o.id); },
   myview: t => { state.myView = t.dataset.val; render(); },
