@@ -1793,6 +1793,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .covline.yes{border-color:#f6c850;background:rgba(246,200,80,.14);animation:covflash 1.1s ease-in-out infinite}
 @keyframes covflash{0%,100%{background:rgba(246,200,80,.10);box-shadow:0 0 0 0 rgba(246,200,80,0)}50%{background:rgba(246,200,80,.38);box-shadow:0 0 18px 2px rgba(246,200,80,.55)}}
 @media (prefers-reduced-motion:reduce){.covline.yes{animation:none;background:rgba(246,200,80,.3)}}
+.crow.offered{display:flex;align-items:center;gap:12px;background:rgba(246,200,80,.14);border:1px dashed #f6c850;border-radius:16px;padding:12px 14px;margin-bottom:8px}
+.crow.offered .ctxt{flex:1}.st.offer{display:inline-block;margin-top:4px;background:#f6c850;color:#1a1300;border-radius:8px;padding:2px 8px;font-size:12.5px;font-weight:800}
 </style>
 
 </head>
@@ -5100,8 +5102,11 @@ function myShiftsView(){
   const wkLabel = ds => { const w = ymd(startOfWeek(parseYmd(ds))); const k = Math.round((parseYmd(w) - parseYmd(wk0)) / 6048e5);
     return k === 0 ? 'This week' : k === 1 ? 'Next week' : `Week of ${fmtDate(w, { day: 'numeric', month: 'short' })}`; };
   const tagFor = ds => { const k = Math.round((parseYmd(ds) - parseYmd(today)) / 864e5); return k === 0 ? '<span class="dtag now">Today</span>' : k === 1 ? '<span class="dtag">Tomorrow</span>' : ''; };
-  const shown = coming.slice(0, state.allComing ? 999 : 10); let lastWk = '';
+  const myOffers = (state.offers || []).filter(o => o.staff_id === me && o.status === 'offered' && o.shift_date >= today).map(o => ({ ...o, offer: true }));
+  const shown = [...coming, ...myOffers].sort((a, b) => a.shift_date.localeCompare(b.shift_date) || (a.offer ? 1 : -1)).slice(0, state.allComing ? 999 : 10 + myOffers.length); let lastWk = '';
   const rows = shown.map(s => { const w = wkLabel(s.shift_date); const hd = w !== lastWk ? `<div class="wkhead">${w}</div>` : ''; lastWk = w;
+    if (s.offer) return hd + `<div class="crow offered">${dbox(s.shift_date)}<span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>
+      <span class="st offer">✋ You offered to work this · waiting for the manager to confirm</span></span><button class="linkbtn" data-action="offerwithdraw" data-id="${s.id}">Withdraw</button></div>`;
     return hd + `<button class="crow${s.status === 'cannot_work' ? ' gone' : ''}" data-action="myday" data-date="${s.shift_date}">${dbox(s.shift_date)}
       <span class="ctxt"><b>${JOBS[s.job]}${tagFor(s.shift_date)}</b><span>${SESS[s.session]} · ${sessTimes(s.shift_date, s.session).join('–')}</span>${status(s)}</span><i aria-hidden="true">›</i></button>`; }).join('');
   const view = state.myView === 'cal' ? 'cal' : 'list'; const hs = holStats(me);
