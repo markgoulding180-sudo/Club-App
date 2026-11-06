@@ -1794,6 +1794,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
 .askord{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted,#9aa7c7)}.askord b{color:inherit;font-weight:700}
 .askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
+.cwcan{margin-top:8px;padding:8px 10px;border-radius:10px;font-size:14px}.cwcan.ok{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4)}.cwcan.none{background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.6);color:#fecaca}
 .cw3{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.cwask .cwq{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}.cwask .cwq:first-of-type{border-top:0}
 .gavebanner{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.6);color:#d1fae5;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:15px}
 .rday.gavehere{box-shadow:0 0 0 2px #34d399}
@@ -4183,10 +4184,18 @@ function rotaView(){
     h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>`;
     // Can't work requests: always at the very top, first asked first
     const askTop = state.ops.shifts.filter(s => s.status === 'cannot_work' && !s.decision && s.shift_date >= today).sort((a, b) => (a.asked_off_at || a.created_at || '').localeCompare(b.asked_off_at || b.created_at || '') || a.shift_date.localeCompare(b.shift_date));
+    // Who could cover it if you let them off: right job, not working then, not off / unavailable / on holiday that day
+    const couldCover = s => (state.ops.staff || []).filter(p => p.id !== s.staff_id && canDo(p, s.job)
+      && !state.ops.shifts.some(x => x.staff_id === p.id && x.shift_date === s.shift_date && ((ACTIVE(x) && clashes(x, s)) || OFF_STATUS.includes(x.status)))
+      && !state.ops.unavail.some(u => u.staff_id === p.id && u.off_date === s.shift_date));
+    const coverNote = s => { const c = couldCover(s); return c.length
+      ? `<div class="cwcan ok">👥 <b>${c.length} could cover it:</b> ${c.map(p => esc(pfirst(p))).join(', ')}</div>`
+      : `<div class="cwcan none">⚠️ <b>No one is free to cover this shift.</b> If you allow it, it will be empty unless you move someone. You may want to decline.</div>`; };
     const whenCw = s => `${fmtDate(s.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} ${s.job === 'clean' ? 'morning' : SESS[s.session].toLowerCase()} · ${JOBS[s.job]}`;
     if (askTop.length) h += `<div class="alert cwask" id="cwbox"><b class="t">🙋 Can’t work: your decision (${askTop.length})</b>${askTop.length > 1 ? '<p class="muted" style="margin:2px 0 6px;font-size:13px">First asked at the top. When you decide, you’ll see that day on the rota; the rest stay here.</p>' : ''}${askTop.map((s, i) => `<div class="cwq">
       ${s.asked_off_at ? askedTag({ created_at: s.asked_off_at }, i) : ''}
       <span><b>${esc(pname(map[s.staff_id]))}</b> can’t work <b>${whenCw(s)}</b>${s.reason ? `<br><span class="muted">“${esc(s.reason)}”</span>` : ''}</span>
+      ${coverNote(s)}
       <span class="swapbtns cw3"><button class="btn sm" data-action="cwallow" data-id="${s.id}" data-ex="0">✓ Allow · goes on their record</button><button class="btn ghost sm" data-action="cwallow" data-id="${s.id}" data-ex="1">✓ Allow · special circumstances</button><button class="btn ghost sm" data-action="cwdecline" data-id="${s.id}">✗ Decline · they must work it</button></span></div>`).join('')}</div>`;
     const swaps = (state.swaps || []).filter(w => w.status === 'accepted');
     if (swaps.length) h += `<div class="alert swapok"><b class="t">Swaps to approve</b>${swaps.map(w => `<div class="swaprow"><span><b>${esc(pfirst(map[w.from_staff]))}</b> and <b>${esc(pfirst(map[w.to_staff]))}</b> want to swap: ${esc(pfirst(map[w.from_staff]))}’s ${shiftLine(w.a)} for ${esc(pfirst(map[w.to_staff]))}’s ${shiftLine(w.b)}. Both have said yes.</span><span class="swapbtns"><button class="btn sm" data-action="swapdecide" data-id="${w.id}" data-yes="1">Approve</button><button class="btn ghost sm" data-action="swapdecide" data-id="${w.id}" data-yes="0">Decline</button></span></div>`).join('')}</div>`;
