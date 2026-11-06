@@ -3123,3 +3123,8 @@ drop trigger if exists shifts_asked_off_at on public.shifts;
 create trigger shifts_asked_off_at before insert or update of status on public.shifts for each row execute function public.shifts_asked_off_at();
 update public.shifts set asked_off_at = coalesce(decided_at, now()) where status = 'cannot_work' and asked_off_at is null;
 select 'Can''t work asked time ready' as done;
+
+-- Swaps are agreed between staff and are binding: the manager is no longer sent a phone alert when two staff swap.
+-- (The rota still updates straight away, and the Swaps log still shows every swap.) Safe to run again.
+drop trigger if exists push_boss_swap on public.shift_swaps;
+select 'Manager swap alerts off' as done;

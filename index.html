@@ -1794,6 +1794,8 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
 .askord{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted,#9aa7c7)}.askord b{color:inherit;font-weight:700}
 .askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
+.covline.yes.gapline{border-color:#ff6b6b;background:rgba(255,107,107,.14);animation:gapflash 1.1s ease-in-out infinite}
+@keyframes gapflash{50%{background:rgba(255,107,107,.38);box-shadow:0 0 16px rgba(255,107,107,.5)}}
 .cwcan{margin-top:8px;padding:8px 10px;border-radius:10px;font-size:14px}.cwcan.ok{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4)}.cwcan.none{background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.6);color:#fecaca}
 .cw3{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.cwask .cwq{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}.cwask .cwq:first-of-type{border-top:0}
 .gavebanner{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.6);color:#d1fae5;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:15px}
@@ -3071,7 +3073,7 @@ async function load(view){
     state.news = await api.listNewsletters(); await checkPush().catch(() => {});
     if (!isStaff() && !state.hidden) state.hidden = await api.hiddenList().catch(() => []);
     if (isMember()){ state.contacts = await api.msgContacts(); state.inbox = await api.myInbox(); state.mine = await api.myBookings(state.user.id); state.myPayments = await api.paymentsFor(state.mine.map(b => b.id)); }
-    if (isAdmin()){ await loadMoney(); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
+    if (isAdmin()){ await loadMoney(); state.periods = await api.listPeriods().catch(() => state.periods || []); const pe = periodEnd(periodStart(todayStr() < ROTA_ANCHOR ? ROTA_ANCHOR : todayStr())); await loadOps(todayStr(), pe > ahead(27) ? pe : ahead(27)); }
     if (isAdmin()){ state.todos = await api.listTodos().catch(() => null); state.msgs = await api.listMessages(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-1)); state.covers = await api.listCoverCalls(); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (!isAdmin() && (state.user.perms || []).length && !isStaff()){ state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); }
     if (isStaff()){ if (!state.officers) state.officers = await api.clubOfficers().catch(() => []); state.inbox = await api.myInbox(); state.contacts = await api.msgContacts(); state.hidden = await api.hiddenList().catch(() => []); state.msgs = await api.listMessages(); state.covers = await api.listCoverCalls(); await loadOps([todayStr(), periodStart(todayStr())].sort()[0], ahead(60), true); state.periods = await api.listPeriods(); state.swaps = await api.listSwaps(); state.offers = await api.listOffers(ahead(-14)); state.sreqs = await api.listSwapRequests(); state.soffers = await api.listSwapOffers(); }
@@ -3610,7 +3612,7 @@ function homeView(){
     h += pushHomeCard();
     if (swOk && canArea('rota')) h += `<button class="helpask" data-action="go" data-view="rota" style="margin:0 0 12px"><b>🔄 ${plural(swOk, 'swap')} to approve</b><span>Staff have agreed a swap. Tap to approve it and the rota updates.</span><i aria-hidden="true">›</i></button>`;
     h += `<button class="today" data-action="go" data-view="rota"><span>Today</span><span class="muted">${openText(today)}</span>${staffChip(i)}<span class="muted">${plural(i.bks.length, 'booking')}</span></button>
-    ${cwLineHtml()}${coverLineHtml()}${holAnsLineHtml()}${swapLinesHtml()}
+    ${cwLineHtml()}${gapLineHtml()}${coverLineHtml()}${holAnsLineHtml()}
     <div class="tiles">
       ${(() => { if (!canArea('rota') || !featOn('holidays')) return ''; const hp = (state.holidays || []).filter(x => x.status === 'pending' && !x.offer_days).sort(byAsked);
         const map = Object.fromEntries((state.ops?.staff || []).map(p => [p.id, p])); const names = [...new Set(hp.map(h => pfirst(map[h.staff_id]) || 'Staff'))];
@@ -5044,7 +5046,7 @@ function swapLinesHtml(){
   if (isStaff() && featOn('cantwork')) (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && (x.decided_at || '').slice(0, 10) >= recent && x.shift_date >= todayStr() && !seen.has('cw' + x.id + x.decision)).forEach(x => {
     const when = `${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} · ${JOBS[x.job]}`;
     line(x.decision === 'approved' ? `✅ <b>You’re let off</b> ${when}. You don’t need to come in. <u>Got it</u>` : `✗ <b>The manager says you must work</b> ${when}. You’re still on the rota. <u>Got it</u>`, `data-action="swseen" data-key="cw${x.id}${x.decision}"`); });
-  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent && !seen.has('sw' + w.id) && (isStaff() ? (w.from_staff === me || w.to_staff === me) : canArea('rota'))).forEach(w => {
+  (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent && !seen.has('sw' + w.id) && isStaff() && (w.from_staff === me || w.to_staff === me)).forEach(w => {   // swaps are between staff: the manager isn't told
     if (isStaff()){ const other = w.from_staff === me ? w.to_staff : w.from_staff; const now = w.from_staff === me ? w.b : w.a, was = w.from_staff === me ? w.a : w.b;
       line(`✅ <b>Swapped with ${nm(other)}.</b> You now work ${shiftLine(now)}${was ? `, not ${shiftLine(was)}` : ''}. <u>Got it</u>`, `data-action="swseen" data-key="sw${w.id}"`); }
     else line(`🔄 <b>${nm(w.from_staff)} and ${nm(w.to_staff)} swapped.</b> ${nm(w.from_staff)} now works ${shiftLine(w.b)}, ${nm(w.to_staff)} works ${shiftLine(w.a)}. The rota is updated. <u>Got it</u>`, `data-action="swseen" data-key="sw${w.id}"`);
@@ -5055,6 +5057,16 @@ function swapLinesHtml(){
 async function loadHolCounts(from, to){
   const c = featOn('holidays') ? await api.holidayDayCounts(from, to).catch(() => []) : [];
   state.holFull = c.filter(x => x.off >= MAX_OFF).map(x => x.day); state.holOne = c.filter(x => x.off === MAX_OFF - 1).map(x => x.day);
+}
+/* Manager Home: any shift in the next 5 days with no one on it */
+const GAP_ALERT_DAYS = 5;
+function gapLineHtml(){
+  if (!canArea('rota') || !state.ops) return '';
+  const days = rangeDays(todayStr(), ahead(GAP_ALERT_DAYS - 1)).filter(ds => isPublished(ds)); if (!days.length) return '';
+  const gaps = rotaGapList(days); if (!gaps.length) return '';
+  const n = gaps.reduce((a, g) => a + g.short, 0); const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+  const list = gaps.slice(0, 4).map(g => `${fd(g.ds)} ${JOBS[g.job]}${g.short > 1 ? ` ×${g.short}` : ''}`).join(', ') + (gaps.length > 4 ? ` and ${gaps.length - 4} more` : '');
+  return `<button class="covline yes gapline" data-action="rotajump" data-date="${gaps[0].ds}"><span>⚠️ <b>${plural(n, 'shift')} in the next ${GAP_ALERT_DAYS} days ${n > 1 ? 'have' : 'has'} no one:</b> ${list}. <u>Tap to sort</u></span><i aria-hidden="true">›</i></button>`;
 }
 /* Manager Home: flashing yellow line for every can't-work waiting for a decision */
 function cwLineHtml(){
