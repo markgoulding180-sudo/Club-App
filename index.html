@@ -1796,8 +1796,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
 .gavebanner{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.6);color:#d1fae5;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:15px}
 .rday.gavehere{box-shadow:0 0 0 2px #34d399}
-.slot.justadded{outline:3px solid #34d399;outline-offset:2px;border-radius:12px;animation:justadd 1.2s ease-in-out 3}
-@keyframes justadd{50%{background:rgba(52,211,153,.25)}}
+.slot.justadded{outline:3px solid #34d399;outline-offset:2px;border-radius:12px;animation:justadd 1.1s ease-in-out infinite}
+@keyframes justadd{0%,100%{background:rgba(52,211,153,.08);box-shadow:0 0 0 0 rgba(52,211,153,0)}50%{background:rgba(52,211,153,.32);box-shadow:0 0 18px 4px rgba(52,211,153,.55)}}
+.gavebanner{animation:gaveb 1.1s ease-in-out infinite}
+@keyframes gaveb{50%{background:rgba(52,211,153,.32)}}
 .holask{border:2px solid #34d399;border-radius:18px;background:rgba(52,211,153,.1);padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
 .holask p{margin:0}.holask .hah{font-size:17px}.hadays{display:flex;flex-direction:column;gap:4px;font-size:15px}.hadays small{display:block;opacity:.8;font-size:13px;margin-top:2px}
 .hadays .ok{color:#6ee7b7}.hadays .no{color:#fca5a5}
@@ -4148,7 +4150,7 @@ function slotsHtml(ds, x){
           ${admin && ds >= today && (s.start_early || (state.ops.bookings || []).some(b => b.booking_date === ds && b.status !== 'cancelled')) ? `<button class="earlybtn${s.start_early ? ' on' : ''}" data-action="earlyopen" data-id="${s.id}">${s.start_early ? `⏰ In at ${String(s.start_early).slice(0, 5)}${s.early_note ? ' · ' + esc(s.early_note) : ''}` : '⏰ Come in early?'}</button>` : s.start_early ? `<span class="earlybtn on">⏰ In at ${String(s.start_early).slice(0, 5)}</span>` : ''}</div>`;
       } else {
         const p = probs[c++];
-        if (p) h += `<div class="slot cwrow"><span class="job">${label}</span><span class="who cw">${esc(pname(map[p.staff_id]))} · ${p.status === 'cannot_work' ? (p.decision === 'approved' ? (p.excused ? 'Off · special circumstances' : 'Off · unplanned absence') : 'Asked for the day off') : SHIFT_STATUS[p.status]}</span>
+        if (p) h += `<div class="slot cwrow"><span class="job">${label}</span><span class="who cw">${esc(pname(map[p.staff_id]))} · ${p.status === 'cannot_work' ? (p.decision === 'approved' ? (p.excused ? 'Let off · special circumstances' : 'Let off · on their record') : 'Asked for the day off') : SHIFT_STATUS[p.status]}</span>
           <span class="side">${admin && p.status !== 'cannot_work' ? `<button class="btn ghost sm" data-action="undoproblem" data-id="${p.id}">Undo</button>` : ''}</span>
           <span class="why">${p.reason ? `“${esc(p.reason)}”` : 'No reason given'}</span>
           ${admin && p.status === 'cannot_work' && !p.decision ? `<div class="cwdecide"><span>Your decision:</span><button class="btn sm" data-action="cwallow" data-id="${p.id}" data-ex="0">Allow · goes on record</button><button class="btn ghost sm" data-action="cwallow" data-id="${p.id}" data-ex="1">Allow · special circumstances</button><button class="btn ghost sm" data-action="cwdecline" data-id="${p.id}">Decline</button></div>` : ''}</div>`;
