@@ -1794,6 +1794,10 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
 .askord{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted,#9aa7c7)}.askord b{color:inherit;font-weight:700}
 .askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
+.gavebanner{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.6);color:#d1fae5;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:15px}
+.rday.gavehere{box-shadow:0 0 0 2px #34d399}
+.slot.justadded{outline:3px solid #34d399;outline-offset:2px;border-radius:12px;animation:justadd 1.2s ease-in-out 3}
+@keyframes justadd{50%{background:rgba(52,211,153,.25)}}
 .holask{border:2px solid #34d399;border-radius:18px;background:rgba(52,211,153,.1);padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
 .holask p{margin:0}.holask .hah{font-size:17px}.hadays{display:flex;flex-direction:column;gap:4px;font-size:15px}.hadays small{display:block;opacity:.8;font-size:13px;margin-top:2px}
 .hadays .ok{color:#6ee7b7}.hadays .no{color:#fca5a5}
@@ -2949,6 +2953,7 @@ const WEEKS_BACK = 12;
 async function go(view, params = {}){
   if (state.feat === undefined){ state.feat = await api.listFeatures().catch(() => null); }
   if (view !== 'features' && viewOff(view)){ toast('That isn’t switched on yet.'); view = 'hub'; }
+  if (!('rotaFlash' in params)) state.rotaFlash = null;   // the "just changed" highlight only lasts for the jump to the rota
   Object.assign(state, params, { view });
   closeSheet();
   try { await load(view); } catch(e){ toast(e.message); }
@@ -4118,6 +4123,18 @@ function offerBtn(ds, sess, job){
   if (state.ops.shifts.some(s => s.staff_id === me && s.shift_date === ds && ACTIVE(s) && clashes(s, { job })) || offThatDay(me, ds) || state.ops.unavail.some(u => u.staff_id === me && u.off_date === ds)) return '';
   return `<button class="btn sm" data-action="offershift" data-date="${ds}" data-sess="${sess}" data-job="${job}">I can work this</button>`;
 }
+/* After a decision, jump to the day on the rota, highlight it, and say what changed */
+async function showOnRota(f){
+  const days = (f.days || []).slice().sort(); if (!days.length) return refresh();
+  await go('rota', { rotaTab: 'rota', rotaStart: periodStart(days[0]), rotaFlash: { ...f, days } });
+  setTimeout(() => { (document.querySelector('.slot.justadded') || document.getElementById('day-' + days[0]))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+}
+function rotaFlashBanner(ds, map){
+  const f = state.rotaFlash; if (!f || f.days[0] !== ds) return '';
+  const sh = f.slot?.staff_id && state.ops.shifts.find(s => s.shift_date === ds && s.session === f.slot.sess && s.job === f.slot.job && s.staff_id === f.slot.staff_id && ACTIVE(s));
+  return `<div class="gavebanner">${f.msg({ name: esc(pfirst(map[f.staff_id]) || 'They'), times: sh ? shiftTimes(sh).join('–') : '' })}</div>`;
+}
+const flashSlot = (ds, sess, job, staffId) => { const z = state.rotaFlash?.slot; return !!z && state.rotaFlash.days.includes(ds) && z.sess === sess && z.job === job && (z.staff_id || null) === (staffId || null); };
 function slotsHtml(ds, x){
   const admin = isAdmin(); const map = staffMap(); const me = state.user.id; const today = todayStr(); let h = ''; const offered = {}; const askShown = {};
   for (const job of JOB_ORDER){ const h0 = h.length;
@@ -4126,7 +4143,7 @@ function slotsHtml(ds, x){
     for (let k = 0; k < n; k++){
       const s = on[k]; const label = JOBS[job] + (n > 1 ? ' ' + (k + 1) : '');
       if (s){
-        h += `<div class="slot"><span class="job">${label}</span>${admin ? staffSelect(ds, x, job, s, null, k) : `<span class="who ${s.staff_id === me ? 'me' : ''}">${esc(pname(map[s.staff_id]))}</span>`}
+        h += `<div class="slot${flashSlot(ds, x.sess, job, s.staff_id) ? ' justadded' : ''}"><span class="job">${label}</span>${admin ? staffSelect(ds, x, job, s, null, k) : `<span class="who ${s.staff_id === me ? 'me' : ''}">${esc(pname(map[s.staff_id]))}</span>`}
           <span class="side">${admin && ds <= today ? outcomeSelect(s) : s.status === 'late' ? '<span class="pill late">Late</span>' : ''}</span>
           ${admin && ds >= today && (s.start_early || (state.ops.bookings || []).some(b => b.booking_date === ds && b.status !== 'cancelled')) ? `<button class="earlybtn${s.start_early ? ' on' : ''}" data-action="earlyopen" data-id="${s.id}">${s.start_early ? `⏰ In at ${String(s.start_early).slice(0, 5)}${s.early_note ? ' · ' + esc(s.early_note) : ''}` : '⏰ Come in early?'}</button>` : s.start_early ? `<span class="earlybtn on">⏰ In at ${String(s.start_early).slice(0, 5)}</span>` : ''}</div>`;
       } else {
@@ -4136,7 +4153,7 @@ function slotsHtml(ds, x){
           <span class="why">${p.reason ? `“${esc(p.reason)}”` : 'No reason given'}</span>
           ${admin && p.status === 'cannot_work' && !p.decision ? `<div class="cwdecide"><span>Your decision:</span><button class="btn sm" data-action="cwallow" data-id="${p.id}" data-ex="0">Allow · goes on record</button><button class="btn ghost sm" data-action="cwallow" data-id="${p.id}" data-ex="1">Allow · special circumstances</button><button class="btn ghost sm" data-action="cwdecline" data-id="${p.id}">Decline</button></div>` : ''}</div>`;
         const offs = offered[job] ? [] : (state.offers || []).filter(o => o.status === 'offered' && o.shift_date === ds && o.session === x.sess && o.job === job); offered[job] = true;
-        h += `<div class="slot gap${p ? ' cover' : ''}"><span class="job">${p ? 'Cover' : label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side">${admin ? '' : offerBtn(ds, x.sess, job)}</span>
+        h += `<div class="slot gap${p ? ' cover' : ''}${flashSlot(ds, x.sess, job, null) ? ' justadded' : ''}"><span class="job">${p ? 'Cover' : label}</span>${admin ? staffSelect(ds, x, job, null, p, k) : '<span class="who" style="color:var(--yellow)">Needed</span>'}<span class="side">${admin ? '' : offerBtn(ds, x.sess, job)}</span>
           ${admin && !askShown[job] && (askShown[job] = true) ? coverAskHtml(ds, x.sess, job, offs, Math.max(1, n - on.length)) : ''}
           ${admin && offs.length ? `<div class="offers">${offs.map(o => `<div class="offer"><span>✋ <b>${esc(pname(map[o.staff_id]))}</b> offered to work this</span><button class="btn sm" data-action="offerdecide" data-id="${o.id}" data-yes="1">Accept</button><button class="btn ghost sm" data-action="offerdecide" data-id="${o.id}" data-yes="0">No thanks</button></div>`).join('')}</div>` : ''}</div>`;
       }
@@ -4190,7 +4207,7 @@ function rotaView(){
     <div class="wkjump">${[0, 1, 2, 3].map(w => { const a = days[w * 7], b = days[w * 7 + 6]; return `<button data-action="wkjump" data-date="${a}"><b>Week ${w + 1}</b><span>${fmtDate(a, { day:'numeric', month:'short' })}–${fmtDate(b, { day:'numeric', month:'short' })}</span>${admin ? (wkGaps(w) ? `<em class="wkgap">${wkGaps(w)} to fill</em>` : '<em class="wkok">✓ Filled</em>') : ''}</button>`; }).join('')}</div>`
     : `<div class="bar">${stepper('rotaweek', `${fmtDate(days[0], { day:'numeric', month:'short' })} – ${fmtDate(days[6], { day:'numeric', month:'short' })}`)}<button class="btn ghost sm" data-action="rotaweek" data-step="0">This week</button></div>`;
   if (admin) h += `<p class="muted" style="margin-bottom:14px;font-size:14px">Pick a name and it saves. Yellow means someone is still needed. Lounge Bar: 1 whenever open. Function Room Bar: when the room is in use (2 for parties over ${STAFF_RULES.guestsPerEventBar}). Door: every evening. Max 2 on each bar.</p>`;
-  h += `<div class="list">${infos.map((i, n) => `${admin && n % 7 === 0 ? `<div class="wkhead" id="wk-${i.ds}">Week ${n / 7 + 1} · ${fmtDate(i.ds, { day:'numeric', month:'short' })} – ${fmtDate(days[n + 6], { day:'numeric', month:'short' })}</div>` : ''}<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}" id="day-${i.ds}">
+  h += `<div class="list">${infos.map((i, n) => `${admin && n % 7 === 0 ? `<div class="wkhead" id="wk-${i.ds}">Week ${n / 7 + 1} · ${fmtDate(i.ds, { day:'numeric', month:'short' })} – ${fmtDate(days[n + 6], { day:'numeric', month:'short' })}</div>` : ''}<div class="rday${i.ds === today ? ' today' : ''}${i.ds < today ? ' past' : ''}${state.rotaFlash?.days.includes(i.ds) ? ' gavehere' : ''}" id="day-${i.ds}">${rotaFlashBanner(i.ds, map)}
       <div class="rday-h"><h3>${fmtDate(i.ds, { weekday:'long', day:'numeric', month:'short' })}</h3><span class="open">${openText(i.ds)}</span>${staffChip(i)}${offBadges(i, map)}</div>
       ${i.sessions.map(x => `<div class="sess"><div class="sess-h">${SESS[x.sess]} <span>${x.times.join('–')}${x.open ? '' : ' · club closed, booking only'}</span></div>
         ${x.bks.length ? `<p class="muted" style="font-size:12px">${x.bks.map(b => `${ROOMS[b.room].name}: ${esc(b.event_type || 'Booking')}, ${isClub(b) ? `club event ${hhmm(b.start_time)}–${hhmm(b.end_time)}` : `${b.guests ?? '?'} guests`}`).join(' · ')}</p>` : ''}
@@ -6397,7 +6414,11 @@ const actions = {
   wofilter: t => { state.woFilter = t.dataset.val; render(); },
   offershift: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); toast('Thanks. The manager will let you know.'); refresh(); },
   offerwithdraw: async t => { if (!armed(t)) return; await api.withdrawOffer(Number(t.dataset.id)); toast('Offer withdrawn'); refresh(); },
-  offerdecide: async t => { const yes = t.dataset.yes === '1'; await api.decideOffer(Number(t.dataset.id), yes); toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); refresh(); },
+  offerdecide: async t => { const yes = t.dataset.yes === '1'; const o = (state.offers || []).find(x => x.id === Number(t.dataset.id));
+    await api.decideOffer(Number(t.dataset.id), yes);
+    if (!yes || !o) { toast(yes ? 'Accepted. They’re on the rota.' : 'Offer declined'); return refresh(); }
+    showOnRota({ days: [o.shift_date], slot: { sess: o.session, job: o.job, staff_id: o.staff_id },
+      msg: g => `✅ <b>${g.name} has been added</b> to ${JOBS[o.job]} · ${o.job === 'clean' ? 'morning' : SESS[o.session].toLowerCase()}${g.times ? `, ${g.times}` : ''}. They’ve been told.`, staff_id: o.staff_id }); },
   secjump: t => { if (t.dataset.to === 'sec-holoffer'){ if ($('#sheetRoot').innerHTML) closeSheet(); return state.view === 'myshifts' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : go('myshifts'); } if (isStaff() && ['sec-holiday', 'sec-msgs'].includes(t.dataset.to)) return go('frommgr', { fmTab: 'mgmt' }); if (t.dataset.to === 'sec-swaps') return go('swaps', { swTab: /help|wants to swap|needs a swap|cover/i.test(t.textContent) ? 'help' : 'mine' }); if (state.view !== 'myshifts'){ if (t.dataset.to === 'sec-holiday') return actions.holnew(); return go('myshifts'); } if ($('#sheetRoot').innerHTML) closeSheet(); const el = document.getElementById(t.dataset.to); if (!el) return; const top = el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - ($('.secnav')?.offsetHeight || 0) - 8; window.scrollTo({ top, behavior: 'smooth' }); },
   newon: t => go('newbooking', { newDate: t.dataset.date || todayStr(), newKind: t.dataset.kind || state.newKind, pickDates: [], often: null, pickMonth: startOfMonth(parseYmd(t.dataset.date || todayStr())) }),
   pickday: t => { const d = t.dataset.date; const set = new Set(state.pickDates || []); set.has(d) ? set.delete(d) : set.add(d); state.pickDates = [...set]; const box = document.querySelector('.pickcal'); if (box) box.innerHTML = pickCalHtml(); },
@@ -6419,8 +6440,11 @@ const actions = {
     : go('rota', { rotaWeek: Number(t.dataset.step) ? addDays(state.rotaWeek, 7 * Number(t.dataset.step)) : startOfWeek(new Date()) }),
   wkjump: t => { const el = document.getElementById('wk-' + t.dataset.date); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - ($('.band')?.offsetHeight || 0) - 8, behavior: 'smooth' }); },
   rotajump: async t => { const ds = t.dataset.date; await go('rota', { rotaWeek: startOfWeek(parseYmd(ds)), rotaStart: isAdmin() ? periodStart(ds) : state.rotaStart }); document.getElementById('day-' + ds)?.scrollIntoView({ block: 'start' }); },
-  cwallow: async t => { const ex = t.dataset.ex === '1' || !!document.getElementById('cwex-' + t.dataset.id)?.checked; await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
-    toast(ex ? 'Let off: special circumstances. Now pick someone to cover.' : 'Let off. It goes on their record. Now pick someone to cover.'); refresh(); },
+  cwallow: async t => { const ex = t.dataset.ex === '1' || !!document.getElementById('cwex-' + t.dataset.id)?.checked; const sh = state.ops.shifts.find(x => x.id === Number(t.dataset.id));
+    await api.updateShift(Number(t.dataset.id), { decision: 'approved', excused: ex, decided_at: new Date().toISOString() });
+    if (!sh) { toast('Let off. Now pick someone to cover.'); return refresh(); }
+    showOnRota({ days: [sh.shift_date], staff_id: sh.staff_id, slot: { sess: sh.session, job: sh.job, staff_id: null },
+      msg: g => `✅ <b>${g.name} is let off</b> ${JOBS[sh.job]} · ${sh.job === 'clean' ? 'morning' : SESS[sh.session].toLowerCase()}${ex ? ' (special circumstances, not on their record)' : ' (it goes on their record)'}. They’ve been told. <b>Now pick someone to cover, or Ask everyone</b> (highlighted below).` }); },
   askall: async t => { const st = periodStart(t.dataset.days); const todo = rotaGapList(periodDays(st)).filter(c => !(state.covers || []).some(x => x.status === 'open' && x.shift_date === c.ds && x.session === c.sess && x.job === c.job));
     t.disabled = true; t.textContent = 'Asking…'; let n = 0;
     for (const c of todo){ try { await api.askCover({ shift_date: c.ds, session: c.sess, job: c.job, needed: c.short }); n++; } catch(e){} }
@@ -6432,7 +6456,11 @@ const actions = {
   cancelcover: async t => { if (!armed(t)) return; await api.cancelCover(Number(t.dataset.id)); toast('Stopped asking'); refresh(); },
   coveryes: async t => { await api.offerShift(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('Thanks! You said yes. The manager will let you know if you get it.'); refresh(); },
   coverno: async t => { await api.passCover(t.dataset.date, t.dataset.sess, t.dataset.job); if (state.sheet?.type === 'notif') closeSheet(); toast('No problem. The manager has been told.'); refresh(); },
-  cwdecline: async t => { if (!armed(t, 'Tap again to decline')) return; await api.updateShift(Number(t.dataset.id), { status: 'assigned', decision: 'declined', decided_at: new Date().toISOString() }); toast('Declined. They stay on the shift.'); refresh(); },
+  cwdecline: async t => { if (!armed(t, 'Tap again to decline')) return; const sh = state.ops.shifts.find(x => x.id === Number(t.dataset.id));
+    await api.updateShift(Number(t.dataset.id), { status: 'assigned', decision: 'declined', decided_at: new Date().toISOString() });
+    if (!sh) { toast('Declined. They stay on the shift.'); return refresh(); }
+    showOnRota({ days: [sh.shift_date], staff_id: sh.staff_id, slot: { sess: sh.session, job: sh.job, staff_id: sh.staff_id },
+      msg: g => `✗ <b>${g.name} must work it.</b> They stay on ${JOBS[sh.job]} · ${sh.job === 'clean' ? 'morning' : SESS[sh.session].toLowerCase()}. They’ve been told.` }); },
   undoproblem: async t => { await api.updateShift(Number(t.dataset.id), { status: 'confirmed', covered: false }); toast('Put back on the shift'); refresh(); },
   // staff
   staffprofile: t => openStaffProfile(t.dataset.id),
@@ -6494,14 +6522,19 @@ const actions = {
   holsome: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, false); },
   holfull: t => toast(`Sorry, ${fmtDate(t.dataset.date, { weekday: 'short', day: 'numeric', month: 'short' })} is full: 2 people have already asked for it off. Please pick another day.`),
   holofferok: async t => { if (!armed(t)) return; const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (!h?.offer_days) return;
-    await api.approveSomeDays(h.id, h.offer_days, h.offer_note || ''); toast('Approved. They’ve been told.'); state.holidays = await api.listHolidays(); refresh(); },
+    await api.approveSomeDays(h.id, h.offer_days, h.offer_note || '');
+    showOnRota({ days: h.offer_days, staff_id: h.staff_id, msg: g => `🌴 <b>${g.name}’s holiday is approved:</b> ${dayRanges(h.offer_days)}. They show as 🌴 Holiday on these days (outlined in green). They’ve been told.` }); },
   holoffer: async t => { const yes = t.dataset.yes === '1'; if (!yes && !armed(t)) return; await api.answerHolidayOffer(Number(t.dataset.id), yes);
     toast(yes ? '🌴 Booked. Enjoy your holiday!' : 'OK, your request is withdrawn.'); state.holidays = await api.listHolidays(); refresh(); },
   holchoose: t => { const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id)); if (h) openHolSome(h, true); },
   holdecide: async t => {
     const st = t.dataset.status; if (st === 'declined') return openHolDecline(Number(t.dataset.id), null); if (st === 'cancelled' && !armed(t)) return;
+    const h = (state.holidays || []).find(x => x.id === Number(t.dataset.id));
     await api.decideHoliday(Number(t.dataset.id), st);
-    toast(st === 'approved' ? 'Approved. They’re off the rota on those days.' : st === 'declined' ? 'Declined' : 'Holiday cancelled'); refresh();
+    if (!h || !['approved', 'cancelled'].includes(st)) { toast(st === 'approved' ? 'Approved. They’re off the rota on those days.' : st === 'declined' ? 'Declined' : 'Holiday cancelled'); return refresh(); }
+    showOnRota({ days: h.days, staff_id: h.staff_id, msg: g => st === 'approved'
+      ? `🌴 <b>${g.name}’s holiday is approved:</b> ${dayRanges(h.days)}. They show as 🌴 Holiday on these days (outlined in green). Any shifts they had now need cover. They’ve been told.`
+      : `🌴 <b>${g.name}’s holiday is cancelled:</b> ${dayRanges(h.days)}. They’re free to work these days again (outlined in green). They’ve been told.` });
   },
   closesheet: () => closeSheet(),
   backdrop: (t, e) => { if (e.target === t) closeSheet(); }
