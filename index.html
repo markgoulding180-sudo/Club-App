@@ -5045,7 +5045,7 @@ function swapLinesHtml(){
   }
   if (isStaff() && featOn('cantwork')) (state.ops?.shifts || []).filter(x => x.staff_id === me && x.decision && (x.decided_at || '').slice(0, 10) >= recent && x.shift_date >= todayStr() && !seen.has('cw' + x.id + x.decision)).forEach(x => {
     const when = `${fmtDate(x.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} · ${JOBS[x.job]}`;
-    line(x.decision === 'approved' ? `✅ <b>You’re let off</b> ${when}. You don’t need to come in. <u>Got it</u>` : `✗ <b>The manager says you must work</b> ${when}. You’re still on the rota. <u>Got it</u>`, `data-action="swseen" data-key="cw${x.id}${x.decision}"`); });
+    line(x.decision === 'approved' ? `✅ <b>You’re let off</b> ${when}. You don’t need to come in. <u>Got it</u>` : `🙏 <b>Sorry ${esc(pfirst(state.ops.staff.find(p => p.id === me) || state.user) || '')}, we couldn’t find anyone to cover</b> your ${when} shift, so we need you to work it. Thank you for understanding. <u>Got it</u>`, `data-action="swseen" data-key="cw${x.id}${x.decision}"`); });
   (state.swaps || []).filter(w => w.status === 'approved' && (w.decided_at || '').slice(0, 10) >= recent && !seen.has('sw' + w.id) && isStaff() && (w.from_staff === me || w.to_staff === me)).forEach(w => {   // swaps are between staff: the manager isn't told
     if (isStaff()){ const other = w.from_staff === me ? w.to_staff : w.from_staff; const now = w.from_staff === me ? w.b : w.a, was = w.from_staff === me ? w.a : w.b;
       line(`✅ <b>Swapped with ${nm(other)}.</b> You now work ${shiftLine(now)}${was ? `, not ${shiftLine(was)}` : ''}. <u>Got it</u>`, `data-action="swseen" data-key="sw${w.id}"`); }
@@ -5420,7 +5420,7 @@ function myShiftsView(){
     if (s.status === 'cannot_work') return s.decision === 'approved' || s.covered ? '<span class="st ok">You’re off this shift · approved</span>' : '<span class="st wait">You asked off · waiting for the manager</span>';
     if (d.req) return `<span class="st swap">Swap asked · ${plural((state.soffers || []).filter(o => o.request_id === d.req.id && o.status === 'offered').length, 'offer')}</span>`;
     if (d.swap) return `<span class="st swap">Swap ${d.swap.status === 'accepted' ? '· done' : d.swap.to_staff === me ? '· asked you' : '· waiting'}</span>`;
-    if (s.decision === 'declined') return '<span class="st no">Can’t work declined</span>';
+    if (s.decision === 'declined') return '<span class="st no">Sorry, no cover · still on</span>';
     return ''; };
   const swapsOpen = (state.swaps || []).some(w => ['asked', 'accepted'].includes(w.status));
   const wk0 = ymd(startOfWeek(new Date()));
@@ -5623,7 +5623,7 @@ function openDaySheet(ds){
   if (d.hol) h += `<div class="dnote ${d.hol === 'approved' ? 'ok' : 'wait'}">${d.hol === 'approved' ? '🌴 You’re on holiday.' : '🌴 You’ve asked for holiday. Waiting for the manager.'}</div>`;
   if (d.shift){
     h += card(d.shift);
-    if (d.shift.decision === 'declined') h += '<div class="dnote no">Your can’t-work request was declined. You’re still on this shift.</div>';
+    if (d.shift.decision === 'declined') h += '<div class="dnote no">Sorry, we couldn’t find anyone to cover this shift, so we need you to work it. Thank you for understanding.</div>';
     if (d.swap){ const other = pfirst(staffMap()[d.swap.from_staff === me ? d.swap.to_staff : d.swap.from_staff]);
       h += `<div class="dnote swap">⇄ Swap with ${esc(other)}: ${d.swap.to_staff === me && d.swap.status === 'asked' ? 'they’ve asked you. Answer in Swaps.' : d.swap.status === 'accepted' ? 'going through.' : 'waiting for them to say yes.'}</div>`; }
     if (d.req) h += `<div class="dnote swap">⇄ You’ve asked everyone to swap this shift. ${plural((state.soffers || []).filter(o => o.request_id === d.req.id && o.status === 'offered').length, 'offer')} so far.</div><button class="btn" data-action="go" data-view="swaps">Open Swaps</button>`;
@@ -6013,7 +6013,7 @@ function myUpdatesHtml(mine){
     else if (o.status === 'accepted' && fresh) add('ok', `<b>✅ You’ve got the shift:</b> ${shiftLine(o)}`, 'next');
     else if (o.status === 'declined' && fresh) add('no', `Offer for ${shiftLine(o)}: the manager said no thanks`, 'next'); });
   mine.filter(s => s.status === 'cannot_work').forEach(s => add(s.decision === 'approved' || s.covered ? 'ok' : 'wait', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: ${s.decision === 'approved' || s.covered ? 'approved by management' : 'waiting for the manager'}`, 'next'));
-  mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: declined, you’re still on`, 'next'));
+  mine.filter(s => ACTIVE(s) && s.decision === 'declined').forEach(s => add('no', `Can’t work ${fmtDate(s.shift_date, { weekday:'short', day:'numeric', month:'short' })}: sorry, no cover found, so we need you to work it`, 'next'));
   (state.holidays || []).filter(h => h.staff_id === me).forEach(h => {
     const when = dayRanges(h.days); const fresh = (h.decided_at || h.created_at || '').slice(0, 10) >= recent;
     if (h.status === 'pending' && h.offer_days) add('act', `<b>🌴 Holiday ${when}:</b> only some days can be approved. Tap to answer.`, 'holoffer');
@@ -6501,7 +6501,7 @@ const actions = {
     await api.updateShift(Number(t.dataset.id), { status: 'assigned', decision: 'declined', decided_at: new Date().toISOString() });
     if (!sh) { toast('Declined. They stay on the shift.'); return refresh(); }
     showOnRota({ days: [sh.shift_date], staff_id: sh.staff_id, slot: { sess: sh.session, job: sh.job, staff_id: sh.staff_id },
-      msg: g => `✗ <b>${g.name} must work it.</b> They stay on ${JOBS[sh.job]} · ${sh.job === 'clean' ? 'morning' : SESS[sh.session].toLowerCase()}. They’ve been told.` }); },
+      msg: g => `✗ <b>${g.name} must work it.</b> They stay on ${JOBS[sh.job]} · ${sh.job === 'clean' ? 'morning' : SESS[sh.session].toLowerCase()}. They’ve been sent a polite message: “Sorry, we couldn’t find anyone to cover your shift, so we need you to work it.”` }); },
   undoproblem: async t => { await api.updateShift(Number(t.dataset.id), { status: 'confirmed', covered: false }); toast('Put back on the shift'); refresh(); },
   // staff
   staffprofile: t => openStaffProfile(t.dataset.id),
