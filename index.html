@@ -1794,6 +1794,7 @@ ol.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
 .hfullnote{border:1px solid rgba(255,107,107,.55);background:rgba(255,107,107,.12);border-radius:12px;padding:10px 12px}
 .askord{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted,#9aa7c7)}.askord b{color:inherit;font-weight:700}
 .askord .aon{background:#f5c542;color:#2b1a00;font-weight:900;border-radius:999px;padding:3px 10px;font-size:13px}
+.cw3{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.cwask .cwq{padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}.cwask .cwq:first-of-type{border-top:0}
 .gavebanner{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.6);color:#d1fae5;border-radius:12px;padding:10px 14px;margin:0 0 10px;font-size:15px}
 .rday.gavehere{box-shadow:0 0 0 2px #34d399}
 .slot.justadded{outline:3px solid #34d399;outline-offset:2px;border-radius:12px;animation:justadd 1.1s ease-in-out infinite}
@@ -2632,6 +2633,7 @@ function makeDemoApi(){
       if (!ACTIVE(x) || x.shift_date < todayStr()) throw new Error('Shift not found or already changed.');
       if (!String(reason || '').trim()) throw new Error('Please give a reason.');
       if (x.shift_date < ymd(addDays(new Date(), CW_NOTICE_DAYS))) throw new Error('That shift is less than 2 days away. Please phone the manager.');
+      if (status === 'cannot_work') x.asked_off_at = new Date().toISOString();
       if (s.shifts.filter(y => y.staff_id === s.session && y.id !== x.id && periodStart(y.shift_date) === periodStart(x.shift_date) && (y.status === 'cannot_work' || y.decision)).length >= CW_MAX) throw new Error('You’ve already asked off 2 shifts on this rota. Please speak to the manager.');
       s.swaps.filter(w => ['asked', 'accepted'].includes(w.status) && (w.from_shift === x.id || w.to_shift === x.id)).forEach(w => w.status = 'cancelled');
       x.status = status; x.reason = reason.trim(); x.decision = null; save(); },
@@ -4179,6 +4181,13 @@ function rotaView(){
   if (admin){
     const pend = state.holidays.filter(x => x.status === 'pending').length;
     h += `<div class="bar">${seg('rotatab', state.rotaTab, [['rota', 'Rota'], ['holidays', `Holiday requests${pend ? ` (${pend})` : ''}`], ['hours', 'Hours']], 'Show')}</div>`;
+    // Can't work requests: always at the very top, first asked first
+    const askTop = state.ops.shifts.filter(s => s.status === 'cannot_work' && !s.decision && s.shift_date >= today).sort((a, b) => (a.asked_off_at || a.created_at || '').localeCompare(b.asked_off_at || b.created_at || '') || a.shift_date.localeCompare(b.shift_date));
+    const whenCw = s => `${fmtDate(s.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} ${s.job === 'clean' ? 'morning' : SESS[s.session].toLowerCase()} · ${JOBS[s.job]}`;
+    if (askTop.length) h += `<div class="alert cwask" id="cwbox"><b class="t">🙋 Can’t work: your decision (${askTop.length})</b>${askTop.length > 1 ? '<p class="muted" style="margin:2px 0 6px;font-size:13px">First asked at the top. When you decide, you’ll see that day on the rota; the rest stay here.</p>' : ''}${askTop.map((s, i) => `<div class="cwq">
+      ${s.asked_off_at ? askedTag({ created_at: s.asked_off_at }, i) : ''}
+      <span><b>${esc(pname(map[s.staff_id]))}</b> can’t work <b>${whenCw(s)}</b>${s.reason ? `<br><span class="muted">“${esc(s.reason)}”</span>` : ''}</span>
+      <span class="swapbtns cw3"><button class="btn sm" data-action="cwallow" data-id="${s.id}" data-ex="0">✓ Allow · goes on their record</button><button class="btn ghost sm" data-action="cwallow" data-id="${s.id}" data-ex="1">✓ Allow · special circumstances</button><button class="btn ghost sm" data-action="cwdecline" data-id="${s.id}">✗ Decline · they must work it</button></span></div>`).join('')}</div>`;
     const swaps = (state.swaps || []).filter(w => w.status === 'accepted');
     if (swaps.length) h += `<div class="alert swapok"><b class="t">Swaps to approve</b>${swaps.map(w => `<div class="swaprow"><span><b>${esc(pfirst(map[w.from_staff]))}</b> and <b>${esc(pfirst(map[w.to_staff]))}</b> want to swap: ${esc(pfirst(map[w.from_staff]))}’s ${shiftLine(w.a)} for ${esc(pfirst(map[w.to_staff]))}’s ${shiftLine(w.b)}. Both have said yes.</span><span class="swapbtns"><button class="btn sm" data-action="swapdecide" data-id="${w.id}" data-yes="1">Approve</button><button class="btn ghost sm" data-action="swapdecide" data-id="${w.id}" data-yes="0">Decline</button></span></div>`).join('')}</div>`;
     const probs = state.ops.shifts.filter(s => PROBLEM.includes(s.status) && !s.covered && s.shift_date >= today && s.shift_date <= ahead(27)).sort((a, b) => a.shift_date.localeCompare(b.shift_date));
@@ -4191,9 +4200,7 @@ function rotaView(){
     const newMsgs = (state.msgs || []).filter(m => m.status === 'new' && m.topic !== 'cant_work').length;
     const ask = probs.filter(s => s.status === 'cannot_work' && !s.decision), need = probs.filter(s => !(s.status === 'cannot_work' && !s.decision));
     const when = s => `${fmtDate(s.shift_date, { weekday: 'short', day: 'numeric', month: 'short' })} ${SESS[s.session].toLowerCase()} · ${JOBS[s.job]}`;
-    if (ask.length) h += `<div class="alert cwask"><b class="t">Can’t work: your decision</b>${ask.map(s => `<div class="cwq"><span><b>${esc(pname(map[s.staff_id]))}</b> can’t work <b>${when(s)}</b>${s.reason ? `<br><span class="muted">“${esc(s.reason)}”</span>` : ''}</span>
-      <label class="chk cwex"><input type="checkbox" id="cwex-${s.id}"> Special circumstances (don’t count it on their record)</label>
-      <span class="swapbtns"><button class="btn sm" data-action="cwallow" data-id="${s.id}">✓ Let them off</button><button class="btn ghost sm" data-action="cwdecline" data-id="${s.id}">✗ They must work it</button></span></div>`).join('')}</div>`;
+
     if (need.length) h += `<div class="alert"><b class="t">Needs cover</b>${need.map(s => `<div class="cwq"><span><b>${when(s)}</b>: ${esc(pfirst(map[s.staff_id]))} is off${s.status === 'sick' ? ' sick' : s.status === 'no_show' ? ' (didn’t turn up)' : ''}.</span>
       <span class="swapbtns"><button class="btn sm" data-action="rotajump" data-date="${s.shift_date}">Pick someone</button><button class="btn ghost sm" data-action="askcover" data-date="${s.shift_date}" data-sess="${s.session}" data-job="${s.job}">📣 Ask everyone</button></span></div>`).join('')}</div>`;
   }
@@ -5044,7 +5051,7 @@ async function loadHolCounts(from, to){
 function cwLineHtml(){
   if (!canArea('rota') || !featOn('cantwork')) return '';
   const map = staffMap(); const fd = d => fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
-  return (state.ops?.shifts || []).filter(s => s.status === 'cannot_work' && !s.decision && s.shift_date >= todayStr()).sort((a, b) => a.shift_date.localeCompare(b.shift_date))
+  return (state.ops?.shifts || []).filter(s => s.status === 'cannot_work' && !s.decision && s.shift_date >= todayStr()).sort((a, b) => (a.asked_off_at || a.created_at || '').localeCompare(b.asked_off_at || b.created_at || '') || a.shift_date.localeCompare(b.shift_date))
     .map(s => `<button class="covline yes" data-action="gocw" data-date="${s.shift_date}"><span>🙋 <b>${esc(pfirst(map[s.staff_id]) || 'Staff')} can’t work</b> ${fd(s.shift_date)} · ${JOBS[s.job]}${s.reason ? ` · “${esc(s.reason)}”` : ''}. <b>Your decision.</b> <u>Tap to decide</u></span><i aria-hidden="true">›</i></button>`).join('');
 }
 /* Holiday offers the staff member has answered in the last 2 weeks */
@@ -6313,8 +6320,7 @@ const actions = {
   sltab: t => { state.slTab = t.dataset.val; render(); },
   gorota: t => go('rota', { rotaTab: t.dataset.tab }),
   swseen: t => { const k = 'swseen-' + state.user.id; lsSet(k, [...new Set([...(lsGet(k) || []), t.dataset.key])]); isStaff() ? go('myshifts') : go('rota', { rotaTab: 'rota' }); },
-  gocw: async t => { const ds = t.dataset.date; await go('rota', { rotaTab: 'rota', rotaStart: periodStart(ds) });
-    setTimeout(() => { (document.querySelector(`#day-${ds} .cwdecide`) || document.getElementById('day-' + ds))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150); },
+  gocw: async t => { const ds = t.dataset.date; await go('rota', { rotaTab: 'rota', rotaStart: periodStart(ds) }); setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50); },
   holansseen: t => { const k = 'holans-' + state.user.id; lsSet(k, [...new Set([...(lsGet(k) || []), t.dataset.key])]); go('rota', { rotaTab: 'holidays' }); },
   dmofficer: t => { const o = (state.officers || []).find(x => x.id === t.dataset.id); if (!o) return; state.contacts ||= [];
     if (!state.contacts.some(c => c.id === o.id)) state.contacts.push({ id: o.id, first_name: o.first_name, last_initial: o.last_initial, title: o.title, is_club: true }); openDm(o.id); },
