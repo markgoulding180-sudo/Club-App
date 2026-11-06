@@ -16,7 +16,7 @@ begin
   end if;
   insert into public.profiles (id, email, first_name, last_name) values (uid, 'member@railway.com', 'Test', 'Member') on conflict (id) do nothing;
   select coalesce(max(nullif(regexp_replace(membership_no, '\D', '', 'g'), '')::int), 0) + 1 into num from public.profiles where id <> uid;
-  update public.profiles set role = 'member', title = null, perms = '{}', skill = null, regular_shifts = '[]'::jsonb,
+  update public.profiles set role = 'user', title = null, perms = '{}', skill = null, regular_shifts = '[]'::jsonb,
          first_name = 'Test', last_name = 'Member', membership_no = coalesce(membership_no, num)
    where id = uid;
 end $$;
